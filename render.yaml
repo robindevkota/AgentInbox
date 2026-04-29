@@ -4,9 +4,8 @@ services:
     runtime: node
     region: singapore
     plan: free
-    nodeVersion: 20.11.0
-    buildCommand: npm install -g pnpm@9.0.0 && pnpm install --frozen-lockfile && cd packages/ui && ./node_modules/.bin/vite build && cd ../../packages/server && ./node_modules/.bin/tsc && cd ../.. && node packages/server/scripts/copy-ui.js && ls packages/server/dist/
-    startCommand: node packages/server/dist/cli.js start --port $PORT
+    buildCommand: npm install -g pnpm@9.0.0 && pnpm install --prod --frozen-lockfile
+    startCommand: node packages/server/dist/cli.js start
     envVars:
       - key: PORT
         value: 3000
