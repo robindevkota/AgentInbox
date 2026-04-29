@@ -938,7 +938,7 @@ function TaskDetail({ task, onApprove, onReject }: { task: Task; onApprove: () =
         <div className="flex items-start justify-between gap-3 mb-2">
           <h1 className="text-lg font-bold text-slate-900 leading-snug">{task.title}</h1>
           <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${STATUS_COLORS[task.status] || "bg-slate-100 text-slate-600"}`}>
-            {task.status.replace(/_/g, " ")}
+            {(task.status || "").replace(/_/g, " ")}
           </span>
         </div>
         {task.submitter_name && <p className="text-sm text-slate-500">{task.submitter_name}{task.submitter_email && ` · ${task.submitter_email}`}</p>}
@@ -965,7 +965,7 @@ function TaskDetail({ task, onApprove, onReject }: { task: Task; onApprove: () =
             {task.audit.map((e) => (
               <div key={e.id} className="flex gap-3 text-xs">
                 <span className="text-slate-400 shrink-0">{new Date(e.created_at * 1000).toLocaleTimeString()}</span>
-                <span className="font-medium text-slate-600">{e.action.replace(/_/g, " ")}</span>
+                <span className="font-medium text-slate-600">{(e.action || "").replace(/_/g, " ")}</span>
                 {e.actor && <span className="text-slate-400">by {e.actor}</span>}
               </div>
             ))}
