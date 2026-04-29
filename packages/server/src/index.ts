@@ -6,7 +6,12 @@ import { createRouter } from "./api/routes";
 import { handleMcpRequest } from "./mcp/server";
 import { createSlackApp } from "./slack/bot";
 
-const UI_DIST = path.join(__dirname, "../../ui/dist");
+import fs from "fs";
+// npm package: ui-dist/ sits alongside dist/ inside the package root
+// monorepo dev: fall back to packages/ui/dist (Vite output)
+const UI_DIST = fs.existsSync(path.join(__dirname, "../ui-dist"))
+  ? path.join(__dirname, "../ui-dist")
+  : path.join(__dirname, "../../ui/dist");
 
 export function createApp(): Express {
   const app = express();

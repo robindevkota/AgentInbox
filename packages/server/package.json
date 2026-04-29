@@ -1,16 +1,31 @@
 {
-  "name": "@agentinbox/server",
+  "name": "agentinbox",
   "version": "0.1.0",
-  "description": "AgentInbox MCP server and REST API",
+  "description": "AI-powered task inbox — clients submit bugs, Claude fixes them, everyone sees what happened.",
+  "keywords": ["ai", "claude", "mcp", "task-inbox", "autonomous-agent", "bug-tracking"],
+  "author": "Robin Devkota",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robindevkota/AgentInbox.git"
+  },
+  "homepage": "https://github.com/robindevkota/AgentInbox#readme",
   "main": "dist/index.js",
   "bin": {
     "agentinbox": "dist/cli.js"
   },
+  "files": [
+    "dist/",
+    "ui-dist/",
+    "../../examples/claude-loop/projects.json"
+  ],
   "scripts": {
     "dev": "tsx watch src/cli.ts",
     "build": "tsc",
-    "start": "node dist/index.js",
-    "lint": "tsc --noEmit"
+    "build:all": "cd ../ui && pnpm build && cd ../server && tsc && node scripts/copy-ui.js",
+    "start": "node dist/cli.js start",
+    "lint": "tsc --noEmit",
+    "prepublishOnly": "pnpm run build:all"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",
@@ -38,5 +53,8 @@
     "@types/pdf-parse": "^1.1.4",
     "tsx": "^4.7.0",
     "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18"
   }
 }
