@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { taskQueries } from "../queue/tasks";
+import * as fs from "fs";
+import * as path from "path";
 
 export const mcpTools = [
   {
@@ -225,7 +227,7 @@ export const mcpTools = [
   {
     name: "get_file",
     description:
-      "Get the parsed text content of any file attached to a task. Returns extracted text from PDFs, Word docs, plain text files, or a description for images.",
+      "Get the content of any file attached to a task. Returns extracted text for PDFs and Word docs, and the actual image for image files so Claude can see it directly.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -247,6 +249,41 @@ export const mcpTools = [
           content: [{ type: "text", text: "No file attached to this task" }],
         };
       }
+
+      const ext = path.extname(task.file_name || "").toLowerCase();
+      const imageExts = [".jpg", ".jpeg", ".png", ".gif", ".webp"];
+
+      if (imageExts.includes(ext)) {
+        // Return image as base64 so Claude can see it
+        try {
+          const imageBuffer = fs.readFileSync(task.file_path);
+          const base64 = imageBuffer.toString("base64");
+          const mimeMap: Record<string, string> = {
+            ".jpg": "image/jpeg",
+            ".jpeg": "image/jpeg",
+            ".png": "image/png",
+            ".gif": "image/gif",
+            ".webp": "image/webp",
+          };
+          const mimeType = mimeMap[ext] || "image/jpeg";
+          return {
+            content: [
+              {
+                type: "image",
+                data: base64,
+                mimeType,
+              },
+            ],
+          };
+        } catch {
+          return {
+            content: [{ type: "text", text: `Image file found (${task.file_name}) but could not be read from disk` }],
+            isError: true,
+          };
+        }
+      }
+
+      // PDF, Word, text — return extracted text
       return {
         content: [
           {
