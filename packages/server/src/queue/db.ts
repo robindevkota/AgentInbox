@@ -20,8 +20,10 @@ if (process.env.TURSO_URL) {
 
 export { db };
 
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+if (!process.env.TURSO_URL) {
+  db.pragma("journal_mode = WAL");
+  db.pragma("foreign_keys = ON");
+}
 
 db.exec(`
   CREATE TABLE IF NOT EXISTS workspaces (

@@ -24,8 +24,10 @@ else {
     const { default: Database } = require("better-sqlite3");
     exports.db = db = new Database(path_1.default.join(DATA_DIR, "agentinbox.db"));
 }
-db.pragma("journal_mode = WAL");
-db.pragma("foreign_keys = ON");
+if (!process.env.TURSO_URL) {
+    db.pragma("journal_mode = WAL");
+    db.pragma("foreign_keys = ON");
+}
 db.exec(`
   CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
