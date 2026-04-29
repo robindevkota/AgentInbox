@@ -199,49 +199,74 @@ Waiting for tasks... (Ctrl+C to stop)
 
 If you want PM and clients to access AgentInbox from anywhere without running it locally.
 
-### Option A — Render.com (free, no credit card required) ✅ Recommended
+**Architecture:** The AgentInbox server (UI + API + MCP) runs in the cloud. Claude still runs on your dev machine. Clients and PM access the cloud URL.
 
-**What you get:** A permanent public URL. PM and clients access it from any device. Claude still runs on your dev machine.
+---
 
-**Step 1 — Deploy to Render**
+### Option A — Run locally (simplest, recommended for solo developers)
+
+No hosting needed. Everything runs on your machine.
+
+```bash
+pnpm --filter server dev
+```
+
+- PM opens `http://localhost:3000/pm`
+- Clients use the submission link you copy from the PM dashboard
+- Data lives in `./data/agentinbox.db` — persists forever on your machine
+- Share your screen or use a tunnel (see Option B) if clients need remote access
+
+---
+
+### Option B — Render.com + Turso (free, no credit card required) ✅ Recommended for remote access
+
+**What you get:** A permanent public URL for PM and clients. Claude still runs on your dev machine. Data persists in Turso (free hosted SQLite — no resets).
+
+**Step 1 — Create a free Turso database (one-time, ~2 minutes)**
+
+1. Sign up at [turso.tech](https://turso.tech) (GitHub login, free, no card)
+2. Click **Create Database** → name it `agentinbox` → pick your nearest region
+3. Click into the database → copy the **Database URL** (starts with `libsql://`)
+4. Click **Create Token** → copy the token
+
+**Step 2 — Deploy to Render**
 
 1. Fork `https://github.com/robindevkota/AgentInbox` to your GitHub account
 2. Go to [render.com](https://render.com) → sign up with GitHub (free, no card)
 3. Click **New +** → **Web Service** → connect your forked repo
-4. Render auto-detects `render.yaml` — click **Apply**
+4. Render auto-detects `render.yaml` → click **Apply**
 5. Wait ~5 minutes for the build to finish
 6. You get a URL like `https://agentinbox-xxxx.onrender.com`
+7. Go to **Environment** → add these two vars:
+   - `TURSO_URL` = your database URL from Step 1
+   - `TURSO_AUTH_TOKEN` = your token from Step 1
+8. Click **Save Changes** — Render restarts with persistent storage
 
-**Step 2 — Set up a permanent tunnel (ngrok)**
+Your data now lives in Turso forever — redeploys never reset it.
 
-The hosted server needs to reach your local Claude router via webhook. Use ngrok for a permanent URL:
+**Step 3 — Set up a permanent tunnel (ngrok)**
+
+The hosted server needs to reach your local Claude router via webhook.
 
 1. Sign up at [ngrok.com](https://ngrok.com) (free, email only)
-2. Install ngrok:
-   ```bash
-   # Windows
-   winget install ngrok.ngrok
-   # Or download from https://ngrok.com/download
-
-   # Configure your auth token (from ngrok dashboard)
-   ngrok config add-authtoken YOUR_TOKEN
-   ```
-3. Get your free static domain from ngrok dashboard → **Cloud Edge** → **Domains**
-4. Start the tunnel (run this every time you work):
+2. Download ngrok from [ngrok.com/download](https://ngrok.com/download) and install
+3. Run: `ngrok config add-authtoken YOUR_NGROK_TOKEN`
+4. Get your free static domain: ngrok dashboard → **Cloud Edge** → **Domains**
+5. Start the tunnel (run this every time you work):
    ```bash
    ngrok http --domain=your-static-domain.ngrok-free.app 4001
    ```
 
-**Step 3 — Connect webhook to Render**
+**Step 4 — Connect webhook to Render**
 
 In Render dashboard → your service → **Environment** → add:
 ```
 WEBHOOK_URL = https://your-static-domain.ngrok-free.app/webhook
 ```
 
-Save — Render restarts automatically. Now tasks submitted via the hosted URL trigger Claude on your machine.
+Save — Render restarts. Now tasks submitted via the hosted URL trigger Claude on your machine.
 
-**Step 4 — Register MCP with Claude (one-time)**
+**Step 5 — Register MCP with Claude (one-time)**
 
 ```bash
 claude mcp add --transport http --scope user agentinbox https://agentinbox-xxxx.onrender.com/mcp
@@ -258,9 +283,9 @@ ngrok http --domain=your-static-domain.ngrok-free.app 4001
 
 ---
 
-### Option B — VPS (~$5/month, fully persistent)
+### Option C — VPS (~$5/month, fully persistent, no extra services)
 
-Any VPS works: Hetzner, DigitalOcean, Linode, Vultr.
+Any VPS works: Hetzner, DigitalOcean, Linode, Vultr. SQLite persists on disk — no Turso needed.
 
 ```bash
 # On the server
@@ -320,3 +345,5 @@ Use Task Scheduler to run the router at login:
 | Port already in use | Change `--port` on the router and update `WEBHOOK_URL` in `.env`, then restart the server |
 | Projects don't show after reload | Make sure `pm_workspace_id` is saved in browser localStorage (happens automatically after first login) |
 | MCP not found | Run `claude mcp add --scope user agentinbox http://localhost:3000/mcp` again |
+| Data resets on Render redeploy | Set `TURSO_URL` and `TURSO_AUTH_TOKEN` env vars in Render — see Option B above |
+| "This link is invalid or expired" on submit form | Project was wiped from DB — create it again in PM dashboard, or set up Turso so data persists |
