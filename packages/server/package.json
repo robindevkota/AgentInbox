@@ -1,5 +1,5 @@
 {
-  "name": "agentinbox",
+  "name": "@robindevkota/agentinbox",
   "version": "0.1.0",
   "description": "AI-powered task inbox — clients submit bugs, Claude fixes them, everyone sees what happened.",
   "keywords": ["ai", "claude", "mcp", "task-inbox", "autonomous-agent", "bug-tracking"],
