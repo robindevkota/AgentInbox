@@ -225,33 +225,44 @@ Company A (workspace owner)
 
 ## Current Status — April 2026
 
-### What's built and working (locally)
+### ✅ What's built and working (LIVE on Render)
 
-**Custom Fields** — PM can define project-specific dropdown fields (e.g. Environment, Module, Steps) in project settings. Clients see those dropdowns on the submission form. Claude reads the values via MCP and uses them to find the right file to fix. Live on the "final test" project connected to `D:\form-gen-mbl`.
+**Hosted on Render.com** — Live at `https://agentinbox-k2vf.onrender.com` (free tier, no credit card)
+- PM dashboard: `https://agentinbox-k2vf.onrender.com/pm`
+- Client/QA submit: `https://agentinbox-k2vf.onrender.com/submit/898NSXnUt9stlGsOCtJM0jPaNSVGb7Mz`
+- Workspace ID: `0DM3s9mf6wM7K83YQyNv9`
 
-**npm Package** — AgentInbox is published to npm as `@robindevkota/agentinbox` (v0.1.1). Anyone can run:
-```bash
-npx @robindevkota/agentinbox start --install
+**Persistent Database (Turso)** — SQLite hosted on Turso. Data never resets on Render redeploy. Project token `898NSXnUt9stlGsOCtJM0jPaNSVGb7Mz` is permanent.
+
+**End-to-end flow verified** — Client submits bug → Render stores task → webhook fires to ngrok → router on dev machine receives it → Claude spawns in `D:\form-gen-mbl` → Claude fixes via MCP → PM dashboard shows result.
+
+**ngrok static tunnel** — `footwear-chooser-spinner.ngrok-free.dev` permanent domain. Never need to update Render webhook URL again.
+
+**Custom Fields live** — Environment (UAT/Live), Module (12 UAT folders from `MBLBackup/uat/`), Steps (text) configured on the `mbl account opening` project.
+
+**SETUP.md** — Full open source setup guide with 3 hosting options: local, Render+Turso, VPS.
+
+### Startup commands (run these every session)
 ```
-The `--install` flag auto-registers the MCP server with Claude globally in one step.
+# Terminal 1
+node "C:\Users\user\Desktop\AgentInbox\examples\claude-loop\claude-router.js" --config "C:\Users\user\Desktop\AgentInbox\examples\claude-loop\projects.json" --port 4001
 
-**Multi-Project Router** — `agentinbox router` command (or `examples/claude-loop/claude-router.js`) listens for webhooks and spawns Claude in the correct project directory automatically. Supports multiple projects simultaneously with per-project queue management.
+# Terminal 2
+C:\Users\user\AppData\Local\ngrok\ngrok.exe http --domain=footwear-chooser-spinner.ngrok-free.dev 4001
+```
 
-**Modern UI** — Redesigned with indigo brand color, dark sidebar PM dashboard, split-panel submit form with drag-drop upload, card-based task list.
+### Next — Phase 6: UX Completeness (in progress)
 
-**Deployment** — In progress: deploying to Render.com (free tier, no credit card required) so PM and clients get a permanent public URL without needing the developer's machine to be on. Build issues being resolved (better-sqlite3 native compilation on Node 24, pnpm filter resolution).
+Features to build next (in order):
 
-### What's in progress right now
-
-- **Render.com deployment** — resolving build pipeline issues so the server runs at `https://agentinbox.onrender.com`
-- Once live: PM gets `https://agentinbox.onrender.com/pm`, clients get permanent submit links
-
-### Next phase after deployment
-
-1. **Webhook bridge** — connect the hosted Render instance back to local Claude router so tasks submitted via the public URL trigger Claude on the developer's machine
-2. **End-to-end test** — submit a real task on "final test" project, watch Claude fix a file in `D:\form-gen-mbl`, verify complete_task runs
-3. **Polish custom fields** — verify Environment/Module/Steps dropdowns render correctly on the hosted submit form
-4. **SETUP.md** — finalize the open source setup guide for new users
+1. **Custom field values in PM dashboard** — PM can see which Module/Environment/Steps was selected per task
+2. **Email to submitter on completion** — QA/PM who submitted gets notified when Claude finishes
+3. **Slack notification on completion** — post summary to a Slack channel
+4. **Task priority** — High/Medium/Low, Claude processes urgent first
+5. **Task comments** — PM adds context after submission, Claude reads before fixing
+6. **Re-open task** — QA marks fix as wrong, Claude retries
+7. **Playwright screenshot on complete** — Claude captures screenshot of fix, PM sees visual proof
+8. **PR link in completion summary** — Claude includes GitHub PR number in summary
 
 ---
 
