@@ -8,7 +8,8 @@ fs.mkdirSync(path.join(DATA_DIR, "uploads"), { recursive: true });
 // Use libsql (Turso) when TURSO_URL is set, otherwise fall back to local SQLite via better-sqlite3
 let db: any;
 if (process.env.TURSO_URL) {
-  const { default: Database } = require("libsql");
+  const libsql = require("libsql");
+  const Database = libsql.default || libsql;
   db = new Database(process.env.TURSO_URL, {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
