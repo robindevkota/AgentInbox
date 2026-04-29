@@ -10,8 +10,18 @@ services:
       - key: PORT
         value: 3000
       - key: DATA_DIR
-        value: /opt/render/project/data
-    disk:
-      name: agentinbox-data
-      mountPath: /opt/render/project/data
-      sizeGB: 1
+        value: /opt/render/project/src/data
+      - key: SEED_WORKSPACE_NAME
+        value: Robin Dev
+      - key: SEED_WORKSPACE_ID
+        value: hqQqGgA4Me85u7eLjajec
+      - key: SEED_PROJECT_NAME
+        value: final test
+      - key: SEED_PROJECT_TOKEN
+        value: 0bkms5KoiTdFXnHB8QB_uXmMyjmbsXX-
+      - key: SEED_PROJECT_DESC
+        value: form-gen-mbl React + TypeScript form generator
+      - key: SEED_NOTIFY_EMAIL
+        value: sophiabrut1@gmail.com
+      - key: SEED_CUSTOM_FIELDS
+        value: '[{"name":"Environment","type":"dropdown","options":["UAT","Live"],"required":false},{"name":"Module","type":"dropdown","options":["ncna","newcifindiv","newcifcorporate","online account opening"],"required":false},{"name":"Steps","type":"dropdown","options":["screening","personal address","review"],"required":false}]'

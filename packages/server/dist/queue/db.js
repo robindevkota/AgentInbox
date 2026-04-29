@@ -5,6 +5,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.db = void 0;
 exports.nowUnix = nowUnix;
+exports.seedFromEnv = seedFromEnv;
 const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
@@ -121,5 +122,29 @@ exports.db.exec(`
 `);
 function nowUnix() {
     return Math.floor(Date.now() / 1000);
+}
+// Auto-seed from env vars so data survives redeploys via fixed token
+function seedFromEnv() {
+    const wsName = process.env.SEED_WORKSPACE_NAME;
+    const wsId = process.env.SEED_WORKSPACE_ID;
+    const projName = process.env.SEED_PROJECT_NAME;
+    const projToken = process.env.SEED_PROJECT_TOKEN;
+    const projDesc = process.env.SEED_PROJECT_DESC || "";
+    const notifyEmail = process.env.SEED_NOTIFY_EMAIL || "";
+    const customFields = process.env.SEED_CUSTOM_FIELDS || "";
+    if (!wsName || !wsId || !projName || !projToken)
+        return;
+    const existingWs = exports.db.prepare("SELECT id FROM workspaces WHERE id = ?").get(wsId);
+    if (!existingWs) {
+        exports.db.prepare("INSERT INTO workspaces (id, name) VALUES (?, ?)").run(wsId, wsName);
+    }
+    const existingProj = exports.db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
+    if (!existingProj) {
+        const { nanoid } = require("nanoid");
+        const projId = nanoid();
+        exports.db.prepare(`INSERT INTO projects (id, workspace_id, name, description, token, notify_email, brand_color, custom_fields)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(projId, wsId, projName, projDesc, projToken, notifyEmail, "#6366f1", customFields || null);
+        console.log(`  ✓ Seeded project "${projName}" with token ${projToken}`);
+    }
 }
 //# sourceMappingURL=db.js.map

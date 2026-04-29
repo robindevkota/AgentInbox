@@ -11,12 +11,14 @@ const path_1 = __importDefault(require("path"));
 const routes_1 = require("./api/routes");
 const server_1 = require("./mcp/server");
 const bot_1 = require("./slack/bot");
+const db_1 = require("./queue/db");
 const fs_1 = __importDefault(require("fs"));
 // npm package: ui-dist/ sits alongside dist/ inside the package root
 // monorepo dev: fall back to packages/ui/dist (Vite output)
 const UI_DIST = fs_1.default.existsSync(path_1.default.join(__dirname, "../ui-dist"))
     ? path_1.default.join(__dirname, "../ui-dist")
     : path_1.default.join(__dirname, "../../ui/dist");
+(0, db_1.seedFromEnv)();
 function createApp() {
     const app = (0, express_1.default)();
     app.use((0, cors_1.default)());

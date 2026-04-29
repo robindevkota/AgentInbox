@@ -5,6 +5,7 @@ import path from "path";
 import { createRouter } from "./api/routes";
 import { handleMcpRequest } from "./mcp/server";
 import { createSlackApp } from "./slack/bot";
+import { seedFromEnv } from "./queue/db";
 
 import fs from "fs";
 // npm package: ui-dist/ sits alongside dist/ inside the package root
@@ -12,6 +13,8 @@ import fs from "fs";
 const UI_DIST = fs.existsSync(path.join(__dirname, "../ui-dist"))
   ? path.join(__dirname, "../ui-dist")
   : path.join(__dirname, "../../ui/dist");
+
+seedFromEnv();
 
 export function createApp(): Express {
   const app = express();
