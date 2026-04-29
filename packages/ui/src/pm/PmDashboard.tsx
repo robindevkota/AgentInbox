@@ -493,6 +493,11 @@ function DashboardScreen({
   useEffect(() => {
     fetch(`/api/workspaces/${workspaceId}/stats`, { headers: authHeaders() })
       .then((r) => r.json()).then(setStats).catch(() => {});
+    fetch(`/api/workspaces/${workspaceId}/projects`, { headers: authHeaders() })
+      .then((r) => r.json()).then((projs: Project[]) => {
+        setProjects(projs);
+        setSelectedProject((prev) => prev || projs[0]?.id || "");
+      }).catch(() => {});
   }, [workspaceId, authHeaders]);
 
   useEffect(() => {
@@ -614,6 +619,12 @@ function DashboardScreen({
             authHeaders={authHeaders()}
             workspaceId={workspaceId}
             onSaved={refreshProjects}
+            onDeleted={(id) => {
+              setProjects((prev) => prev.filter((p) => p.id !== id));
+              const remaining = projects.filter((p) => p.id !== id);
+              setSelectedProject(remaining[0]?.id || "");
+              setView("tasks");
+            }}
           />
         )}
 
@@ -937,7 +948,7 @@ function StatsView({ stats, projects }: { stats: Stats | null; projects: Project
 
 // ── Settings view ─────────────────────────────────────────────────────────────
 
-function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onSaved }: { selectedProject: string; projects: Project[]; authHeaders: Record<string, string>; workspaceId: string; onSaved: () => Promise<void> }) {
+function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onSaved, onDeleted }: { selectedProject: string; projects: Project[]; authHeaders: Record<string, string>; workspaceId: string; onSaved: () => Promise<void>; onDeleted: (id: string) => void }) {
   const project = projects.find((p) => p.id === selectedProject);
   const [saved, setSaved]             = useState(false);
   const [notifyEmail, setNotifyEmail] = useState(project?.notify_email || "");
@@ -974,6 +985,12 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
     }
     setCustomFields([...customFields, field]);
     setNewFieldName(""); setNewFieldType("dropdown"); setNewFieldOptions(""); setNewFieldRequired(false);
+  }
+
+  async function deleteProject() {
+    if (!window.confirm(`Delete project "${project!.name}"? This cannot be undone and will remove all tasks.`)) return;
+    await fetch(`/api/projects/${project!.id}`, { method: "DELETE", headers: authHeaders });
+    onDeleted(project!.id);
   }
 
   function removeField(i: number) {
@@ -1109,9 +1126,14 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
           </div>
         </div>
 
-        <button onClick={save} className="bg-brand-600 hover:bg-brand-700 text-white font-medium px-6 py-2 rounded-lg transition-colors">
-          {saved ? "Saved ✓" : "Save settings"}
-        </button>
+        <div className="flex items-center gap-3">
+          <button onClick={save} className="bg-brand-600 hover:bg-brand-700 text-white font-medium px-6 py-2 rounded-lg transition-colors">
+            {saved ? "Saved ✓" : "Save settings"}
+          </button>
+          <button onClick={deleteProject} className="text-red-500 hover:text-red-700 text-sm font-medium px-4 py-2 rounded-lg border border-red-200 hover:border-red-400 transition-colors">
+            Delete project
+          </button>
+        </div>
       </div>
     </div>
   );

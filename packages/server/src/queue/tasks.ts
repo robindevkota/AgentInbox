@@ -141,6 +141,11 @@ export const taskQueries = {
     return db.prepare("SELECT * FROM projects WHERE id = ?").get(id) as Project | undefined;
   },
 
+  deleteProject(id: string): boolean {
+    const result = db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+    return result.changes > 0;
+  },
+
   getProjectByToken(token: string): Project | undefined {
     return db.prepare("SELECT * FROM projects WHERE token = ?").get(token) as Project | undefined;
   },

@@ -332,6 +332,15 @@ export function createRouter(): Router {
     }
   );
 
+  router.delete("/projects/:id", requireApiKey, (req: Request, res: Response) => {
+    const deleted = taskQueries.deleteProject(req.params.id);
+    if (!deleted) {
+      res.status(404).json({ error: "Project not found" });
+      return;
+    }
+    res.json({ ok: true });
+  });
+
   router.patch("/projects/:id", requireApiKey, (req: Request, res: Response) => {
     try {
       const body = z
