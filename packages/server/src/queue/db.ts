@@ -14,7 +14,8 @@ if (process.env.TURSO_URL) {
     authToken: process.env.TURSO_AUTH_TOKEN,
   });
 } else {
-  const { default: Database } = require("better-sqlite3");
+  const bs3 = require("better-sqlite3");
+  const Database = bs3.default || bs3;
   db = new Database(path.join(DATA_DIR, "agentinbox.db"));
 }
 

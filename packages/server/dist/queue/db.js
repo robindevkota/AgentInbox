@@ -21,7 +21,8 @@ if (process.env.TURSO_URL) {
     });
 }
 else {
-    const { default: Database } = require("better-sqlite3");
+    const bs3 = require("better-sqlite3");
+    const Database = bs3.default || bs3;
     exports.db = db = new Database(path_1.default.join(DATA_DIR, "agentinbox.db"));
 }
 if (!process.env.TURSO_URL) {
