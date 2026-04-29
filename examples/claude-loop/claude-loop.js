@@ -64,17 +64,18 @@ function runClaude() {
     ? fs.readFileSync(agentInboxMd, "utf-8")
     : defaultPrompt;
 
-  // Write prompt to a temp file — avoids shell quoting issues on Windows
   const tmpPromptFile = path.join(require("os").tmpdir(), `agentinbox-prompt-${Date.now()}.txt`);
   fs.writeFileSync(tmpPromptFile, promptText, "utf-8");
 
+  // Use PowerShell to pipe the file content as stdin to claude
+  // This avoids all shell quoting issues with multiline prompts on Windows
   const child = spawn(
-    "claude",
-    ["--dangerously-skip-permissions", "--print", `--system-prompt-file=${tmpPromptFile}`, "-p", "Process all pending AgentInbox tasks now."],
+    "powershell",
+    ["-NoProfile", "-Command", `Get-Content -Raw "${tmpPromptFile}" | claude --dangerously-skip-permissions --print`],
     {
       cwd: PROJECT_DIR,
       stdio: "inherit",
-      shell: true,
+      shell: false,
     }
   );
 
