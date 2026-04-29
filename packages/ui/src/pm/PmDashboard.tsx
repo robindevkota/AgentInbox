@@ -563,7 +563,7 @@ function DashboardScreen({
   }
 
   return (
-    <div className="min-h-screen flex bg-slate-50">
+    <div className="h-screen flex bg-slate-50 overflow-hidden">
       {/* ── Sidebar (dark) ── */}
       <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
         {/* Logo + workspace */}
