@@ -18,7 +18,7 @@ services:
       - key: SEED_PROJECT_NAME
         value: final test
       - key: SEED_PROJECT_TOKEN
-        value: 0bkms5KoiTdFXnHB8QB_uXmMyjmbsXX-
+        value: DO_bXEfzyyd2bNSYGI7YPu6L-R7ZmNpV
       - key: SEED_PROJECT_DESC
         value: form-gen-mbl React + TypeScript form generator
       - key: SEED_NOTIFY_EMAIL
