@@ -6,6 +6,7 @@ import { taskQueries } from "../queue/tasks";
 import { requireProjectToken, requireApiKey } from "../auth/tokens";
 import { parseFile } from "../files/parser";
 import { sendOtp } from "../email/mailer";
+import { fireWebhook } from "../webhook/notify";
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
@@ -181,6 +182,19 @@ export function createRouter(): Router {
           action: "task_submitted",
           actor: body.submitter_email || body.submitter_name || "anonymous",
         });
+
+        // Fire webhook async — does not block the response
+        fireWebhook({
+          event: "task.created",
+          task_id: task.id,
+          project_id: project.id,
+          project_name: project.name,
+          project_token: project.token,
+          title: task.title,
+          description: task.description,
+          submitter_name: task.submitter_name,
+          has_file: !!task.file_path,
+        }).catch(() => {});
 
         res.status(201).json({
           id: task.id,

@@ -20,6 +20,8 @@ services:
       - EMAIL_FROM=${EMAIL_FROM:-}
       - SLACK_BOT_TOKEN=${SLACK_BOT_TOKEN:-}
       - SLACK_SIGNING_SECRET=${SLACK_SIGNING_SECRET:-}
+      - WEBHOOK_URL=${WEBHOOK_URL:-}
+      - WEBHOOK_SECRET=${WEBHOOK_SECRET:-}
     restart: unless-stopped
 
 volumes:
