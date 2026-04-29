@@ -4,7 +4,7 @@ services:
     runtime: node
     region: singapore
     plan: free
-    buildCommand: npm install -g pnpm@9.0.0 && pnpm install --frozen-lockfile && pnpm --filter=ui build && pnpm --filter=server build && node packages/server/scripts/copy-ui.js
+    buildCommand: npm install -g pnpm@9.0.0 && pnpm install --frozen-lockfile && cd packages/ui && pnpm build && cd ../../packages/server && pnpm build && node scripts/copy-ui.js
     startCommand: node packages/server/dist/cli.js start
     envVars:
       - key: PORT
