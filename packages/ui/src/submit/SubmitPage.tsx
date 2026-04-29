@@ -15,6 +15,7 @@ interface ProjectInfo {
   requires_otp: boolean;
   brand_color: string | null;
   brand_logo_url: string | null;
+  brand_name: string | null;
   custom_fields: CustomField[];
 }
 
@@ -33,6 +34,8 @@ export function SubmitPage() {
   const [otpSession, setOtpSession] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [dragActive, setDragActive] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
 
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
@@ -129,10 +132,33 @@ export function SubmitPage() {
     }
   }
 
-  const accentColor = project?.brand_color || "#0284c7";
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    setDragActive(true);
+  }
+  function handleDragLeave() {
+    setDragActive(false);
+  }
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    setDragActive(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file && fileRef.current) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileRef.current.files = dt.files;
+      setFileName(file.name);
+    }
+  }
+
+  const accentColor = project?.brand_color || "#6366f1";
 
   if (step === "loading") {
-    return <Shell project={null} accentColor={accentColor}><p className="text-slate-400">Loading...</p></Shell>;
+    return (
+      <Shell project={null} accentColor={accentColor}>
+        <p className="text-slate-400">Loading...</p>
+      </Shell>
+    );
   }
 
   if (step === "error") {
@@ -154,14 +180,13 @@ export function SubmitPage() {
             <p className="text-slate-500 text-sm">Enter your work email to receive a one-time access code.</p>
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Work email</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Work email</label>
             <input
               type="email"
               value={otpEmail}
               onChange={(e) => setOtpEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && requestOtp()}
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent"
-              style={{ "--tw-ring-color": accentColor } as React.CSSProperties}
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
               placeholder="you@company.com"
             />
           </div>
@@ -169,8 +194,7 @@ export function SubmitPage() {
           <button
             onClick={requestOtp}
             disabled={submitting || !otpEmail}
-            className="w-full text-white font-semibold py-3 rounded-lg transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: accentColor }}
+            className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-colors"
           >
             {submitting ? "Sending..." : "Send code"}
           </button>
@@ -195,7 +219,7 @@ export function SubmitPage() {
               value={otpCode}
               onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
               onKeyDown={(e) => e.key === "Enter" && otpCode.length === 6 && verifyOtp()}
-              className="w-full border border-slate-300 rounded-lg px-4 py-3 text-center text-3xl font-bold tracking-widest focus:outline-none focus:ring-2 focus:border-transparent"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-center text-3xl font-bold tracking-widest text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
               placeholder="······"
             />
           </div>
@@ -203,14 +227,13 @@ export function SubmitPage() {
           <button
             onClick={verifyOtp}
             disabled={submitting || otpCode.length !== 6}
-            className="w-full text-white font-semibold py-3 rounded-lg transition-opacity disabled:opacity-60"
-            style={{ backgroundColor: accentColor }}
+            className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-colors"
           >
             {submitting ? "Verifying..." : "Continue"}
           </button>
           <button
             onClick={() => { setStep("otp-email"); setError(""); setOtpCode(""); }}
-            className="w-full text-slate-500 text-sm hover:underline"
+            className="w-full text-slate-500 text-sm hover:text-slate-700 transition-colors"
           >
             Use a different email
           </button>
@@ -222,16 +245,40 @@ export function SubmitPage() {
   if (step === "success") {
     return (
       <Shell project={project} accentColor={accentColor}>
-        <div className="bg-green-50 border border-green-200 rounded-xl p-8 text-center">
-          <div className="text-4xl mb-4">✓</div>
-          <h2 className="text-xl font-semibold text-green-800 mb-2">Request received</h2>
-          <p className="text-green-700 mb-6">
+        <div className="py-8 text-center">
+          {/* Animated checkmark */}
+          <div className="flex items-center justify-center mb-6">
+            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+              <svg
+                className="w-10 h-10 text-green-600 checkmark-draw"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <style>{`
+                  .checkmark-draw {
+                    stroke-dasharray: 30;
+                    stroke-dashoffset: 30;
+                    animation: draw 0.45s ease forwards 0.1s;
+                  }
+                  @keyframes draw {
+                    to { stroke-dashoffset: 0; }
+                  }
+                `}</style>
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </div>
+          </div>
+          <h2 className="text-2xl font-bold text-slate-900 mb-2">Request received</h2>
+          <p className="text-slate-500 mb-8 max-w-sm mx-auto">
             We're on it. You'll see live updates as soon as progress is made.
           </p>
           <button
             onClick={() => navigate(`/task/${taskId}`)}
-            className="text-white font-medium px-6 py-2.5 rounded-lg transition-colors"
-            style={{ backgroundColor: accentColor }}
+            className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-7 py-3.5 rounded-xl transition-colors"
           >
             Watch live status →
           </button>
@@ -244,7 +291,7 @@ export function SubmitPage() {
     <Shell project={project} accentColor={accentColor}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
             What's the issue or request? <span className="text-red-500">*</span>
           </label>
           <input
@@ -253,12 +300,12 @@ export function SubmitPage() {
             required
             maxLength={200}
             placeholder="e.g. Login button broken on mobile"
-            className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent"
+            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm"
           />
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
             Describe it in detail <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -267,26 +314,57 @@ export function SubmitPage() {
             rows={5}
             maxLength={5000}
             placeholder="What happened? What did you expect? Steps to reproduce if it's a bug..."
-            className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent resize-y"
+            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm resize-y"
           />
         </div>
 
+        {/* Drag-drop file upload */}
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-1">
-            Attach a file <span className="text-slate-400 font-normal">(optional)</span>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            Attach a file <span className="text-slate-400 font-normal normal-case">(optional)</span>
           </label>
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".pdf,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp"
-            className="w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-slate-100 file:text-slate-700 hover:file:bg-slate-200"
-          />
-          <p className="text-xs text-slate-400 mt-1">PDF, Word, images, text — up to 20MB</p>
+          <div
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+            onClick={() => fileRef.current?.click()}
+            className={`cursor-pointer border-2 border-dashed rounded-xl px-4 py-6 text-center transition-colors ${
+              dragActive
+                ? "border-indigo-400 bg-indigo-50"
+                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+            }`}
+          >
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp"
+              className="hidden"
+              onChange={(e) => setFileName(e.target.files?.[0]?.name || null)}
+            />
+            {fileName ? (
+              <div className="flex items-center justify-center gap-2 text-sm text-indigo-700 font-medium">
+                <span>📎</span>
+                <span className="truncate max-w-xs">{fileName}</span>
+                <button
+                  type="button"
+                  onClick={(e) => { e.stopPropagation(); setFileName(null); if (fileRef.current) fileRef.current.value = ""; }}
+                  className="text-slate-400 hover:text-red-500 ml-1 font-bold"
+                >×</button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-slate-500">
+                  <span className="font-medium text-indigo-600">Click to upload</span> or drag and drop
+                </p>
+                <p className="text-xs text-slate-400 mt-1">PDF, Word, images, text — up to 20MB</p>
+              </>
+            )}
+          </div>
         </div>
 
         {project?.custom_fields && project.custom_fields.length > 0 && project.custom_fields.map((field) => (
           <div key={field.name}>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
               {field.name} {field.required && <span className="text-red-500">*</span>}
             </label>
             {field.type === "dropdown" && field.options && field.options.length > 0 ? (
@@ -294,7 +372,7 @@ export function SubmitPage() {
                 required={field.required}
                 value={customFieldValues[field.name] || ""}
                 onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
               >
                 <option value="">Select {field.name}...</option>
                 {field.options.map((opt) => (
@@ -307,7 +385,7 @@ export function SubmitPage() {
                 required={field.required}
                 value={customFieldValues[field.name] || ""}
                 onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent"
+                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
                 placeholder={`Enter ${field.name}`}
               />
             )}
@@ -316,29 +394,29 @@ export function SubmitPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Your name</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Your name</label>
             <input
               ref={nameRef}
               type="text"
               maxLength={100}
               placeholder="Optional"
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Your email</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Your email</label>
             <input
               ref={emailRef}
               type="email"
               defaultValue={otpEmail || ""}
               placeholder="Optional"
-              className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent"
+              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
             />
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg px-4 py-3 text-red-700 text-sm">
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm">
             {error}
           </div>
         )}
@@ -346,8 +424,7 @@ export function SubmitPage() {
         <button
           type="submit"
           disabled={submitting}
-          className="w-full text-white font-semibold py-3 rounded-lg transition-opacity disabled:opacity-60"
-          style={{ backgroundColor: accentColor }}
+          className="w-full bg-indigo-500 hover:bg-indigo-600 disabled:opacity-60 text-white font-semibold py-3.5 rounded-xl transition-colors shadow-md shadow-indigo-500/20"
         >
           {submitting ? "Submitting..." : "Submit request"}
         </button>
@@ -366,26 +443,30 @@ function Shell({
   accentColor: string;
 }) {
   return (
-    <div className="min-h-screen flex items-start justify-center pt-12 px-4 pb-16">
-      <div className="w-full max-w-lg">
-        <div className="mb-8 flex items-center gap-3">
-          {project?.brand_logo_url ? (
-            <img src={project.brand_logo_url} alt="logo" className="h-8 w-auto" />
-          ) : (
-            <div className="font-bold text-lg" style={{ color: accentColor }}>
-              {project?.name || "AgentInbox"}
-            </div>
-          )}
-        </div>
-        {project && (
-          <div className="mb-6">
-            <h1 className="text-2xl font-bold text-slate-900">{project.name}</h1>
-            {project.description && (
-              <p className="text-slate-500 mt-1 text-sm">{project.description}</p>
-            )}
+    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
+      {/* Left panel — brand gradient */}
+      <div
+        className="md:w-1/3 shrink-0 flex flex-col items-start justify-center px-10 py-12 md:py-0 md:min-h-screen"
+        style={{ background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}bb 100%)` }}
+      >
+        {project?.brand_logo_url && (
+          <div className="mb-8">
+            <img src={project.brand_logo_url} alt="logo" className="h-10 w-auto" />
           </div>
         )}
-        {children}
+        <h1 className="text-3xl font-bold text-white leading-snug mb-3">
+          {project?.brand_name || project?.name || "AgentInbox"}
+        </h1>
+        <p className="text-white/70 text-sm leading-relaxed">
+          {project?.description || "Submit a bug or feature request and we'll handle the rest."}
+        </p>
+      </div>
+
+      {/* Right panel — form */}
+      <div className="flex-1 flex items-start md:items-center justify-center px-6 py-12 overflow-y-auto">
+        <div className="w-full max-w-lg">
+          {children}
+        </div>
       </div>
     </div>
   );

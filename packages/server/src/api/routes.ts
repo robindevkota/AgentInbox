@@ -58,6 +58,7 @@ export function createRouter(): Router {
       requires_otp: !!(project.allowed_emails),
       brand_color: project.brand_color,
       brand_logo_url: project.brand_logo_url,
+      brand_name: project.brand_name,
       custom_fields: project.custom_fields ? JSON.parse(project.custom_fields) : [],
     });
   });
