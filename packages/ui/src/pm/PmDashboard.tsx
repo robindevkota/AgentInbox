@@ -769,6 +769,7 @@ function DashboardScreen({
                       <div className="flex-1 p-6 overflow-y-auto">
                         <TaskDetail
                           task={selectedTask}
+                          authHeaders={authHeaders}
                           onApprove={() => approveTask(selectedTask.id)}
                           onReject={() => rejectTask(selectedTask.id)}
                           onReopen={() => reopenTask(selectedTask.id)}
@@ -961,7 +962,7 @@ function NewProjectModal({
 
 // ── Task detail ───────────────────────────────────────────────────────────────
 
-function TaskDetail({ task, onApprove, onReject, onReopen }: { task: Task; onApprove: () => void; onReject: () => void; onReopen: () => void }) {
+function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task: Task; authHeaders: () => Record<string, string>; onApprove: () => void; onReject: () => void; onReopen: () => void }) {
   const [comments, setComments] = useState<TaskComment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [commentAuthor, setCommentAuthor] = useState("PM");
