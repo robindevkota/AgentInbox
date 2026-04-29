@@ -53,11 +53,10 @@ type Screen = "onboarding" | "login" | "dashboard";
 // ── Top-level router ─────────────────────────────────────────────────────────
 
 export function PmDashboard() {
-  const savedWsId  = localStorage.getItem("pm_workspace_id") || "";
-  const savedKey   = localStorage.getItem("pm_api_key") || "";
-  const isFirstTime = !savedWsId;
+  const savedWsId = localStorage.getItem("pm_workspace_id") || "";
+  const savedKey  = localStorage.getItem("pm_api_key") || "";
 
-  const [screen, setScreen] = useState<Screen>(isFirstTime ? "onboarding" : "login");
+  const [screen, setScreen]           = useState<Screen>(savedWsId ? "dashboard" : "onboarding");
   const [workspaceId, setWorkspaceId] = useState(savedWsId);
   const [apiKey, setApiKey]           = useState(savedKey);
   const [projects, setProjects]       = useState<Project[]>([]);
@@ -92,6 +91,8 @@ export function PmDashboard() {
       onLogout={() => {
         localStorage.removeItem("pm_workspace_id");
         localStorage.removeItem("pm_api_key");
+        setWorkspaceId("");
+        setApiKey("");
         setScreen("onboarding");
       }}
     />
