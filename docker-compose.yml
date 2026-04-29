@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  agentinbox:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - agentinbox_data:/app/data
+    environment:
+      - PORT=3000
+      - DATA_DIR=/app/data
+      - API_KEY=${API_KEY:-}
+    restart: unless-stopped
+
+volumes:
+  agentinbox_data:

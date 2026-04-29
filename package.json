@@ -1,0 +1,15 @@
+{
+  "name": "agentinbox",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@9.0.0",
+  "workspaces": [
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "pnpm --parallel --filter=* dev",
+    "build": "pnpm --filter=server build && pnpm --filter=ui build",
+    "start": "pnpm --filter=server start",
+    "lint": "pnpm --parallel --filter=* lint"
+  }
+}
