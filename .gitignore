@@ -5,6 +5,5 @@ data/
 *.db
 *.db-shm
 *.db-wal
-pnpm-lock.yaml
 .playwright-mcp/
 .serena/
