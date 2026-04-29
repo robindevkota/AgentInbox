@@ -525,12 +525,16 @@ function DashboardScreen({
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: "failed" } : t));
   }
 
+  async function refreshProjects() {
+    const res = await fetch(`/api/workspaces/${workspaceId}/projects`, { headers: authHeaders() });
+    if (res.ok) setProjects(await res.json());
+  }
+
   async function handleProjectCreated(proj: Project) {
     setProjects((prev) => [proj, ...prev]);
     setSelectedProject(proj.id);
     setView("tasks");
     setNewProjOpen(false);
-    // refresh stats
     fetch(`/api/workspaces/${workspaceId}/stats`, { headers: authHeaders() })
       .then((r) => r.json()).then(setStats).catch(() => {});
   }
@@ -609,6 +613,7 @@ function DashboardScreen({
             projects={projects}
             authHeaders={authHeaders()}
             workspaceId={workspaceId}
+            onSaved={refreshProjects}
           />
         )}
 
@@ -932,7 +937,7 @@ function StatsView({ stats, projects }: { stats: Stats | null; projects: Project
 
 // ── Settings view ─────────────────────────────────────────────────────────────
 
-function SettingsView({ selectedProject, projects, authHeaders, workspaceId }: { selectedProject: string; projects: Project[]; authHeaders: Record<string, string>; workspaceId: string }) {
+function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onSaved }: { selectedProject: string; projects: Project[]; authHeaders: Record<string, string>; workspaceId: string; onSaved: () => Promise<void> }) {
   const project = projects.find((p) => p.id === selectedProject);
   const [saved, setSaved]             = useState(false);
   const [notifyEmail, setNotifyEmail] = useState(project?.notify_email || "");
@@ -985,6 +990,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId }: {
         custom_fields: JSON.stringify(customFields),
       }),
     });
+    await onSaved();
     setSaved(true); setTimeout(() => setSaved(false), 2500);
   }
 
