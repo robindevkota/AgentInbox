@@ -1,5 +1,16 @@
 #!/usr/bin/env node
-import "dotenv/config";
+import * as dotenv from "dotenv";
+import * as path from "path";
+import * as fs from "fs";
+
+// Try monorepo root .env first, then local
+const rootEnv = path.resolve(__dirname, "../../../../.env");
+const localEnv = path.resolve(__dirname, "../../.env");
+if (fs.existsSync(rootEnv)) {
+  dotenv.config({ path: rootEnv });
+} else {
+  dotenv.config({ path: localEnv });
+}
 import { createApp } from "./index";
 
 const args = process.argv.slice(2);
