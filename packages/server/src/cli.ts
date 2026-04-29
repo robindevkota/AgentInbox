@@ -20,15 +20,16 @@ if (command === "help" || command === "--help" || command === "-h") {
   Options for start:
     --port <n>                    Port to listen on (default: 3000)
     --data <dir>                  Directory for database and uploads
+    --install                     Auto-register AgentInbox MCP with Claude after starting
 
   Options for router:
     --config <file>               Path to projects.json (default: ./projects.json)
     --port <n>                    Webhook port (default: 4001)
 
   Examples:
-    npx agentinbox start
-    npx agentinbox router --config ./projects.json
-    npx agentinbox init
+    npx @robindevkota/agentinbox start --install
+    npx @robindevkota/agentinbox router --config ./projects.json
+    npx @robindevkota/agentinbox init
 `);
   process.exit(0);
 }
@@ -207,6 +208,7 @@ if (command === "router") {
   if (dataArg) process.env.DATA_DIR = dataArg;
 
   const PORT = parseInt(process.env.PORT || "3000", 10);
+  const autoInstall = args.includes("--install");
 
   import("./index").then(({ createApp }) => {
     const app = createApp();
@@ -218,7 +220,25 @@ if (command === "router") {
       console.log(`  Dashboard: http://localhost:${PORT}/pm`);
       console.log(`  Submit:    http://localhost:${PORT}/submit/<token>`);
       console.log(`  MCP:       http://localhost:${PORT}/mcp\n`);
-      console.log(`  Add to Claude:  claude mcp add --scope user agentinbox http://localhost:${PORT}/mcp\n`);
+
+      if (autoInstall) {
+        const { execSync } = require("child_process");
+        console.log(`  Installing AgentInbox MCP into Claude globally...`);
+        try {
+          execSync(`claude mcp add --scope user agentinbox http://localhost:${PORT}/mcp`, { stdio: "pipe" });
+          console.log(`  ✓ MCP registered — Claude can now use AgentInbox tools\n`);
+        } catch {
+          // claude CLI not found or failed — print manual instruction
+          console.log(`  ⚠  Could not auto-register MCP. Run manually:\n`);
+          console.log(`     claude mcp add --scope user agentinbox http://localhost:${PORT}/mcp\n`);
+        }
+      } else {
+        console.log(`  To register with Claude (one-time):`);
+        console.log(`  claude mcp add --scope user agentinbox http://localhost:${PORT}/mcp\n`);
+        console.log(`  Or run with --install to do this automatically:\n`);
+        console.log(`  npx @robindevkota/agentinbox start --install\n`);
+      }
+
       if (!process.env.API_KEY) {
         console.log(`  ⚠  No API_KEY set — PM dashboard is open to anyone.`);
         console.log(`     Add API_KEY=your-secret to .env to secure it.\n`);
