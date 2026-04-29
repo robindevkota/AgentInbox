@@ -197,9 +197,68 @@ Waiting for tasks... (Ctrl+C to stop)
 
 ## Hosting on a server (optional)
 
-If you want the AgentInbox server accessible from the internet so clients can submit tasks from anywhere:
+If you want PM and clients to access AgentInbox from anywhere without running it locally.
 
-### Option A — VPS (recommended, ~$5/month)
+### Option A — Render.com (free, no credit card required) ✅ Recommended
+
+**What you get:** A permanent public URL. PM and clients access it from any device. Claude still runs on your dev machine.
+
+**Step 1 — Deploy to Render**
+
+1. Fork `https://github.com/robindevkota/AgentInbox` to your GitHub account
+2. Go to [render.com](https://render.com) → sign up with GitHub (free, no card)
+3. Click **New +** → **Web Service** → connect your forked repo
+4. Render auto-detects `render.yaml` — click **Apply**
+5. Wait ~5 minutes for the build to finish
+6. You get a URL like `https://agentinbox-xxxx.onrender.com`
+
+**Step 2 — Set up a permanent tunnel (ngrok)**
+
+The hosted server needs to reach your local Claude router via webhook. Use ngrok for a permanent URL:
+
+1. Sign up at [ngrok.com](https://ngrok.com) (free, email only)
+2. Install ngrok:
+   ```bash
+   # Windows
+   winget install ngrok.ngrok
+   # Or download from https://ngrok.com/download
+
+   # Configure your auth token (from ngrok dashboard)
+   ngrok config add-authtoken YOUR_TOKEN
+   ```
+3. Get your free static domain from ngrok dashboard → **Cloud Edge** → **Domains**
+4. Start the tunnel (run this every time you work):
+   ```bash
+   ngrok http --domain=your-static-domain.ngrok-free.app 4001
+   ```
+
+**Step 3 — Connect webhook to Render**
+
+In Render dashboard → your service → **Environment** → add:
+```
+WEBHOOK_URL = https://your-static-domain.ngrok-free.app/webhook
+```
+
+Save — Render restarts automatically. Now tasks submitted via the hosted URL trigger Claude on your machine.
+
+**Step 4 — Register MCP with Claude (one-time)**
+
+```bash
+claude mcp add --transport http --scope user agentinbox https://agentinbox-xxxx.onrender.com/mcp
+```
+
+**Every time you sit down to work, run two commands:**
+```bash
+# Terminal 1 — router
+node examples/claude-loop/claude-router.js --config examples/claude-loop/projects.json --port 4001
+
+# Terminal 2 — tunnel (permanent URL, never need to update Render again)
+ngrok http --domain=your-static-domain.ngrok-free.app 4001
+```
+
+---
+
+### Option B — VPS (~$5/month, fully persistent)
 
 Any VPS works: Hetzner, DigitalOcean, Linode, Vultr.
 
@@ -212,26 +271,16 @@ pnpm install && pnpm build
 # Set env
 echo "PORT=3000
 DATA_DIR=./data
-BASE_URL=https://yourdomain.com
-WEBHOOK_URL=http://YOUR_DEVELOPER_MACHINE_IP:4001/webhook" > packages/server/.env
+WEBHOOK_URL=https://your-static-domain.ngrok-free.app/webhook" > packages/server/.env
 
 # Run with PM2 to keep it alive
 npm install -g pm2
-pm2 start "pnpm --filter server start" --name agentinbox
+pm2 start "node packages/server/dist/cli.js start" --name agentinbox
 pm2 save
 pm2 startup
 ```
 
-Then point your domain at the server IP and optionally set up Nginx as a reverse proxy.
-
-> The router (`claude-router.js`) stays on your developer machine — Claude runs locally and calls back to the server via the webhook.
-
-### Option B — Railway / Render (no credit card on some plans)
-
-1. Push your fork to GitHub
-2. Connect repo to Railway or Render
-3. Set environment variables in their dashboard
-4. Deploy — they give you a public URL automatically
+> The router stays on your developer machine — Claude runs locally and calls back to the server via webhook.
 
 ---
 
