@@ -15,6 +15,7 @@ export interface Task {
     summary_plain: string | null;
     pr_link: string | null;
     screenshot_path: string | null;
+    screenshot_base64: string | null;
     proposed_plan: string | null;
     approved_at: number | null;
     approved_by: string | null;
@@ -108,7 +109,7 @@ export declare const taskQueries: {
     proposePlan(id: string, plan: string): Task | undefined;
     approveTask(id: string, approvedBy: string): Task | undefined;
     rejectTask(id: string, reason: string): Task | undefined;
-    completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotPath?: string): Task | undefined;
+    completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotBase64?: string): Task | undefined;
     reopenTask(id: string): Task | undefined;
     markSubmitterNotified(id: string): void;
     addComment(taskId: string, author: string, body: string): TaskComment;

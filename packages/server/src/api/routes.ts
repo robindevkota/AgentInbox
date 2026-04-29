@@ -478,14 +478,17 @@ export function createRouter(): Router {
     }
   });
 
-  // Screenshot serving
+  // Screenshot serving — base64 stored in DB, served as PNG
   router.get("/tasks/:id/screenshot", requireApiKey, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
-    if (!task || !task.screenshot_path) {
+    if (!task || !task.screenshot_base64) {
       res.status(404).json({ error: "No screenshot for this task" });
       return;
     }
-    res.sendFile(task.screenshot_path);
+    const buf = Buffer.from(task.screenshot_base64, "base64");
+    res.setHeader("Content-Type", "image/png");
+    res.setHeader("Content-Length", buf.length);
+    res.send(buf);
   });
 
   return router;

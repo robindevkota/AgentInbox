@@ -18,6 +18,7 @@ interface Task {
   summary_plain: string | null;
   pr_link: string | null;
   screenshot_path: string | null;
+  screenshot_base64: string | null;
   escalation_reason: string | null;
   custom_field_values: string | null;
   audit: AuditEntry[];
@@ -1056,9 +1057,9 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
         </Card>
       )}
       {task.summary_plain && <Card title="Client summary"><p className="text-slate-700 text-sm">{task.summary_plain}</p></Card>}
-      {task.screenshot_path && (
+      {task.screenshot_base64 && (
         <Card title="Screenshot">
-          <img src={`/api/tasks/${task.id}/screenshot`} alt="Fix screenshot" className="rounded-lg w-full border border-slate-200" />
+          <img src={`data:image/png;base64,${task.screenshot_base64}`} alt="Fix screenshot" className="rounded-lg w-full border border-slate-200" />
         </Card>
       )}
       {task.escalation_reason && <Card title="Escalation reason"><p className="text-orange-700 text-sm">{task.escalation_reason}</p></Card>}

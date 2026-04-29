@@ -26,6 +26,7 @@ export interface Task {
   summary_plain: string | null;
   pr_link: string | null;
   screenshot_path: string | null;
+  screenshot_base64: string | null;
   proposed_plan: string | null;
   approved_at: number | null;
   approved_by: string | null;
@@ -272,12 +273,12 @@ export const taskQueries = {
     summaryTechnical: string,
     summaryPlain: string,
     prLink?: string,
-    screenshotPath?: string,
+    screenshotBase64?: string,
   ): Task | undefined {
     db.prepare(`
-      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_path = ?, updated_at = ?
+      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, updated_at = ?
       WHERE id = ?
-    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotPath ?? null, nowUnix(), id);
+    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, nowUnix(), id);
     return taskQueries.getTask(id);
   },
 

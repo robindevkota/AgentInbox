@@ -34,6 +34,7 @@ export function SubmitPage() {
   const [otpSession, setOtpSession] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
 
@@ -106,6 +107,7 @@ export function SubmitPage() {
     const form = new FormData();
     form.append("title", titleRef.current!.value.trim());
     form.append("description", descRef.current!.value.trim());
+    form.append("priority", priority);
     if (nameRef.current!.value) form.append("submitter_name", nameRef.current!.value.trim());
     if (emailRef.current!.value) form.append("submitter_email", emailRef.current!.value.trim());
     if (fileRef.current!.files?.[0]) form.append("file", fileRef.current!.files[0]);
@@ -316,6 +318,27 @@ export function SubmitPage() {
             placeholder="What happened? What did you expect? Steps to reproduce if it's a bug..."
             className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm resize-y"
           />
+        </div>
+
+        {/* Priority */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
+          <div className="flex gap-2">
+            {(["low", "medium", "high"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                onClick={() => setPriority(p)}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors capitalize ${
+                  priority === p
+                    ? p === "high" ? "bg-red-500 border-red-500 text-white"
+                    : p === "low" ? "bg-slate-200 border-slate-300 text-slate-700"
+                    : "bg-indigo-500 border-indigo-500 text-white"
+                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                }`}
+              >{p}</button>
+            ))}
+          </div>
         </div>
 
         {/* Drag-drop file upload */}

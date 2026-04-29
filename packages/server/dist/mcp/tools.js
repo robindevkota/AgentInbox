@@ -221,16 +221,7 @@ exports.mcpTools = [
                 screenshot_base64: zod_1.z.string().optional(),
             })
                 .parse(args);
-            // Save screenshot to disk if provided
-            let screenshotPath;
-            if (screenshot_base64) {
-                const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-                const screenshotsDir = path.join(DATA_DIR, "screenshots");
-                fs.mkdirSync(screenshotsDir, { recursive: true });
-                screenshotPath = path.join(screenshotsDir, `${id}.png`);
-                fs.writeFileSync(screenshotPath, Buffer.from(screenshot_base64, "base64"));
-            }
-            const task = tasks_1.taskQueries.completeTask(id, summary_technical, summary_plain, pr_link, screenshotPath);
+            const task = tasks_1.taskQueries.completeTask(id, summary_technical, summary_plain, pr_link, screenshot_base64);
             if (!task) {
                 return {
                     content: [{ type: "text", text: `Task ${id} not found` }],

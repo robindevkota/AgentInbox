@@ -127,6 +127,7 @@ const migrations = {
     "tasks.priority": "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
     "tasks.pr_link": "ALTER TABLE tasks ADD COLUMN pr_link TEXT",
     "tasks.screenshot_path": "ALTER TABLE tasks ADD COLUMN screenshot_path TEXT",
+    "tasks.screenshot_base64": "ALTER TABLE tasks ADD COLUMN screenshot_base64 TEXT",
     "tasks.submitter_notified_at": "ALTER TABLE tasks ADD COLUMN submitter_notified_at INTEGER",
 };
 for (const [key, sql] of Object.entries(migrations)) {

@@ -95,11 +95,11 @@ exports.taskQueries = {
         db_1.db.prepare("UPDATE tasks SET status = 'failed', rejected_at = ?, rejected_reason = ?, updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), reason, (0, db_1.nowUnix)(), id);
         return exports.taskQueries.getTask(id);
     },
-    completeTask(id, summaryTechnical, summaryPlain, prLink, screenshotPath) {
+    completeTask(id, summaryTechnical, summaryPlain, prLink, screenshotBase64) {
         db_1.db.prepare(`
-      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_path = ?, updated_at = ?
+      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, updated_at = ?
       WHERE id = ?
-    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotPath ?? null, (0, db_1.nowUnix)(), id);
+    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, (0, db_1.nowUnix)(), id);
         return exports.taskQueries.getTask(id);
     },
     reopenTask(id) {
