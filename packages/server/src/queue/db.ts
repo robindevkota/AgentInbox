@@ -1,4 +1,3 @@
-import Database, { type Database as DatabaseType } from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
@@ -6,7 +5,19 @@ const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 fs.mkdirSync(DATA_DIR, { recursive: true });
 fs.mkdirSync(path.join(DATA_DIR, "uploads"), { recursive: true });
 
-export const db: DatabaseType = new Database(path.join(DATA_DIR, "agentinbox.db"));
+// Use libsql (Turso) when TURSO_URL is set, otherwise fall back to local SQLite via better-sqlite3
+let db: any;
+if (process.env.TURSO_URL) {
+  const { default: Database } = require("libsql");
+  db = new Database(process.env.TURSO_URL, {
+    authToken: process.env.TURSO_AUTH_TOKEN,
+  });
+} else {
+  const { default: Database } = require("better-sqlite3");
+  db = new Database(path.join(DATA_DIR, "agentinbox.db"));
+}
+
+export { db };
 
 db.pragma("journal_mode = WAL");
 db.pragma("foreign_keys = ON");

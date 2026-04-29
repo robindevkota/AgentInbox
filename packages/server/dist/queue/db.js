@@ -6,16 +6,26 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.db = void 0;
 exports.nowUnix = nowUnix;
 exports.seedFromEnv = seedFromEnv;
-const better_sqlite3_1 = __importDefault(require("better-sqlite3"));
 const path_1 = __importDefault(require("path"));
 const fs_1 = __importDefault(require("fs"));
 const DATA_DIR = process.env.DATA_DIR || path_1.default.join(process.cwd(), "data");
 fs_1.default.mkdirSync(DATA_DIR, { recursive: true });
 fs_1.default.mkdirSync(path_1.default.join(DATA_DIR, "uploads"), { recursive: true });
-exports.db = new better_sqlite3_1.default(path_1.default.join(DATA_DIR, "agentinbox.db"));
-exports.db.pragma("journal_mode = WAL");
-exports.db.pragma("foreign_keys = ON");
-exports.db.exec(`
+// Use libsql (Turso) when TURSO_URL is set, otherwise fall back to local SQLite via better-sqlite3
+let db;
+if (process.env.TURSO_URL) {
+    const { default: Database } = require("libsql");
+    exports.db = db = new Database(process.env.TURSO_URL, {
+        authToken: process.env.TURSO_AUTH_TOKEN,
+    });
+}
+else {
+    const { default: Database } = require("better-sqlite3");
+    exports.db = db = new Database(path_1.default.join(DATA_DIR, "agentinbox.db"));
+}
+db.pragma("journal_mode = WAL");
+db.pragma("foreign_keys = ON");
+db.exec(`
   CREATE TABLE IF NOT EXISTS workspaces (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
@@ -105,16 +115,16 @@ const migrations = {
     "tasks.custom_field_values": "ALTER TABLE tasks ADD COLUMN custom_field_values TEXT",
 };
 for (const [key, sql] of Object.entries(migrations)) {
-    const already = exports.db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);
+    const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);
     if (!already) {
         try {
-            exports.db.exec(sql);
+            db.exec(sql);
         }
         catch { }
-        exports.db.prepare("INSERT OR IGNORE INTO _migrations (key) VALUES (?)").run(key);
+        db.prepare("INSERT OR IGNORE INTO _migrations (key) VALUES (?)").run(key);
     }
 }
-exports.db.exec(`
+db.exec(`
   CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
   CREATE INDEX IF NOT EXISTS idx_projects_token ON projects(token);
   CREATE INDEX IF NOT EXISTS idx_otp_project_email ON otp_tokens(project_id, email);
@@ -134,15 +144,15 @@ function seedFromEnv() {
     const customFields = process.env.SEED_CUSTOM_FIELDS || "";
     if (!wsName || !wsId || !projName || !projToken)
         return;
-    const existingWs = exports.db.prepare("SELECT id FROM workspaces WHERE id = ?").get(wsId);
+    const existingWs = db.prepare("SELECT id FROM workspaces WHERE id = ?").get(wsId);
     if (!existingWs) {
-        exports.db.prepare("INSERT INTO workspaces (id, name) VALUES (?, ?)").run(wsId, wsName);
+        db.prepare("INSERT INTO workspaces (id, name) VALUES (?, ?)").run(wsId, wsName);
     }
-    const existingProj = exports.db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
+    const existingProj = db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
     if (!existingProj) {
         const { nanoid } = require("nanoid");
         const projId = nanoid();
-        exports.db.prepare(`INSERT INTO projects (id, workspace_id, name, description, token, notify_email, brand_color, custom_fields)
+        db.prepare(`INSERT INTO projects (id, workspace_id, name, description, token, notify_email, brand_color, custom_fields)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(projId, wsId, projName, projDesc, projToken, notifyEmail, "#6366f1", customFields || null);
         console.log(`  ✓ Seeded project "${projName}" with token ${projToken}`);
     }

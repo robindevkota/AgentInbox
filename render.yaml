@@ -11,17 +11,7 @@ services:
         value: 3000
       - key: DATA_DIR
         value: /opt/render/project/src/data
-      - key: SEED_WORKSPACE_NAME
-        value: Robin Dev
-      - key: SEED_WORKSPACE_ID
-        value: hqQqGgA4Me85u7eLjajec
-      - key: SEED_PROJECT_NAME
-        value: final test
-      - key: SEED_PROJECT_TOKEN
-        value: DO_bXEfzyyd2bNSYGI7YPu6L-R7ZmNpV
-      - key: SEED_PROJECT_DESC
-        value: form-gen-mbl React + TypeScript form generator
-      - key: SEED_NOTIFY_EMAIL
-        value: sophiabrut1@gmail.com
-      - key: SEED_CUSTOM_FIELDS
-        value: '[{"name":"Environment","type":"dropdown","options":["UAT","Live"],"required":false},{"name":"Module","type":"dropdown","options":["ncna","newcifindiv","newcifcorporate","online account opening"],"required":false},{"name":"Steps","type":"dropdown","options":["screening","personal address","review"],"required":false}]'
+      - key: TURSO_URL
+        value: libsql://agentinbox-robin-devkota.aws-ap-south-1.turso.io
+      - key: TURSO_AUTH_TOKEN
+        sync: false
