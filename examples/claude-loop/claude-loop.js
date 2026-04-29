@@ -48,30 +48,29 @@ function runClaude() {
   claudeRunning = true;
   console.log(`\n[claude-loop] Triggering Claude in ${PROJECT_DIR}`);
 
-  // Use scripts/agentinbox.md if it exists in the project — keeps AgentInbox
-  // instructions separate from any other Claude agent setup in the project.
+  // Build prompt — use scripts/agentinbox.md if present in the project
   const agentInboxMd = path.join(PROJECT_DIR, "scripts", "agentinbox.md");
-  let claudeArgs;
-  if (fs.existsSync(agentInboxMd)) {
-    const promptText = fs.readFileSync(agentInboxMd, "utf-8");
-    claudeArgs = ["--dangerously-skip-permissions", "-p", promptText];
-  } else {
-    const prompt = [
-      "Check AgentInbox for pending tasks using get_pending_tasks().",
-      PROJECT_TOKEN ? `Focus on project token: ${PROJECT_TOKEN}.` : "",
-      "For each pending task:",
-      "1. Call update_task_status(id, 'in_progress')",
-      "2. Read the task title, description, and any attached file via get_file()",
-      "3. Find the relevant code and fix the bug or implement the feature",
-      "4. Call complete_task(id, summary_technical, summary_plain) when done",
-      "Work through all pending tasks before stopping.",
-    ].filter(Boolean).join(" ");
-    claudeArgs = ["--dangerously-skip-permissions", "-p", prompt];
-  }
+  const defaultPrompt = [
+    "You are an autonomous agent. Do not chat. Execute these steps immediately:",
+    "1. Call mcp__agentinbox__get_pending_tasks to list all pending tasks.",
+    "2. For each task: call mcp__agentinbox__update_task_status (in_progress), then mcp__agentinbox__get_task to read the FULL description, then mcp__agentinbox__get_file if has_file is true.",
+    "3. Fix the bug or feature in the codebase based on the description.",
+    "4. Call mcp__agentinbox__complete_task with summary_technical and summary_plain.",
+    "5. If stuck, call mcp__agentinbox__escalate_task.",
+    "Process ALL pending tasks. Start now.",
+  ].join(" ");
+
+  const promptText = fs.existsSync(agentInboxMd)
+    ? fs.readFileSync(agentInboxMd, "utf-8")
+    : defaultPrompt;
+
+  // Write prompt to a temp file — avoids shell quoting issues on Windows
+  const tmpPromptFile = path.join(require("os").tmpdir(), `agentinbox-prompt-${Date.now()}.txt`);
+  fs.writeFileSync(tmpPromptFile, promptText, "utf-8");
 
   const child = spawn(
     "claude",
-    claudeArgs,
+    ["--dangerously-skip-permissions", "--print", `--system-prompt-file=${tmpPromptFile}`, "-p", "Process all pending AgentInbox tasks now."],
     {
       cwd: PROJECT_DIR,
       stdio: "inherit",
@@ -80,6 +79,7 @@ function runClaude() {
   );
 
   child.on("close", (code) => {
+    try { fs.unlinkSync(tmpPromptFile); } catch {}
     claudeRunning = false;
     console.log(`[claude-loop] Claude finished (exit ${code})`);
 
