@@ -251,6 +251,15 @@ The corporate feature set.
 - [x] Email notifications on task completion (nodemailer, any SMTP)
 - [x] Email verification auth (Tier 2) for stricter access control
 
+### ✅ Phase 5 — Onboarding UI — DONE
+Zero-curl setup — everything through the browser.
+
+- [x] First-time onboarding flow: create workspace from the PM dashboard (no curl needed)
+- [x] "New Project" button with form: name, description, approval gate toggle, notification email, brand color
+- [x] Project token displayed as a ready-to-copy submission link after creation
+- [x] Workspace ID shown clearly on dashboard so PM can log back in
+- [x] Project list with quick actions: copy link, edit settings, view tasks
+
 ### ✅ Phase 4 — Hosted Version (Post-launch) — DONE
 Where the money comes from.
 
