@@ -3,14 +3,12 @@ import * as dotenv from "dotenv";
 import * as path from "path";
 import * as fs from "fs";
 
-// Try monorepo root .env first, then local
-const rootEnv = path.resolve(__dirname, "../../../../.env");
-const localEnv = path.resolve(__dirname, "../../.env");
-if (fs.existsSync(rootEnv)) {
-  dotenv.config({ path: rootEnv });
-} else {
-  dotenv.config({ path: localEnv });
-}
+// Load .env — try cwd (monorepo root when run via pnpm dev), then package root
+const cwdEnv = path.resolve(process.cwd(), ".env");
+const pkgEnv = path.resolve(__dirname, "../.env");
+const envPath = fs.existsSync(cwdEnv) ? cwdEnv : pkgEnv;
+dotenv.config({ path: envPath });
+console.log(`  Loading .env from: ${envPath} (WEBHOOK_URL=${process.env.WEBHOOK_URL || "not set"})`);
 import { createApp } from "./index";
 
 const args = process.argv.slice(2);

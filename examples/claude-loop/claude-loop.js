@@ -16,6 +16,7 @@
 const http = require("http");
 const { execSync, spawn } = require("child_process");
 const path = require("path");
+const fs = require("fs");
 
 // ── Parse CLI args ────────────────────────────────────────────────────────────
 const args = process.argv.slice(2);
@@ -47,20 +48,30 @@ function runClaude() {
   claudeRunning = true;
   console.log(`\n[claude-loop] Triggering Claude in ${PROJECT_DIR}`);
 
-  const prompt = [
-    "Check AgentInbox for pending tasks using get_pending_tasks().",
-    PROJECT_TOKEN ? `Focus on project token: ${PROJECT_TOKEN}.` : "",
-    "For each pending task:",
-    "1. Call update_task_status(id, 'in_progress')",
-    "2. Read the task title, description, and any attached file via get_file()",
-    "3. Find the relevant code and fix the bug or implement the feature",
-    "4. Call complete_task(id, summary_technical, summary_plain) when done",
-    "Work through all pending tasks before stopping.",
-  ].filter(Boolean).join(" ");
+  // Use scripts/agentinbox.md if it exists in the project — keeps AgentInbox
+  // instructions separate from any other Claude agent setup in the project.
+  const agentInboxMd = path.join(PROJECT_DIR, "scripts", "agentinbox.md");
+  let claudeArgs;
+  if (fs.existsSync(agentInboxMd)) {
+    const promptText = fs.readFileSync(agentInboxMd, "utf-8");
+    claudeArgs = ["--dangerously-skip-permissions", "-p", promptText];
+  } else {
+    const prompt = [
+      "Check AgentInbox for pending tasks using get_pending_tasks().",
+      PROJECT_TOKEN ? `Focus on project token: ${PROJECT_TOKEN}.` : "",
+      "For each pending task:",
+      "1. Call update_task_status(id, 'in_progress')",
+      "2. Read the task title, description, and any attached file via get_file()",
+      "3. Find the relevant code and fix the bug or implement the feature",
+      "4. Call complete_task(id, summary_technical, summary_plain) when done",
+      "Work through all pending tasks before stopping.",
+    ].filter(Boolean).join(" ");
+    claudeArgs = ["--dangerously-skip-permissions", "-p", prompt];
+  }
 
   const child = spawn(
     "claude",
-    ["--dangerously-skip-permissions", "-p", prompt],
+    claudeArgs,
     {
       cwd: PROJECT_DIR,
       stdio: "inherit",
