@@ -152,6 +152,7 @@ export function createRouter(): Router {
           .object({
             title: z.string().min(1).max(200),
             description: z.string().min(1).max(5000),
+            priority: z.enum(["low", "medium", "high"]).optional(),
             submitter_name: z.string().max(100).optional(),
             submitter_email: z.string().email().optional(),
             custom_field_values: z.record(z.string()).optional(),
@@ -176,6 +177,7 @@ export function createRouter(): Router {
           project_id: project.id,
           title: body.title,
           description: body.description,
+          priority: body.priority,
           submitter_name: body.submitter_name,
           submitter_email: body.submitter_email,
           file_path: filePath,
@@ -433,6 +435,57 @@ export function createRouter(): Router {
     } catch (err) {
       res.status(400).json({ error: String(err) });
     }
+  });
+
+  // Reopen a completed/failed/escalated task back to pending
+  router.post("/tasks/:id/reopen", requireApiKey, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    const updated = taskQueries.reopenTask(req.params.id);
+    taskQueries.audit({
+      project_id: task.project_id,
+      task_id: task.id,
+      action: "task_reopened",
+      actor: (req.query.by as string) || "PM",
+    });
+    res.json(updated);
+  });
+
+  // Comments
+  router.get("/tasks/:id/comments", requireApiKey, (req: Request, res: Response) => {
+    const comments = taskQueries.getComments(req.params.id);
+    res.json(comments);
+  });
+
+  router.post("/tasks/:id/comments", requireApiKey, (req: Request, res: Response) => {
+    try {
+      const { author, body } = z
+        .object({ author: z.string().min(1), body: z.string().min(1) })
+        .parse(req.body);
+      const comment = taskQueries.addComment(req.params.id, author, body);
+      taskQueries.audit({
+        task_id: req.params.id,
+        action: "comment_added",
+        actor: author,
+        detail: body,
+      });
+      res.status(201).json(comment);
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // Screenshot serving
+  router.get("/tasks/:id/screenshot", requireApiKey, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task || !task.screenshot_path) {
+      res.status(404).json({ error: "No screenshot for this task" });
+      return;
+    }
+    res.sendFile(task.screenshot_path);
   });
 
   return router;

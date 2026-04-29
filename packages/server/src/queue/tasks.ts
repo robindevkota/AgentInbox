@@ -16,6 +16,7 @@ export interface Task {
   title: string;
   description: string;
   status: TaskStatus;
+  priority: "low" | "medium" | "high";
   submitter_name: string | null;
   submitter_email: string | null;
   file_path: string | null;
@@ -23,6 +24,8 @@ export interface Task {
   file_content: string | null;
   summary_technical: string | null;
   summary_plain: string | null;
+  pr_link: string | null;
+  screenshot_path: string | null;
   proposed_plan: string | null;
   approved_at: number | null;
   approved_by: string | null;
@@ -30,9 +33,18 @@ export interface Task {
   rejected_reason: string | null;
   escalation_reason: string | null;
   slack_ts: string | null;
-  custom_field_values: string | null; // JSON: { "Module": "personal-info", "Environment": "UAT" }
+  custom_field_values: string | null;
+  submitter_notified_at: number | null;
   created_at: number;
   updated_at: number;
+}
+
+export interface TaskComment {
+  id: string;
+  task_id: string;
+  author: string;
+  body: string;
+  created_at: number;
 }
 
 export interface CustomField {
@@ -166,22 +178,24 @@ export const taskQueries = {
     project_id: string;
     title: string;
     description: string;
+    priority?: "low" | "medium" | "high";
     submitter_name?: string;
     submitter_email?: string;
     file_path?: string;
     file_name?: string;
     file_content?: string;
-    custom_field_values?: string; // JSON: { "Module": "personal-info" }
+    custom_field_values?: string;
   }): Task {
     const id = nanoid();
     db.prepare(`
-      INSERT INTO tasks (id, project_id, title, description, submitter_name, submitter_email, file_path, file_name, file_content, custom_field_values)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, custom_field_values)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       data.project_id,
       data.title,
       data.description,
+      data.priority ?? "medium",
       data.submitter_name ?? null,
       data.submitter_email ?? null,
       data.file_path ?? null,
@@ -197,15 +211,14 @@ export const taskQueries = {
   },
 
   getPendingTasks(projectId?: string): Task[] {
+    const order = "ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, created_at ASC";
     if (projectId) {
       return db
-        .prepare(
-          "SELECT * FROM tasks WHERE project_id = ? AND status = 'pending' ORDER BY created_at ASC"
-        )
+        .prepare(`SELECT * FROM tasks WHERE project_id = ? AND status = 'pending' ${order}`)
         .all(projectId) as Task[];
     }
     return db
-      .prepare("SELECT * FROM tasks WHERE status = 'pending' ORDER BY created_at ASC")
+      .prepare(`SELECT * FROM tasks WHERE status = 'pending' ${order}`)
       .all() as Task[];
   },
 
@@ -257,13 +270,42 @@ export const taskQueries = {
   completeTask(
     id: string,
     summaryTechnical: string,
-    summaryPlain: string
+    summaryPlain: string,
+    prLink?: string,
+    screenshotPath?: string,
   ): Task | undefined {
     db.prepare(`
-      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, updated_at = ?
+      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_path = ?, updated_at = ?
       WHERE id = ?
-    `).run(summaryTechnical, summaryPlain, nowUnix(), id);
+    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotPath ?? null, nowUnix(), id);
     return taskQueries.getTask(id);
+  },
+
+  reopenTask(id: string): Task | undefined {
+    db.prepare(
+      "UPDATE tasks SET status = 'pending', updated_at = ? WHERE id = ?"
+    ).run(nowUnix(), id);
+    return taskQueries.getTask(id);
+  },
+
+  markSubmitterNotified(id: string): void {
+    db.prepare("UPDATE tasks SET submitter_notified_at = ? WHERE id = ?").run(nowUnix(), id);
+  },
+
+  // ── Comments ──────────────────────────────────────────────────────────────
+
+  addComment(taskId: string, author: string, body: string): TaskComment {
+    const id = nanoid();
+    db.prepare(
+      "INSERT INTO task_comments (id, task_id, author, body) VALUES (?, ?, ?, ?)"
+    ).run(id, taskId, author, body);
+    return db.prepare("SELECT * FROM task_comments WHERE id = ?").get(id) as TaskComment;
+  },
+
+  getComments(taskId: string): TaskComment[] {
+    return db
+      .prepare("SELECT * FROM task_comments WHERE task_id = ? ORDER BY created_at ASC")
+      .all(taskId) as TaskComment[];
   },
 
   escalateTask(id: string, reason: string): Task | undefined {

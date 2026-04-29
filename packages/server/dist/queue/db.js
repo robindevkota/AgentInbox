@@ -111,11 +111,23 @@ db.exec(`
 
   -- custom_fields column on tasks to store submitted values as JSON
   CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY);
+
+  CREATE TABLE IF NOT EXISTS task_comments (
+    id TEXT PRIMARY KEY,
+    task_id TEXT NOT NULL REFERENCES tasks(id) ON DELETE CASCADE,
+    author TEXT NOT NULL,
+    body TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  );
 `);
 // Run migrations for columns added after initial schema
 const migrations = {
     "projects.custom_fields": "ALTER TABLE projects ADD COLUMN custom_fields TEXT",
     "tasks.custom_field_values": "ALTER TABLE tasks ADD COLUMN custom_field_values TEXT",
+    "tasks.priority": "ALTER TABLE tasks ADD COLUMN priority TEXT NOT NULL DEFAULT 'medium'",
+    "tasks.pr_link": "ALTER TABLE tasks ADD COLUMN pr_link TEXT",
+    "tasks.screenshot_path": "ALTER TABLE tasks ADD COLUMN screenshot_path TEXT",
+    "tasks.submitter_notified_at": "ALTER TABLE tasks ADD COLUMN submitter_notified_at INTEGER",
 };
 for (const [key, sql] of Object.entries(migrations)) {
     const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);

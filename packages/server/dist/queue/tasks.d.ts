@@ -5,6 +5,7 @@ export interface Task {
     title: string;
     description: string;
     status: TaskStatus;
+    priority: "low" | "medium" | "high";
     submitter_name: string | null;
     submitter_email: string | null;
     file_path: string | null;
@@ -12,6 +13,8 @@ export interface Task {
     file_content: string | null;
     summary_technical: string | null;
     summary_plain: string | null;
+    pr_link: string | null;
+    screenshot_path: string | null;
     proposed_plan: string | null;
     approved_at: number | null;
     approved_by: string | null;
@@ -20,8 +23,16 @@ export interface Task {
     escalation_reason: string | null;
     slack_ts: string | null;
     custom_field_values: string | null;
+    submitter_notified_at: number | null;
     created_at: number;
     updated_at: number;
+}
+export interface TaskComment {
+    id: string;
+    task_id: string;
+    author: string;
+    body: string;
+    created_at: number;
 }
 export interface CustomField {
     name: string;
@@ -82,6 +93,7 @@ export declare const taskQueries: {
         project_id: string;
         title: string;
         description: string;
+        priority?: "low" | "medium" | "high";
         submitter_name?: string;
         submitter_email?: string;
         file_path?: string;
@@ -96,7 +108,11 @@ export declare const taskQueries: {
     proposePlan(id: string, plan: string): Task | undefined;
     approveTask(id: string, approvedBy: string): Task | undefined;
     rejectTask(id: string, reason: string): Task | undefined;
-    completeTask(id: string, summaryTechnical: string, summaryPlain: string): Task | undefined;
+    completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotPath?: string): Task | undefined;
+    reopenTask(id: string): Task | undefined;
+    markSubmitterNotified(id: string): void;
+    addComment(taskId: string, author: string, body: string): TaskComment;
+    getComments(taskId: string): TaskComment[];
     escalateTask(id: string, reason: string): Task | undefined;
     setSlackTs(id: string, slackTs: string): void;
     listTasks(projectId: string, status?: TaskStatus): Task[];

@@ -13,6 +13,8 @@ export declare const mcpTools: ({
             plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
             task_id?: undefined;
             reason?: undefined;
         };
@@ -39,6 +41,8 @@ export declare const mcpTools: ({
             plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
             task_id?: undefined;
             reason?: undefined;
         };
@@ -76,6 +80,8 @@ export declare const mcpTools: ({
             plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
             task_id?: undefined;
             reason?: undefined;
         };
@@ -112,6 +118,8 @@ export declare const mcpTools: ({
             status?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
             task_id?: undefined;
             reason?: undefined;
         };
@@ -145,6 +153,14 @@ export declare const mcpTools: ({
                 description: string;
             };
             summary_plain: {
+                type: string;
+                description: string;
+            };
+            pr_link: {
+                type: string;
+                description: string;
+            };
+            screenshot_base64: {
                 type: string;
                 description: string;
             };
@@ -185,6 +201,8 @@ export declare const mcpTools: ({
             plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
             reason?: undefined;
         };
         required: string[];
@@ -228,6 +246,8 @@ export declare const mcpTools: ({
             plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
             task_id?: undefined;
         };
         required: string[];

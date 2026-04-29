@@ -50,22 +50,23 @@ exports.taskQueries = {
     createTask(data) {
         const id = (0, nanoid_1.nanoid)();
         db_1.db.prepare(`
-      INSERT INTO tasks (id, project_id, title, description, submitter_name, submitter_email, file_path, file_name, file_content, custom_field_values)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, data.project_id, data.title, data.description, data.submitter_name ?? null, data.submitter_email ?? null, data.file_path ?? null, data.file_name ?? null, data.file_content ?? null, data.custom_field_values ?? null);
+      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, custom_field_values)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, data.project_id, data.title, data.description, data.priority ?? "medium", data.submitter_name ?? null, data.submitter_email ?? null, data.file_path ?? null, data.file_name ?? null, data.file_content ?? null, data.custom_field_values ?? null);
         return db_1.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
     },
     getTask(id) {
         return db_1.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
     },
     getPendingTasks(projectId) {
+        const order = "ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, created_at ASC";
         if (projectId) {
             return db_1.db
-                .prepare("SELECT * FROM tasks WHERE project_id = ? AND status = 'pending' ORDER BY created_at ASC")
+                .prepare(`SELECT * FROM tasks WHERE project_id = ? AND status = 'pending' ${order}`)
                 .all(projectId);
         }
         return db_1.db
-            .prepare("SELECT * FROM tasks WHERE status = 'pending' ORDER BY created_at ASC")
+            .prepare(`SELECT * FROM tasks WHERE status = 'pending' ${order}`)
             .all();
     },
     getApprovedTasks(projectId) {
@@ -94,12 +95,30 @@ exports.taskQueries = {
         db_1.db.prepare("UPDATE tasks SET status = 'failed', rejected_at = ?, rejected_reason = ?, updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), reason, (0, db_1.nowUnix)(), id);
         return exports.taskQueries.getTask(id);
     },
-    completeTask(id, summaryTechnical, summaryPlain) {
+    completeTask(id, summaryTechnical, summaryPlain, prLink, screenshotPath) {
         db_1.db.prepare(`
-      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, updated_at = ?
+      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_path = ?, updated_at = ?
       WHERE id = ?
-    `).run(summaryTechnical, summaryPlain, (0, db_1.nowUnix)(), id);
+    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotPath ?? null, (0, db_1.nowUnix)(), id);
         return exports.taskQueries.getTask(id);
+    },
+    reopenTask(id) {
+        db_1.db.prepare("UPDATE tasks SET status = 'pending', updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), id);
+        return exports.taskQueries.getTask(id);
+    },
+    markSubmitterNotified(id) {
+        db_1.db.prepare("UPDATE tasks SET submitter_notified_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), id);
+    },
+    // ── Comments ──────────────────────────────────────────────────────────────
+    addComment(taskId, author, body) {
+        const id = (0, nanoid_1.nanoid)();
+        db_1.db.prepare("INSERT INTO task_comments (id, task_id, author, body) VALUES (?, ?, ?, ?)").run(id, taskId, author, body);
+        return db_1.db.prepare("SELECT * FROM task_comments WHERE id = ?").get(id);
+    },
+    getComments(taskId) {
+        return db_1.db
+            .prepare("SELECT * FROM task_comments WHERE task_id = ? ORDER BY created_at ASC")
+            .all(taskId);
     },
     escalateTask(id, reason) {
         db_1.db.prepare("UPDATE tasks SET status = 'escalated', escalation_reason = ?, updated_at = ? WHERE id = ?").run(reason, (0, db_1.nowUnix)(), id);

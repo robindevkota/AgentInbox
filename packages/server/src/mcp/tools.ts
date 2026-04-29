@@ -173,7 +173,7 @@ export const mcpTools = [
   {
     name: "complete_task",
     description:
-      "Mark a task as done and write two completion summaries: a technical one for PMs/devs (include file paths, line numbers, PR links) and a plain-English one for non-technical clients.",
+      "Mark a task as done and write two completion summaries: a technical one for PMs/devs (include file paths, line numbers, PR links) and a plain-English one for non-technical clients. Optionally include a PR link and a base64 screenshot of the fix.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -188,18 +188,39 @@ export const mcpTools = [
           description:
             "Plain English summary for the client — no jargon, no file paths, just what was done and what they should now see",
         },
+        pr_link: {
+          type: "string",
+          description: "Optional GitHub/GitLab PR URL",
+        },
+        screenshot_base64: {
+          type: "string",
+          description: "Optional base64-encoded PNG screenshot of the fix (from Playwright or similar)",
+        },
       },
       required: ["id", "summary_technical", "summary_plain"],
     },
     handler(args: unknown) {
-      const { id, summary_technical, summary_plain } = z
+      const { id, summary_technical, summary_plain, pr_link, screenshot_base64 } = z
         .object({
           id: z.string(),
           summary_technical: z.string().min(1),
           summary_plain: z.string().min(1),
+          pr_link: z.string().optional(),
+          screenshot_base64: z.string().optional(),
         })
         .parse(args);
-      const task = taskQueries.completeTask(id, summary_technical, summary_plain);
+
+      // Save screenshot to disk if provided
+      let screenshotPath: string | undefined;
+      if (screenshot_base64) {
+        const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
+        const screenshotsDir = path.join(DATA_DIR, "screenshots");
+        fs.mkdirSync(screenshotsDir, { recursive: true });
+        screenshotPath = path.join(screenshotsDir, `${id}.png`);
+        fs.writeFileSync(screenshotPath, Buffer.from(screenshot_base64, "base64"));
+      }
+
+      const task = taskQueries.completeTask(id, summary_technical, summary_plain, pr_link, screenshotPath);
       if (!task) {
         return {
           content: [{ type: "text", text: `Task ${id} not found` }],
@@ -209,25 +230,31 @@ export const mcpTools = [
 
       // Fire completion notifications async
       import("../email/mailer").then(async ({ sendTaskCompleted }) => {
-        const project = taskQueries.getProjectById(task.project_id);
+        const project = taskQueries.getProjectById(task!.project_id);
+        const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+        // Notify PM
         if (project?.notify_email) {
-          const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-          await sendTaskCompleted(project.notify_email, task, project, baseUrl).catch(() => {});
+          await sendTaskCompleted(project.notify_email, task!, project, baseUrl).catch(() => {});
+        }
+        // Notify submitter if different from PM and has email
+        if (task!.submitter_email && task!.submitter_email !== project?.notify_email) {
+          await sendTaskCompleted(task!.submitter_email, task!, project!, baseUrl).catch(() => {});
+          taskQueries.markSubmitterNotified(id);
         }
       });
 
       taskQueries.audit({
-        project_id: task.project_id,
+        project_id: task!.project_id,
         task_id: id,
         action: "task_completed",
-        detail: `Technical: ${summary_technical}`,
+        detail: pr_link ? `PR: ${pr_link} | ${summary_technical}` : summary_technical,
       });
 
       return {
         content: [
           {
             type: "text",
-            text: `Task ${id} marked as done.\n\nTechnical: ${summary_technical}\n\nPlain English: ${summary_plain}`,
+            text: `Task ${id} marked as done.\n\nTechnical: ${summary_technical}\n\nPlain English: ${summary_plain}${pr_link ? `\n\nPR: ${pr_link}` : ""}`,
           },
         ],
       };

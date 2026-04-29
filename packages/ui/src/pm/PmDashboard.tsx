@@ -6,6 +6,7 @@ interface Task {
   title: string;
   description: string;
   status: string;
+  priority: "low" | "medium" | "high";
   submitter_name: string | null;
   submitter_email: string | null;
   file_name: string | null;
@@ -15,10 +16,20 @@ interface Task {
   rejected_reason: string | null;
   summary_technical: string | null;
   summary_plain: string | null;
+  pr_link: string | null;
+  screenshot_path: string | null;
   escalation_reason: string | null;
+  custom_field_values: string | null;
   audit: AuditEntry[];
   created_at: number;
   updated_at: number;
+}
+
+interface TaskComment {
+  id: string;
+  author: string;
+  body: string;
+  created_at: number;
 }
 
 interface AuditEntry {
@@ -542,10 +553,16 @@ function DashboardScreen({
     const reason = prompt("Reason for rejection?");
     if (!reason) return;
     await fetch(`/api/tasks/${id}/reject`, {
-      method: "POST", headers: authHeaders(), body: JSON.stringify({ reason }),
+      method: "POST", headers: { ...authHeaders(), "Content-Type": "application/json" }, body: JSON.stringify({ reason }),
     });
     await loadTask(id);
     setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: "failed" } : t));
+  }
+
+  async function reopenTask(id: string) {
+    await fetch(`/api/tasks/${id}/reopen?by=PM`, { method: "POST", headers: authHeaders() });
+    await loadTask(id);
+    setTasks((prev) => prev.map((t) => t.id === id ? { ...t, status: "pending" } : t));
   }
 
   async function refreshProjects() {
@@ -713,12 +730,24 @@ function DashboardScreen({
                             }`}>
                             <div className="flex items-start justify-between gap-3 mb-1.5">
                               <span className="text-sm font-semibold text-slate-900 leading-snug line-clamp-1">{t.title}</span>
-                              <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${STATUS_COLORS[t.status] || "bg-slate-100 text-slate-600"}`}>
-                                {t.status.replace(/_/g, " ")}
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {t.priority === "high" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">high</span>}
+                                {t.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500">low</span>}
+                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[t.status] || "bg-slate-100 text-slate-600"}`}>
+                                  {t.status.replace(/_/g, " ")}
+                                </span>
+                              </div>
                             </div>
                             <div className="flex items-center gap-3 text-xs text-slate-400">
                               {t.submitter_name && <span>{t.submitter_name}</span>}
+                              {t.custom_field_values && (() => {
+                                try {
+                                  const vals = JSON.parse(t.custom_field_values);
+                                  return Object.entries(vals).map(([k, v]) => (
+                                    <span key={k} className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs">{String(v)}</span>
+                                  ));
+                                } catch { return null; }
+                              })()}
                               <span>{new Date(t.created_at * 1000).toLocaleDateString()}</span>
                             </div>
                           </button>
@@ -742,6 +771,7 @@ function DashboardScreen({
                           task={selectedTask}
                           onApprove={() => approveTask(selectedTask.id)}
                           onReject={() => rejectTask(selectedTask.id)}
+                          onReopen={() => reopenTask(selectedTask.id)}
                         />
                       </div>
                     </div>
@@ -931,15 +961,54 @@ function NewProjectModal({
 
 // ── Task detail ───────────────────────────────────────────────────────────────
 
-function TaskDetail({ task, onApprove, onReject }: { task: Task; onApprove: () => void; onReject: () => void }) {
+function TaskDetail({ task, onApprove, onReject, onReopen }: { task: Task; onApprove: () => void; onReject: () => void; onReopen: () => void }) {
+  const [comments, setComments] = useState<TaskComment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [commentAuthor, setCommentAuthor] = useState("PM");
+  const [submittingComment, setSubmittingComment] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/tasks/${task.id}/comments`, { headers: authHeaders() })
+      .then(r => r.json())
+      .then(setComments)
+      .catch(() => {});
+  }, [task.id]);
+
+  const submitComment = async () => {
+    if (!commentText.trim()) return;
+    setSubmittingComment(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/comments`, {
+        method: "POST",
+        headers: { ...authHeaders(), "Content-Type": "application/json" },
+        body: JSON.stringify({ author: commentAuthor, body: commentText }),
+      });
+      if (res.ok) {
+        const comment = await res.json();
+        setComments(prev => [...prev, comment]);
+        setCommentText("");
+      }
+    } finally {
+      setSubmittingComment(false);
+    }
+  };
+
+  const customFields = (() => {
+    try { return task.custom_field_values ? JSON.parse(task.custom_field_values) : null; } catch { return null; }
+  })();
+
   return (
     <div className="space-y-4">
       <div>
         <div className="flex items-start justify-between gap-3 mb-2">
           <h1 className="text-lg font-bold text-slate-900 leading-snug">{task.title}</h1>
-          <span className={`text-xs px-2.5 py-1 rounded-full font-medium shrink-0 ${STATUS_COLORS[task.status] || "bg-slate-100 text-slate-600"}`}>
-            {(task.status || "").replace(/_/g, " ")}
-          </span>
+          <div className="flex items-center gap-1.5 shrink-0">
+            {task.priority === "high" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">high</span>}
+            {task.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500">low</span>}
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[task.status] || "bg-slate-100 text-slate-600"}`}>
+              {(task.status || "").replace(/_/g, " ")}
+            </span>
+          </div>
         </div>
         {task.submitter_name && <p className="text-sm text-slate-500">{task.submitter_name}{task.submitter_email && ` · ${task.submitter_email}`}</p>}
         <p className="text-xs text-slate-400 mt-0.5">{new Date(task.created_at * 1000).toLocaleString()}</p>
@@ -952,13 +1021,85 @@ function TaskDetail({ task, onApprove, onReject }: { task: Task; onApprove: () =
         </div>
       )}
 
+      {["done", "failed", "escalated"].includes(task.status) && (
+        <button onClick={onReopen} className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors border border-amber-200">
+          Re-open task
+        </button>
+      )}
+
+      {customFields && Object.keys(customFields).length > 0 && (
+        <Card title="Submission details">
+          <div className="grid grid-cols-2 gap-2">
+            {Object.entries(customFields).map(([k, v]) => (
+              <div key={k}>
+                <p className="text-xs text-slate-400 mb-0.5">{k}</p>
+                <p className="text-sm font-medium text-slate-700">{String(v)}</p>
+              </div>
+            ))}
+          </div>
+        </Card>
+      )}
+
       <Card title="Description"><p className="text-slate-700 text-sm whitespace-pre-wrap">{task.description}</p></Card>
       {task.file_name && <Card title="Attached file"><p className="text-slate-600 text-sm">📎 {task.file_name}</p></Card>}
       {task.proposed_plan && <Card title="Claude's proposed plan"><p className="text-sm text-amber-900 whitespace-pre-wrap bg-amber-50 rounded-lg p-3">{task.proposed_plan}</p></Card>}
       {task.rejected_reason && <Card title="Rejection reason"><p className="text-red-700 text-sm">{task.rejected_reason}</p></Card>}
-      {task.summary_technical && <Card title="Technical summary"><p className="text-slate-700 text-sm font-mono whitespace-pre-wrap">{task.summary_technical}</p></Card>}
+      {task.summary_technical && (
+        <Card title="Technical summary">
+          <p className="text-slate-700 text-sm font-mono whitespace-pre-wrap">{task.summary_technical}</p>
+          {task.pr_link && (
+            <a href={task.pr_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-2 text-indigo-600 hover:underline text-sm font-medium">
+              View PR →
+            </a>
+          )}
+        </Card>
+      )}
       {task.summary_plain && <Card title="Client summary"><p className="text-slate-700 text-sm">{task.summary_plain}</p></Card>}
+      {task.screenshot_path && (
+        <Card title="Screenshot">
+          <img src={`/api/tasks/${task.id}/screenshot`} alt="Fix screenshot" className="rounded-lg w-full border border-slate-200" />
+        </Card>
+      )}
       {task.escalation_reason && <Card title="Escalation reason"><p className="text-orange-700 text-sm">{task.escalation_reason}</p></Card>}
+
+      {/* Comments */}
+      <Card title={`Comments (${comments.length})`}>
+        <div className="space-y-3 mb-3">
+          {comments.length === 0 && <p className="text-xs text-slate-400">No comments yet.</p>}
+          {comments.map(c => (
+            <div key={c.id} className="bg-slate-50 rounded-lg p-3">
+              <div className="flex items-center gap-2 mb-1">
+                <span className="text-xs font-semibold text-slate-700">{c.author}</span>
+                <span className="text-xs text-slate-400">{new Date(c.created_at * 1000).toLocaleString()}</span>
+              </div>
+              <p className="text-sm text-slate-700 whitespace-pre-wrap">{c.body}</p>
+            </div>
+          ))}
+        </div>
+        <div className="flex gap-2">
+          <input
+            value={commentAuthor}
+            onChange={e => setCommentAuthor(e.target.value)}
+            className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs w-20 text-slate-700"
+            placeholder="Name"
+          />
+          <input
+            value={commentText}
+            onChange={e => setCommentText(e.target.value)}
+            onKeyDown={e => e.key === "Enter" && !e.shiftKey && submitComment()}
+            className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700"
+            placeholder="Add a comment..."
+          />
+          <button
+            onClick={submitComment}
+            disabled={submittingComment || !commentText.trim()}
+            className="bg-indigo-500 hover:bg-indigo-600 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg transition-colors"
+          >
+            Post
+          </button>
+        </div>
+      </Card>
+
       {task.audit?.length > 0 && (
         <Card title="Audit log">
           <div className="space-y-2">

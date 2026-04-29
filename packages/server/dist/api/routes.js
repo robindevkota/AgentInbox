@@ -144,6 +144,7 @@ function createRouter() {
                 .object({
                 title: zod_1.z.string().min(1).max(200),
                 description: zod_1.z.string().min(1).max(5000),
+                priority: zod_1.z.enum(["low", "medium", "high"]).optional(),
                 submitter_name: zod_1.z.string().max(100).optional(),
                 submitter_email: zod_1.z.string().email().optional(),
                 custom_field_values: zod_1.z.record(zod_1.z.string()).optional(),
@@ -166,6 +167,7 @@ function createRouter() {
                 project_id: project.id,
                 title: body.title,
                 description: body.description,
+                priority: body.priority,
                 submitter_name: body.submitter_name,
                 submitter_email: body.submitter_email,
                 file_path: filePath,
@@ -388,6 +390,54 @@ function createRouter() {
         catch (err) {
             res.status(400).json({ error: String(err) });
         }
+    });
+    // Reopen a completed/failed/escalated task back to pending
+    router.post("/tasks/:id/reopen", tokens_1.requireApiKey, (req, res) => {
+        const task = tasks_1.taskQueries.getTask(req.params.id);
+        if (!task) {
+            res.status(404).json({ error: "Task not found" });
+            return;
+        }
+        const updated = tasks_1.taskQueries.reopenTask(req.params.id);
+        tasks_1.taskQueries.audit({
+            project_id: task.project_id,
+            task_id: task.id,
+            action: "task_reopened",
+            actor: req.query.by || "PM",
+        });
+        res.json(updated);
+    });
+    // Comments
+    router.get("/tasks/:id/comments", tokens_1.requireApiKey, (req, res) => {
+        const comments = tasks_1.taskQueries.getComments(req.params.id);
+        res.json(comments);
+    });
+    router.post("/tasks/:id/comments", tokens_1.requireApiKey, (req, res) => {
+        try {
+            const { author, body } = zod_1.z
+                .object({ author: zod_1.z.string().min(1), body: zod_1.z.string().min(1) })
+                .parse(req.body);
+            const comment = tasks_1.taskQueries.addComment(req.params.id, author, body);
+            tasks_1.taskQueries.audit({
+                task_id: req.params.id,
+                action: "comment_added",
+                actor: author,
+                detail: body,
+            });
+            res.status(201).json(comment);
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
+    });
+    // Screenshot serving
+    router.get("/tasks/:id/screenshot", tokens_1.requireApiKey, (req, res) => {
+        const task = tasks_1.taskQueries.getTask(req.params.id);
+        if (!task || !task.screenshot_path) {
+            res.status(404).json({ error: "No screenshot for this task" });
+            return;
+        }
+        res.sendFile(task.screenshot_path);
     });
     return router;
 }
