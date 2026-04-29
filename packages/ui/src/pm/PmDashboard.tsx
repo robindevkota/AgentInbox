@@ -960,7 +960,8 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
       setRequireApproval(!!project.require_approval);
       try { setCustomFields(project.custom_fields ? JSON.parse(project.custom_fields) : []); } catch { setCustomFields([]); }
     }
-  }, [project]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project?.id]);
 
   if (!project) return <div className="p-8 text-slate-400 text-sm">Select a project from the sidebar to edit its settings.</div>;
 
