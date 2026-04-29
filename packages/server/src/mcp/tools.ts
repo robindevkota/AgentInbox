@@ -5,7 +5,7 @@ export const mcpTools = [
   {
     name: "get_pending_tasks",
     description:
-      "Returns all pending tasks in the inbox. Claude should call this to check for new work. Optionally filter by project_id.",
+      "Returns all pending tasks in the inbox that are ready for Claude to work on. Tasks with status 'pending' (and approved if the project requires approval) are returned. Optionally filter by project_id.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -31,6 +31,7 @@ export const mcpTools = [
                 submitter_name: t.submitter_name,
                 has_file: !!t.file_path,
                 file_name: t.file_name,
+                status: t.status,
                 created_at: t.created_at,
               })),
               null,
@@ -99,10 +100,58 @@ export const mcpTools = [
         };
       }
       return {
+        content: [{ type: "text", text: `Task ${id} updated to status: ${status}` }],
+      };
+    },
+  },
+
+  {
+    name: "propose_plan",
+    description:
+      "When a project requires PM approval before execution, call this BEFORE starting work. Describe exactly what you plan to do. The task will move to 'awaiting_approval' and the PM will be notified. Do NOT start making changes until you call update_task_status('in_progress') after approval. Check get_task to see if approved_at is set.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        id: { type: "string", description: "Task ID" },
+        plan: {
+          type: "string",
+          description:
+            "Plain-English plan of what you intend to do: which files, what changes, what tests, what PR strategy.",
+        },
+      },
+      required: ["id", "plan"],
+    },
+    handler(args: unknown) {
+      const { id, plan } = z
+        .object({ id: z.string(), plan: z.string().min(10) })
+        .parse(args);
+      const task = taskQueries.proposePlan(id, plan);
+      if (!task) {
+        return {
+          content: [{ type: "text", text: `Task ${id} not found` }],
+          isError: true,
+        };
+      }
+
+      // Fire approval email async — import lazily to avoid circular deps
+      import("../email/mailer").then(async ({ sendApprovalRequest }) => {
+        const project = taskQueries.getProjectById(task.project_id);
+        if (project?.notify_email) {
+          const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+          await sendApprovalRequest(
+            project.notify_email,
+            task,
+            project,
+            `${baseUrl}/pm/tasks/${task.id}`
+          ).catch(() => {});
+        }
+      });
+
+      return {
         content: [
           {
             type: "text",
-            text: `Task ${id} updated to status: ${status}`,
+            text: `Plan submitted for task ${id}. Status is now 'awaiting_approval'. Poll get_task(id) until approved_at is set, then call update_task_status('in_progress') to proceed.`,
           },
         ],
       };
@@ -145,6 +194,23 @@ export const mcpTools = [
           isError: true,
         };
       }
+
+      // Fire completion notifications async
+      import("../email/mailer").then(async ({ sendTaskCompleted }) => {
+        const project = taskQueries.getProjectById(task.project_id);
+        if (project?.notify_email) {
+          const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+          await sendTaskCompleted(project.notify_email, task, project, baseUrl).catch(() => {});
+        }
+      });
+
+      taskQueries.audit({
+        project_id: task.project_id,
+        task_id: id,
+        action: "task_completed",
+        detail: `Technical: ${summary_technical}`,
+      });
+
       return {
         content: [
           {
@@ -185,7 +251,9 @@ export const mcpTools = [
         content: [
           {
             type: "text",
-            text: task.file_content || `File attached (${task.file_name}) but content not yet parsed`,
+            text:
+              task.file_content ||
+              `File attached (${task.file_name}) but content not yet parsed`,
           },
         ],
       };
@@ -195,7 +263,7 @@ export const mcpTools = [
   {
     name: "escalate_task",
     description:
-      "Escalate a task to a human when you genuinely cannot solve it. The client will see 'Needs human review' and the PM will see your reason. Only use this when truly stuck — not as a first resort.",
+      "Escalate a task to a human when you genuinely cannot solve it. The client will see 'Needs human review' and the PM will be notified. Only use this when truly stuck — not as a first resort.",
     inputSchema: {
       type: "object" as const,
       properties: {
@@ -219,12 +287,31 @@ export const mcpTools = [
           isError: true,
         };
       }
+
+      // Fire escalation email async
+      import("../email/mailer").then(async ({ sendEscalation }) => {
+        const project = taskQueries.getProjectById(task.project_id);
+        if (project?.notify_email) {
+          const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
+          await sendEscalation(
+            project.notify_email,
+            task,
+            project,
+            `${baseUrl}/pm/tasks/${task.id}`
+          ).catch(() => {});
+        }
+      });
+
+      taskQueries.audit({
+        project_id: task.project_id,
+        task_id: id,
+        action: "task_escalated",
+        detail: reason,
+      });
+
       return {
         content: [
-          {
-            type: "text",
-            text: `Task ${id} escalated.\nReason: ${reason}`,
-          },
+          { type: "text", text: `Task ${id} escalated.\nReason: ${reason}` },
         ],
       };
     },

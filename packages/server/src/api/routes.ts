@@ -1,11 +1,11 @@
 import { Router, Request, Response } from "express";
 import multer from "multer";
 import path from "path";
-import fs from "fs";
 import { z } from "zod";
 import { taskQueries } from "../queue/tasks";
 import { requireProjectToken, requireApiKey } from "../auth/tokens";
 import { parseFile } from "../files/parser";
+import { sendOtp } from "../email/mailer";
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
@@ -20,7 +20,7 @@ const storage = multer.diskStorage({
 
 const upload = multer({
   storage,
-  limits: { fileSize: 20 * 1024 * 1024 }, // 20MB
+  limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
       "application/pdf",
@@ -38,15 +38,81 @@ const upload = multer({
   },
 });
 
+function baseUrl(req: Request): string {
+  return process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+}
+
 export function createRouter(): Router {
   const router = Router();
 
-  // ── Public submission routes (token-gated) ──────────────────────────────
+  // ── Public: project info + Tier 2 OTP ───────────────────────────────────
 
-  // GET project info by token (for submission form to show project name)
+  // GET project info by token (for submission form header)
   router.get("/submit/:token", requireProjectToken, (req: Request, res: Response) => {
     const project = (req as any).project;
-    res.json({ id: project.id, name: project.name, description: project.description });
+    res.json({
+      id: project.id,
+      name: project.brand_name || project.name,
+      description: project.description,
+      requires_otp: !!(project.allowed_emails),
+      brand_color: project.brand_color,
+      brand_logo_url: project.brand_logo_url,
+    });
+  });
+
+  // POST request OTP for Tier 2 email auth
+  router.post("/submit/:token/request-otp", requireProjectToken, async (req: Request, res: Response) => {
+    const project = (req as any).project;
+    if (!project.allowed_emails) {
+      res.status(400).json({ error: "This project does not require email verification" });
+      return;
+    }
+    try {
+      const { email } = z.object({ email: z.string().email() }).parse(req.body);
+
+      // Check if email matches any allowed pattern (exact or wildcard domain)
+      const patterns: string[] = project.allowed_emails.split(",").map((e: string) => e.trim());
+      const allowed = patterns.some((pat) => {
+        if (pat.startsWith("*@")) {
+          return email.endsWith(pat.slice(1));
+        }
+        return email.toLowerCase() === pat.toLowerCase();
+      });
+
+      if (!allowed) {
+        res.status(403).json({ error: "Your email is not on the allowed list for this project" });
+        return;
+      }
+
+      const otp = taskQueries.createOtp(project.id, email);
+      await sendOtp(email, otp, project.name);
+      res.json({ message: "Check your email for a 6-digit code" });
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // POST verify OTP and get a session token
+  router.post("/submit/:token/verify-otp", requireProjectToken, (req: Request, res: Response) => {
+    const project = (req as any).project;
+    try {
+      const { email, otp } = z
+        .object({ email: z.string().email(), otp: z.string().length(6) })
+        .parse(req.body);
+
+      const valid = taskQueries.verifyOtp(project.id, email, otp);
+      if (!valid) {
+        res.status(401).json({ error: "Invalid or expired code" });
+        return;
+      }
+
+      // Return a simple session token: base64(projectId:email:timestamp)
+      // — not a security guarantee, just enough to gate the submit form
+      const session = Buffer.from(`${project.id}:${email}:${Date.now()}`).toString("base64");
+      res.json({ session, email });
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
   });
 
   // POST submit a task (with optional file)
@@ -57,6 +123,24 @@ export function createRouter(): Router {
     async (req: Request, res: Response) => {
       try {
         const project = (req as any).project;
+
+        // Tier 2: verify session header if project requires OTP
+        if (project.allowed_emails) {
+          const session = req.headers["x-otp-session"] as string;
+          if (!session) {
+            res.status(401).json({ error: "Email verification required" });
+            return;
+          }
+          try {
+            const decoded = Buffer.from(session, "base64").toString("utf-8");
+            const [pid] = decoded.split(":");
+            if (pid !== project.id) throw new Error("invalid session");
+          } catch {
+            res.status(401).json({ error: "Invalid session" });
+            return;
+          }
+        }
+
         const body = z
           .object({
             title: z.string().min(1).max(200),
@@ -91,6 +175,13 @@ export function createRouter(): Router {
           file_content: fileContent,
         });
 
+        taskQueries.audit({
+          project_id: project.id,
+          task_id: task.id,
+          action: "task_submitted",
+          actor: body.submitter_email || body.submitter_name || "anonymous",
+        });
+
         res.status(201).json({
           id: task.id,
           status: task.status,
@@ -103,75 +194,32 @@ export function createRouter(): Router {
     }
   );
 
-  // GET task status (for the live status page — no auth needed if you have the task id)
+  // GET task status (public — anyone with task ID can poll)
   router.get("/tasks/:id/status", (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
       return;
     }
+    const project = taskQueries.getProjectById(task.project_id);
     res.json({
       id: task.id,
       status: task.status,
       title: task.title,
       summary_plain: task.summary_plain,
-      escalation_reason: task.status === "escalated" ? "This task needs human review." : null,
+      escalation_reason:
+        task.status === "escalated" ? "This task needs human review." : null,
+      awaiting_approval: task.status === "awaiting_approval",
+      proposed_plan: task.status === "awaiting_approval" ? task.proposed_plan : null,
       updated_at: task.updated_at,
+      brand_name: project?.brand_name || null,
+      brand_color: project?.brand_color || null,
     });
   });
 
-  // ── PM / Admin routes (API key gated) ──────────────────────────────────
-
-  // Workspace management
-  router.post("/workspaces", requireApiKey, (req: Request, res: Response) => {
-    try {
-      const { name } = z.object({ name: z.string().min(1) }).parse(req.body);
-      const workspace = taskQueries.createWorkspace(name);
-      res.status(201).json(workspace);
-    } catch (err) {
-      res.status(400).json({ error: String(err) });
-    }
-  });
-
-  // Project management
-  router.post("/workspaces/:workspaceId/projects", requireApiKey, (req: Request, res: Response) => {
-    try {
-      const { name, description } = z
-        .object({ name: z.string().min(1), description: z.string().optional() })
-        .parse(req.body);
-      const project = taskQueries.createProject(req.params.workspaceId, name, description);
-      res.status(201).json(project);
-    } catch (err) {
-      res.status(400).json({ error: String(err) });
-    }
-  });
-
-  router.get("/workspaces/:workspaceId/projects", requireApiKey, (req: Request, res: Response) => {
-    const projects = taskQueries.listProjects(req.params.workspaceId);
-    res.json(projects);
-  });
-
-  // Full task list for PM dashboard
-  router.get("/projects/:projectId/tasks", requireApiKey, (req: Request, res: Response) => {
-    const status = req.query.status as string | undefined;
-    const tasks = taskQueries.listTasks(req.params.projectId, status as any);
-    res.json(tasks);
-  });
-
-  // Full task detail for PM
-  router.get("/tasks/:id", requireApiKey, (req: Request, res: Response) => {
-    const task = taskQueries.getTask(req.params.id);
-    if (!task) {
-      res.status(404).json({ error: "Task not found" });
-      return;
-    }
-    res.json(task);
-  });
-
-  // Server-sent events — live status stream for a task
+  // SSE live stream
   router.get("/tasks/:id/stream", (req: Request, res: Response) => {
     const { id } = req.params;
-
     res.setHeader("Content-Type", "text/event-stream");
     res.setHeader("Cache-Control", "no-cache");
     res.setHeader("Connection", "keep-alive");
@@ -191,7 +239,6 @@ export function createRouter(): Router {
           updated_at: task.updated_at,
         })}\n\n`
       );
-
       if (["done", "failed", "escalated"].includes(task.status)) {
         clearInterval(interval);
         res.end();
@@ -201,6 +248,157 @@ export function createRouter(): Router {
     send();
     const interval = setInterval(send, 2000);
     req.on("close", () => clearInterval(interval));
+  });
+
+  // ── PM / Admin routes (API key gated) ──────────────────────────────────
+
+  // Workspace management
+  router.post("/workspaces", requireApiKey, (req: Request, res: Response) => {
+    try {
+      const { name } = z.object({ name: z.string().min(1) }).parse(req.body);
+      const workspace = taskQueries.createWorkspace(name);
+      res.status(201).json(workspace);
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // Usage dashboard stats
+  router.get("/workspaces/:workspaceId/stats", requireApiKey, (req: Request, res: Response) => {
+    const stats = taskQueries.getWorkspaceStats(req.params.workspaceId);
+    res.json(stats);
+  });
+
+  // Project management
+  router.post(
+    "/workspaces/:workspaceId/projects",
+    requireApiKey,
+    (req: Request, res: Response) => {
+      try {
+        const body = z
+          .object({
+            name: z.string().min(1),
+            description: z.string().optional(),
+            require_approval: z.boolean().optional(),
+            allowed_emails: z.string().optional(),
+            notify_email: z.string().email().optional(),
+            brand_name: z.string().optional(),
+            brand_color: z.string().optional(),
+            slack_channel: z.string().optional(),
+          })
+          .parse(req.body);
+        const project = taskQueries.createProject(
+          req.params.workspaceId,
+          body.name,
+          body.description,
+          body
+        );
+        res.status(201).json(project);
+      } catch (err) {
+        res.status(400).json({ error: String(err) });
+      }
+    }
+  );
+
+  router.get(
+    "/workspaces/:workspaceId/projects",
+    requireApiKey,
+    (req: Request, res: Response) => {
+      const projects = taskQueries.listProjects(req.params.workspaceId);
+      res.json(projects);
+    }
+  );
+
+  router.patch("/projects/:id", requireApiKey, (req: Request, res: Response) => {
+    try {
+      const body = z
+        .object({
+          name: z.string().optional(),
+          description: z.string().optional(),
+          require_approval: z.boolean().optional(),
+          allowed_emails: z.string().optional(),
+          notify_email: z.string().email().optional(),
+          brand_name: z.string().optional(),
+          brand_color: z.string().optional(),
+          brand_logo_url: z.string().url().optional(),
+          slack_channel: z.string().optional(),
+        })
+        .parse(req.body);
+      const project = taskQueries.updateProject(req.params.id, body);
+      if (!project) {
+        res.status(404).json({ error: "Project not found" });
+        return;
+      }
+      res.json(project);
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
+  });
+
+  // Task list for PM dashboard
+  router.get(
+    "/projects/:projectId/tasks",
+    requireApiKey,
+    (req: Request, res: Response) => {
+      const status = req.query.status as string | undefined;
+      const tasks = taskQueries.listTasks(req.params.projectId, status as any);
+      res.json(tasks);
+    }
+  );
+
+  // Full task detail + audit log
+  router.get("/tasks/:id", requireApiKey, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    const audit = taskQueries.getAuditLog(req.params.id);
+    res.json({ ...task, audit });
+  });
+
+  // ── Approval gate ────────────────────────────────────────────────────────
+
+  router.post("/tasks/:id/approve", requireApiKey, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    if (task.status !== "awaiting_approval") {
+      res.status(400).json({ error: "Task is not awaiting approval" });
+      return;
+    }
+    const approvedBy = (req.query.by as string) || "PM";
+    const updated = taskQueries.approveTask(req.params.id, approvedBy);
+    taskQueries.audit({
+      project_id: task.project_id,
+      task_id: task.id,
+      action: "task_approved",
+      actor: approvedBy,
+    });
+    res.json(updated);
+  });
+
+  router.post("/tasks/:id/reject", requireApiKey, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    try {
+      const { reason } = z.object({ reason: z.string().min(1) }).parse(req.body);
+      const updated = taskQueries.rejectTask(req.params.id, reason);
+      taskQueries.audit({
+        project_id: task.project_id,
+        task_id: task.id,
+        action: "task_rejected",
+        detail: reason,
+      });
+      res.json(updated);
+    } catch (err) {
+      res.status(400).json({ error: String(err) });
+    }
   });
 
   return router;

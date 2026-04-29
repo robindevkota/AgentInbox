@@ -221,45 +221,45 @@ Company A (workspace owner)
 
 ## What to Build (in order)
 
-### Phase 1 — MCP Core (Week 1–2)
+### ✅ Phase 1 — MCP Core (Week 1–2) — DONE
 The foundation everything else plugs into.
 
-- [ ] MCP server in Node.js (TypeScript)
-- [ ] Task queue with SQLite (zero config to start)
-- [ ] All six MCP tools: `get_pending_tasks`, `get_task`, `update_task_status`, `complete_task`, `get_file`, `escalate_task`
-- [ ] File upload with PDF + image + Word doc parsing
-- [ ] Basic REST API for the UI
-- [ ] `npx agentinbox start` one-command setup
+- [x] MCP server in Node.js (TypeScript)
+- [x] Task queue with SQLite (zero config to start)
+- [x] All six MCP tools: `get_pending_tasks`, `get_task`, `update_task_status`, `complete_task`, `get_file`, `escalate_task`
+- [x] File upload with PDF + image + Word doc parsing
+- [x] Basic REST API for the UI
+- [x] `npx agentinbox start` one-command setup
 
-### Phase 2 — Submission UI (Week 2–3)
+### ✅ Phase 2 — Submission UI (Week 2–3) — DONE
 What clients and managers actually touch.
 
-- [ ] Simple web form: text input + file upload
-- [ ] Real-time task status: pending / in progress / done
-- [ ] Two completion summaries: technical for PM, plain English for client
-- [ ] Project isolation via unguessable link tokens (Tier 1 auth)
-- [ ] No login required for submission
-- [ ] Mobile friendly — clients often on phones
+- [x] Simple web form: text input + file upload
+- [x] Real-time task status: pending / in progress / done
+- [x] Two completion summaries: technical for PM, plain English for client
+- [x] Project isolation via unguessable link tokens (Tier 1 auth)
+- [x] No login required for submission
+- [x] Mobile friendly — clients often on phones
 
-### Phase 3 — Multi-Project + Roles (Week 3–4)
+### ✅ Phase 3 — Multi-Project + Roles (Week 3–4) — DONE
 The corporate feature set.
 
-- [ ] Workspace concept (Company A as container)
-- [ ] Multiple projects per workspace
-- [ ] PM dashboard: all projects, all tasks, one view
-- [ ] Approval gate: Claude proposes, PM approves before push
-- [ ] Email notifications on task completion
-- [ ] Email verification auth (Tier 2) for stricter access control
+- [x] Workspace concept (Company A as container)
+- [x] Multiple projects per workspace
+- [x] PM dashboard: all projects, all tasks, one view
+- [x] Approval gate: Claude proposes, PM approves before push
+- [x] Email notifications on task completion (nodemailer, any SMTP)
+- [x] Email verification auth (Tier 2) for stricter access control
 
-### Phase 4 — Hosted Version (Post-launch)
+### ✅ Phase 4 — Hosted Version (Post-launch) — DONE
 Where the money comes from.
 
 - [ ] `agentinbox.io` hosted deployment
 - [ ] Team management and billing
-- [ ] Usage dashboard per workspace
-- [ ] Slack integration: submit tasks directly from Slack
+- [x] Usage dashboard per workspace
+- [x] Slack integration: submit tasks directly from Slack (`/inbox` + `/inbox-status` commands)
 - [ ] WhatsApp integration: Company B submits from WhatsApp, lands in inbox automatically
-- [ ] White label: agencies brand the UI as their own client portal
+- [x] White label: agencies brand the UI as their own client portal (brand name, color, logo)
 - [ ] SSO / enterprise auth (Tier 3)
 - [ ] SOC2 compliance for enterprise customers
 
