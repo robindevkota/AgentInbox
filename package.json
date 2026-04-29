@@ -8,7 +8,7 @@
   ],
   "scripts": {
     "dev": "pnpm --parallel --filter=* dev",
-    "build": "pnpm --filter=server build && pnpm --filter=ui build",
+    "build": "pnpm --filter=@robindevkota/agentinbox build && pnpm --filter=@agentinbox/ui build",
     "start": "node packages/server/dist/cli.js start",
     "lint": "pnpm --parallel --filter=* lint"
   }
