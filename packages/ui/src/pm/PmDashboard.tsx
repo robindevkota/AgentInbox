@@ -29,6 +29,13 @@ interface AuditEntry {
   created_at: number;
 }
 
+interface CustomField {
+  name: string;
+  type: "dropdown" | "text";
+  options?: string[];
+  required?: boolean;
+}
+
 interface Project {
   id: string;
   name: string;
@@ -37,6 +44,7 @@ interface Project {
   notify_email: string | null;
   brand_name: string | null;
   brand_color: string | null;
+  custom_fields: string | null; // JSON: CustomField[]
 }
 
 interface Stats {
@@ -931,6 +939,13 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId }: {
   const [brandName, setBrandName]     = useState(project?.brand_name || "");
   const [brandColor, setBrandColor]   = useState(project?.brand_color || "#0284c7");
   const [requireApproval, setRequireApproval] = useState(!!project?.require_approval);
+  const [customFields, setCustomFields] = useState<CustomField[]>(() => {
+    try { return project?.custom_fields ? JSON.parse(project.custom_fields) : []; } catch { return []; }
+  });
+  const [newFieldName, setNewFieldName]     = useState("");
+  const [newFieldType, setNewFieldType]     = useState<"dropdown" | "text">("dropdown");
+  const [newFieldOptions, setNewFieldOptions] = useState(""); // comma-separated
+  const [newFieldRequired, setNewFieldRequired] = useState(false);
 
   useEffect(() => {
     if (project) {
@@ -938,15 +953,37 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId }: {
       setBrandName(project.brand_name || "");
       setBrandColor(project.brand_color || "#0284c7");
       setRequireApproval(!!project.require_approval);
+      try { setCustomFields(project.custom_fields ? JSON.parse(project.custom_fields) : []); } catch { setCustomFields([]); }
     }
   }, [project]);
 
   if (!project) return <div className="p-8 text-slate-400 text-sm">Select a project from the sidebar to edit its settings.</div>;
 
+  function addField() {
+    const name = newFieldName.trim();
+    if (!name) return;
+    const field: CustomField = { name, type: newFieldType, required: newFieldRequired };
+    if (newFieldType === "dropdown") {
+      field.options = newFieldOptions.split(",").map((o) => o.trim()).filter(Boolean);
+    }
+    setCustomFields([...customFields, field]);
+    setNewFieldName(""); setNewFieldType("dropdown"); setNewFieldOptions(""); setNewFieldRequired(false);
+  }
+
+  function removeField(i: number) {
+    setCustomFields(customFields.filter((_, idx) => idx !== i));
+  }
+
   async function save() {
     await fetch(`/api/projects/${project!.id}`, {
       method: "PATCH", headers: authHeaders,
-      body: JSON.stringify({ notify_email: notifyEmail || undefined, brand_name: brandName || undefined, brand_color: brandColor, require_approval: requireApproval }),
+      body: JSON.stringify({
+        notify_email: notifyEmail || undefined,
+        brand_name: brandName || undefined,
+        brand_color: brandColor,
+        require_approval: requireApproval,
+        custom_fields: JSON.stringify(customFields),
+      }),
     });
     setSaved(true); setTimeout(() => setSaved(false), 2500);
   }
@@ -997,6 +1034,74 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId }: {
             <span className="text-sm text-slate-700">{requireApproval ? "Required" : "Disabled"}</span>
           </label>
         </Field>
+
+        {/* ── Custom fields ─────────────────────────────────────────────────── */}
+        <div>
+          <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-1">Custom fields</p>
+          <p className="text-xs text-slate-400 mb-3">Add dropdowns or text fields to the submission form. Claude receives these as structured metadata to route tasks accurately.</p>
+
+          {customFields.length > 0 && (
+            <div className="space-y-2 mb-4">
+              {customFields.map((f, i) => (
+                <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-lg px-3 py-2">
+                  <div>
+                    <span className="text-sm font-medium text-slate-800">{f.name}</span>
+                    <span className="ml-2 text-xs text-slate-400">{f.type}</span>
+                    {f.required && <span className="ml-1 text-xs text-red-400">required</span>}
+                    {f.options && f.options.length > 0 && (
+                      <p className="text-xs text-slate-400 mt-0.5">{f.options.join(", ")}</p>
+                    )}
+                  </div>
+                  <button onClick={() => removeField(i)} className="text-slate-400 hover:text-red-500 text-lg leading-none ml-3">×</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 space-y-2">
+            <p className="text-xs font-medium text-slate-600">Add field</p>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={newFieldName}
+                onChange={(e) => setNewFieldName(e.target.value)}
+                placeholder="Field name (e.g. Module)"
+                className="flex-1 border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+              <select
+                value={newFieldType}
+                onChange={(e) => setNewFieldType(e.target.value as "dropdown" | "text")}
+                className="border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
+              >
+                <option value="dropdown">Dropdown</option>
+                <option value="text">Text</option>
+              </select>
+            </div>
+            {newFieldType === "dropdown" && (
+              <input
+                type="text"
+                value={newFieldOptions}
+                onChange={(e) => setNewFieldOptions(e.target.value)}
+                placeholder="Options, comma-separated (e.g. personal-info, account-info)"
+                className="w-full border border-slate-300 rounded px-2 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500"
+              />
+            )}
+            <div className="flex items-center justify-between">
+              <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+                <input type="checkbox" checked={newFieldRequired} onChange={(e) => setNewFieldRequired(e.target.checked)} className="rounded" />
+                Required
+              </label>
+              <button
+                onClick={addField}
+                disabled={!newFieldName.trim()}
+                className="bg-brand-600 hover:bg-brand-700 disabled:opacity-40 text-white text-xs px-3 py-1.5 rounded transition-colors"
+              >
+                Add field
+              </button>
+            </div>
+          </div>
+        </div>
+
         <button onClick={save} className="bg-brand-600 hover:bg-brand-700 text-white font-medium px-6 py-2 rounded-lg transition-colors">
           {saved ? "Saved ✓" : "Save settings"}
         </button>

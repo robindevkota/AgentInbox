@@ -1,6 +1,13 @@
 import { useState, useEffect, useRef } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 
+interface CustomField {
+  name: string;
+  type: "dropdown" | "text";
+  options?: string[];
+  required?: boolean;
+}
+
 interface ProjectInfo {
   id: string;
   name: string;
@@ -8,6 +15,7 @@ interface ProjectInfo {
   requires_otp: boolean;
   brand_color: string | null;
   brand_logo_url: string | null;
+  custom_fields: CustomField[];
 }
 
 type Step = "loading" | "otp-email" | "otp-verify" | "form" | "success" | "error";
@@ -24,6 +32,7 @@ export function SubmitPage() {
   const [otpCode, setOtpCode] = useState("");
   const [otpSession, setOtpSession] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
 
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
@@ -97,6 +106,9 @@ export function SubmitPage() {
     if (nameRef.current!.value) form.append("submitter_name", nameRef.current!.value.trim());
     if (emailRef.current!.value) form.append("submitter_email", emailRef.current!.value.trim());
     if (fileRef.current!.files?.[0]) form.append("file", fileRef.current!.files[0]);
+    if (Object.keys(customFieldValues).length > 0) {
+      form.append("custom_field_values", JSON.stringify(customFieldValues));
+    }
 
     const headers: Record<string, string> = {};
     if (otpSession) headers["x-otp-session"] = otpSession;
@@ -271,6 +283,36 @@ export function SubmitPage() {
           />
           <p className="text-xs text-slate-400 mt-1">PDF, Word, images, text — up to 20MB</p>
         </div>
+
+        {project?.custom_fields && project.custom_fields.length > 0 && project.custom_fields.map((field) => (
+          <div key={field.name}>
+            <label className="block text-sm font-medium text-slate-700 mb-1">
+              {field.name} {field.required && <span className="text-red-500">*</span>}
+            </label>
+            {field.type === "dropdown" && field.options && field.options.length > 0 ? (
+              <select
+                required={field.required}
+                value={customFieldValues[field.name] || ""}
+                onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent bg-white"
+              >
+                <option value="">Select {field.name}...</option>
+                {field.options.map((opt) => (
+                  <option key={opt} value={opt}>{opt}</option>
+                ))}
+              </select>
+            ) : (
+              <input
+                type="text"
+                required={field.required}
+                value={customFieldValues[field.name] || ""}
+                onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
+                className="w-full border border-slate-300 rounded-lg px-4 py-2.5 focus:outline-none focus:ring-2 focus:border-transparent"
+                placeholder={`Enter ${field.name}`}
+              />
+            )}
+          </div>
+        ))}
 
         <div className="grid grid-cols-2 gap-4">
           <div>

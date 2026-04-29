@@ -36,6 +36,9 @@ db.exec(`
     notify_email TEXT,
     -- Phase 4: Slack channel to post completion summaries
     slack_channel TEXT,
+    -- Custom fields config: JSON array of {name, type, options?, required?}
+    -- e.g. [{"name":"Module","type":"dropdown","options":["personal-info","account-info"],"required":true}]
+    custom_fields TEXT,
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
 
@@ -89,6 +92,24 @@ db.exec(`
     created_at INTEGER NOT NULL DEFAULT (unixepoch())
   );
 
+  -- custom_fields column on tasks to store submitted values as JSON
+  CREATE TABLE IF NOT EXISTS _migrations (key TEXT PRIMARY KEY);
+`);
+
+// Run migrations for columns added after initial schema
+const migrations: Record<string, string> = {
+  "projects.custom_fields": "ALTER TABLE projects ADD COLUMN custom_fields TEXT",
+  "tasks.custom_field_values": "ALTER TABLE tasks ADD COLUMN custom_field_values TEXT",
+};
+for (const [key, sql] of Object.entries(migrations)) {
+  const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);
+  if (!already) {
+    try { db.exec(sql); } catch {}
+    db.prepare("INSERT OR IGNORE INTO _migrations (key) VALUES (?)").run(key);
+  }
+}
+
+db.exec(`
   CREATE INDEX IF NOT EXISTS idx_tasks_project_status ON tasks(project_id, status);
   CREATE INDEX IF NOT EXISTS idx_projects_token ON projects(token);
   CREATE INDEX IF NOT EXISTS idx_otp_project_email ON otp_tokens(project_id, email);

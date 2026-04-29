@@ -58,6 +58,7 @@ export function createRouter(): Router {
       requires_otp: !!(project.allowed_emails),
       brand_color: project.brand_color,
       brand_logo_url: project.brand_logo_url,
+      custom_fields: project.custom_fields ? JSON.parse(project.custom_fields) : [],
     });
   });
 
@@ -142,12 +143,17 @@ export function createRouter(): Router {
           }
         }
 
+        // custom_field_values arrives as a JSON string when sent via FormData
+        if (req.body.custom_field_values && typeof req.body.custom_field_values === "string") {
+          try { req.body.custom_field_values = JSON.parse(req.body.custom_field_values); } catch {}
+        }
         const body = z
           .object({
             title: z.string().min(1).max(200),
             description: z.string().min(1).max(5000),
             submitter_name: z.string().max(100).optional(),
             submitter_email: z.string().email().optional(),
+            custom_field_values: z.record(z.string()).optional(),
           })
           .parse(req.body);
 
@@ -174,6 +180,9 @@ export function createRouter(): Router {
           file_path: filePath,
           file_name: fileName,
           file_content: fileContent,
+          custom_field_values: body.custom_field_values
+            ? JSON.stringify(body.custom_field_values)
+            : undefined,
         });
 
         taskQueries.audit({
@@ -336,6 +345,7 @@ export function createRouter(): Router {
           brand_color: z.string().optional(),
           brand_logo_url: z.string().url().optional(),
           slack_channel: z.string().optional(),
+          custom_fields: z.string().optional(), // JSON string of CustomField[]
         })
         .parse(req.body);
       const project = taskQueries.updateProject(req.params.id, body);

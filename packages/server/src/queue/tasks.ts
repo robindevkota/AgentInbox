@@ -30,8 +30,16 @@ export interface Task {
   rejected_reason: string | null;
   escalation_reason: string | null;
   slack_ts: string | null;
+  custom_field_values: string | null; // JSON: { "Module": "personal-info", "Environment": "UAT" }
   created_at: number;
   updated_at: number;
+}
+
+export interface CustomField {
+  name: string;
+  type: "dropdown" | "text";
+  options?: string[];
+  required?: boolean;
 }
 
 export interface Project {
@@ -47,6 +55,7 @@ export interface Project {
   brand_logo_url: string | null;
   notify_email: string | null;
   slack_channel: string | null;
+  custom_fields: string | null; // JSON: CustomField[]
   created_at: number;
 }
 
@@ -82,13 +91,14 @@ export const taskQueries = {
       brand_name?: string;
       brand_color?: string;
       slack_channel?: string;
+      custom_fields?: string;
     }
   ): Project {
     const id = nanoid();
     const token = nanoid(32);
     db.prepare(`
-      INSERT INTO projects (id, workspace_id, name, description, token, require_approval, allowed_emails, notify_email, brand_name, brand_color, slack_channel)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, workspace_id, name, description, token, require_approval, allowed_emails, notify_email, brand_name, brand_color, slack_channel, custom_fields)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       workspaceId,
@@ -101,6 +111,7 @@ export const taskQueries = {
       options?.brand_name ?? null,
       options?.brand_color ?? null,
       options?.slack_channel ?? null,
+      options?.custom_fields ?? null,
     );
     return db.prepare("SELECT * FROM projects WHERE id = ?").get(id) as Project;
   },
@@ -117,6 +128,7 @@ export const taskQueries = {
       brand_color: string;
       brand_logo_url: string;
       slack_channel: string;
+      custom_fields: string;
     }>
   ): Project | undefined {
     const fields = Object.entries(updates)
@@ -154,11 +166,12 @@ export const taskQueries = {
     file_path?: string;
     file_name?: string;
     file_content?: string;
+    custom_field_values?: string; // JSON: { "Module": "personal-info" }
   }): Task {
     const id = nanoid();
     db.prepare(`
-      INSERT INTO tasks (id, project_id, title, description, submitter_name, submitter_email, file_path, file_name, file_content)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tasks (id, project_id, title, description, submitter_name, submitter_email, file_path, file_name, file_content, custom_field_values)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       data.project_id,
@@ -169,6 +182,7 @@ export const taskQueries = {
       data.file_path ?? null,
       data.file_name ?? null,
       data.file_content ?? null,
+      data.custom_field_values ?? null,
     );
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Task;
   },

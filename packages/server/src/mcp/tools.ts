@@ -34,6 +34,9 @@ export const mcpTools = [
                 has_file: !!t.file_path,
                 file_name: t.file_name,
                 status: t.status,
+                custom_field_values: t.custom_field_values
+                  ? JSON.parse(t.custom_field_values)
+                  : {},
                 created_at: t.created_at,
               })),
               null,
@@ -65,8 +68,15 @@ export const mcpTools = [
           isError: true,
         };
       }
+      // Parse custom_field_values so Claude sees structured data, not a JSON string
+      const taskOut = {
+        ...task,
+        custom_field_values: task.custom_field_values
+          ? JSON.parse(task.custom_field_values)
+          : {},
+      };
       return {
-        content: [{ type: "text", text: JSON.stringify(task, null, 2) }],
+        content: [{ type: "text", text: JSON.stringify(taskOut, null, 2) }],
       };
     },
   },
