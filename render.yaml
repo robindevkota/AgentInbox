@@ -5,7 +5,7 @@ services:
     region: singapore
     plan: free
     nodeVersion: 20.11.0
-    buildCommand: npm install -g pnpm@9.0.0 && pnpm install --frozen-lockfile && cd packages/ui && npx vite build && cd ../../packages/server && npx tsc && cd ../.. && node packages/server/scripts/copy-ui.js
+    buildCommand: npm install -g pnpm@9.0.0 && pnpm install --frozen-lockfile && cd packages/ui && ./node_modules/.bin/vite build && cd ../../packages/server && ./node_modules/.bin/tsc && cd ../.. && node packages/server/scripts/copy-ui.js && ls packages/server/dist/
     startCommand: node packages/server/dist/cli.js start --port $PORT
     envVars:
       - key: PORT
