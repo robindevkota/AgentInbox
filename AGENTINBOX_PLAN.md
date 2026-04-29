@@ -221,6 +221,40 @@ Company A (workspace owner)
 
 ## What to Build (in order)
 
+---
+
+## Current Status — April 2026
+
+### What's built and working (locally)
+
+**Custom Fields** — PM can define project-specific dropdown fields (e.g. Environment, Module, Steps) in project settings. Clients see those dropdowns on the submission form. Claude reads the values via MCP and uses them to find the right file to fix. Live on the "final test" project connected to `D:\form-gen-mbl`.
+
+**npm Package** — AgentInbox is published to npm as `@robindevkota/agentinbox` (v0.1.1). Anyone can run:
+```bash
+npx @robindevkota/agentinbox start --install
+```
+The `--install` flag auto-registers the MCP server with Claude globally in one step.
+
+**Multi-Project Router** — `agentinbox router` command (or `examples/claude-loop/claude-router.js`) listens for webhooks and spawns Claude in the correct project directory automatically. Supports multiple projects simultaneously with per-project queue management.
+
+**Modern UI** — Redesigned with indigo brand color, dark sidebar PM dashboard, split-panel submit form with drag-drop upload, card-based task list.
+
+**Deployment** — In progress: deploying to Render.com (free tier, no credit card required) so PM and clients get a permanent public URL without needing the developer's machine to be on. Build issues being resolved (better-sqlite3 native compilation on Node 24, pnpm filter resolution).
+
+### What's in progress right now
+
+- **Render.com deployment** — resolving build pipeline issues so the server runs at `https://agentinbox.onrender.com`
+- Once live: PM gets `https://agentinbox.onrender.com/pm`, clients get permanent submit links
+
+### Next phase after deployment
+
+1. **Webhook bridge** — connect the hosted Render instance back to local Claude router so tasks submitted via the public URL trigger Claude on the developer's machine
+2. **End-to-end test** — submit a real task on "final test" project, watch Claude fix a file in `D:\form-gen-mbl`, verify complete_task runs
+3. **Polish custom fields** — verify Environment/Module/Steps dropdowns render correctly on the hosted submit form
+4. **SETUP.md** — finalize the open source setup guide for new users
+
+---
+
 ### ✅ Phase 1 — MCP Core (Week 1–2) — DONE
 The foundation everything else plugs into.
 
