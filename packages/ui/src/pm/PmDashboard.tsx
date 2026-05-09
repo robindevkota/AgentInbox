@@ -500,9 +500,10 @@ function DashboardScreen({
     fetch(`/api/workspaces/${workspaceId}/stats`, { headers: authHeaders() })
       .then((r) => r.json()).then(setStats).catch(() => {});
     fetch(`/api/workspaces/${workspaceId}/projects`, { headers: authHeaders() })
-      .then((r) => r.json()).then((projs: Project[]) => {
-        setProjects(projs);
-        setSelectedProject((prev) => prev || projs[0]?.id || "");
+      .then((r) => r.json()).then((projs: unknown) => {
+        const list = Array.isArray(projs) ? projs : [];
+        setProjects(list);
+        setSelectedProject((prev) => prev || list[0]?.id || "");
       }).catch(() => {});
   }, [workspaceId, authHeaders]);
 
@@ -512,7 +513,9 @@ function DashboardScreen({
       ? `/api/projects/${selectedProject}/tasks?status=${statusFilter}`
       : `/api/projects/${selectedProject}/tasks`;
     fetch(url, { headers: authHeaders() })
-      .then((r) => r.json()).then(setTasks).catch(() => setError("Failed to load tasks"));
+      .then((r) => r.json()).then((data: unknown) => {
+        setTasks(Array.isArray(data) ? data : []);
+      }).catch(() => setError("Failed to load tasks"));
   }, [selectedProject, statusFilter, authHeaders]);
 
   async function loadTask(id: string) {

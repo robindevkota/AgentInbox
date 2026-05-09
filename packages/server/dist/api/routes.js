@@ -10,9 +10,13 @@ const path_1 = __importDefault(require("path"));
 const zod_1 = require("zod");
 const tasks_1 = require("../queue/tasks");
 const tokens_1 = require("../auth/tokens");
+const users_1 = require("../auth/users");
+const db_1 = require("../queue/db");
 const parser_1 = require("../files/parser");
 const mailer_1 = require("../email/mailer");
 const notify_1 = require("../webhook/notify");
+const FREE_TASK_LIMIT = 50;
+const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
 const DATA_DIR = process.env.DATA_DIR || path_1.default.join(process.cwd(), "data");
 const UPLOADS_DIR = path_1.default.join(DATA_DIR, "uploads");
 const storage = multer_1.default.diskStorage({
@@ -163,6 +167,24 @@ function createRouter() {
                     fileContent = `[Could not parse file: ${fileName}]`;
                 }
             }
+            // Enforce free-tier task limit (only when billing is enabled)
+            if (BILLING_ENABLED) {
+                const ws = db_1.db
+                    .prepare("SELECT plan, task_count_this_month, billing_month FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
+                    .get(project.id);
+                if (ws && ws.plan === "free") {
+                    const currentMonth = new Date().toISOString().slice(0, 7);
+                    if (ws.billing_month !== currentMonth) {
+                        db_1.db.prepare("UPDATE workspaces SET task_count_this_month = 0, billing_month = ? WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)").run(currentMonth, project.id);
+                        ws.task_count_this_month = 0;
+                    }
+                    if (ws.task_count_this_month >= FREE_TASK_LIMIT) {
+                        res.status(403).json({ error: "Free plan limit reached (50 tasks/month). Upgrade to Pro to continue.", upgrade_required: true });
+                        return;
+                    }
+                    db_1.db.prepare("UPDATE workspaces SET task_count_this_month = task_count_this_month + 1 WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)").run(project.id);
+                }
+            }
             const task = tasks_1.taskQueries.createTask({
                 project_id: project.id,
                 title: body.title,
@@ -255,9 +277,47 @@ function createRouter() {
         const interval = setInterval(send, 2000);
         req.on("close", () => clearInterval(interval));
     });
-    // ── PM / Admin routes (API key gated) ──────────────────────────────────
+    // ── Auth routes ──────────────────────────────────────────────────────────
+    router.post("/auth/signup", async (req, res) => {
+        try {
+            const { email, password, workspace_name } = zod_1.z
+                .object({
+                email: zod_1.z.string().email(),
+                password: zod_1.z.string().min(8, "Password must be at least 8 characters"),
+                workspace_name: zod_1.z.string().min(1),
+            })
+                .parse(req.body);
+            const result = await (0, users_1.signupUser)(email, password, workspace_name);
+            res.status(201).json(result);
+        }
+        catch (err) {
+            res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+        }
+    });
+    router.post("/auth/login", async (req, res) => {
+        try {
+            const { email, password } = zod_1.z
+                .object({ email: zod_1.z.string().email(), password: zod_1.z.string().min(1) })
+                .parse(req.body);
+            const result = await (0, users_1.loginUser)(email, password);
+            res.json(result);
+        }
+        catch (err) {
+            res.status(401).json({ error: err instanceof Error ? err.message : String(err) });
+        }
+    });
+    router.get("/auth/me", tokens_1.requireAuth, (req, res) => {
+        const user = req.user;
+        const me = (0, users_1.getMe)(user.userId);
+        if (!me) {
+            res.status(404).json({ error: "User not found" });
+            return;
+        }
+        res.json(me);
+    });
+    // ── PM / Admin routes (JWT auth for hosted, API key fallback for self-hosted) ──
     // Workspace management
-    router.post("/workspaces", tokens_1.requireApiKey, (req, res) => {
+    router.post("/workspaces", tokens_1.requireAuth, (req, res) => {
         try {
             const { name } = zod_1.z.object({ name: zod_1.z.string().min(1) }).parse(req.body);
             const workspace = tasks_1.taskQueries.createWorkspace(name);
@@ -268,12 +328,15 @@ function createRouter() {
         }
     });
     // Usage dashboard stats
-    router.get("/workspaces/:workspaceId/stats", tokens_1.requireApiKey, (req, res) => {
+    router.get("/workspaces/:workspaceId/stats", tokens_1.requireAuth, (req, res) => {
         const stats = tasks_1.taskQueries.getWorkspaceStats(req.params.workspaceId);
-        res.json(stats);
+        const ws = db_1.db
+            .prepare("SELECT plan, task_count_this_month FROM workspaces WHERE id = ?")
+            .get(req.params.workspaceId);
+        res.json({ ...stats, plan: ws?.plan ?? "free", task_count_this_month: ws?.task_count_this_month ?? 0, free_task_limit: FREE_TASK_LIMIT });
     });
     // Project management
-    router.post("/workspaces/:workspaceId/projects", tokens_1.requireApiKey, (req, res) => {
+    router.post("/workspaces/:workspaceId/projects", tokens_1.requireAuth, (req, res) => {
         try {
             const body = zod_1.z
                 .object({
@@ -294,11 +357,11 @@ function createRouter() {
             res.status(400).json({ error: String(err) });
         }
     });
-    router.get("/workspaces/:workspaceId/projects", tokens_1.requireApiKey, (req, res) => {
+    router.get("/workspaces/:workspaceId/projects", tokens_1.requireAuth, (req, res) => {
         const projects = tasks_1.taskQueries.listProjects(req.params.workspaceId);
         res.json(projects);
     });
-    router.delete("/projects/:id", tokens_1.requireApiKey, (req, res) => {
+    router.delete("/projects/:id", tokens_1.requireAuth, (req, res) => {
         const deleted = tasks_1.taskQueries.deleteProject(req.params.id);
         if (!deleted) {
             res.status(404).json({ error: "Project not found" });
@@ -306,7 +369,7 @@ function createRouter() {
         }
         res.json({ ok: true });
     });
-    router.patch("/projects/:id", tokens_1.requireApiKey, (req, res) => {
+    router.patch("/projects/:id", tokens_1.requireAuth, (req, res) => {
         try {
             const body = zod_1.z
                 .object({
@@ -334,13 +397,13 @@ function createRouter() {
         }
     });
     // Task list for PM dashboard
-    router.get("/projects/:projectId/tasks", tokens_1.requireApiKey, (req, res) => {
+    router.get("/projects/:projectId/tasks", tokens_1.requireAuth, (req, res) => {
         const status = req.query.status;
         const tasks = tasks_1.taskQueries.listTasks(req.params.projectId, status);
         res.json(tasks);
     });
     // Full task detail + audit log
-    router.get("/tasks/:id", tokens_1.requireApiKey, (req, res) => {
+    router.get("/tasks/:id", tokens_1.requireAuth, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
         if (!task) {
             res.status(404).json({ error: "Task not found" });
@@ -350,7 +413,7 @@ function createRouter() {
         res.json({ ...task, audit });
     });
     // ── Approval gate ────────────────────────────────────────────────────────
-    router.post("/tasks/:id/approve", tokens_1.requireApiKey, (req, res) => {
+    router.post("/tasks/:id/approve", tokens_1.requireAuth, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
         if (!task) {
             res.status(404).json({ error: "Task not found" });
@@ -370,7 +433,7 @@ function createRouter() {
         });
         res.json(updated);
     });
-    router.post("/tasks/:id/reject", tokens_1.requireApiKey, (req, res) => {
+    router.post("/tasks/:id/reject", tokens_1.requireAuth, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
         if (!task) {
             res.status(404).json({ error: "Task not found" });
@@ -392,7 +455,7 @@ function createRouter() {
         }
     });
     // Reopen a completed/failed/escalated task back to pending
-    router.post("/tasks/:id/reopen", tokens_1.requireApiKey, (req, res) => {
+    router.post("/tasks/:id/reopen", tokens_1.requireAuth, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
         if (!task) {
             res.status(404).json({ error: "Task not found" });
@@ -408,11 +471,11 @@ function createRouter() {
         res.json(updated);
     });
     // Comments
-    router.get("/tasks/:id/comments", tokens_1.requireApiKey, (req, res) => {
+    router.get("/tasks/:id/comments", tokens_1.requireAuth, (req, res) => {
         const comments = tasks_1.taskQueries.getComments(req.params.id);
         res.json(comments);
     });
-    router.post("/tasks/:id/comments", tokens_1.requireApiKey, (req, res) => {
+    router.post("/tasks/:id/comments", tokens_1.requireAuth, (req, res) => {
         try {
             const { author, body } = zod_1.z
                 .object({ author: zod_1.z.string().min(1), body: zod_1.z.string().min(1) })
@@ -431,7 +494,7 @@ function createRouter() {
         }
     });
     // Screenshot serving — base64 stored in DB, served as PNG
-    router.get("/tasks/:id/screenshot", tokens_1.requireApiKey, (req, res) => {
+    router.get("/tasks/:id/screenshot", tokens_1.requireAuth, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
         if (!task || !task.screenshot_base64) {
             res.status(404).json({ error: "No screenshot for this task" });

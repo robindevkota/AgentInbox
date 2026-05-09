@@ -35,8 +35,20 @@ export function requireApiKey(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// JWT-based auth for hosted SaaS PM routes
+// JWT auth when BILLING_ENABLED=true, otherwise falls back to API key behavior
 export function requireAuth(req: Request, res: Response, next: NextFunction) {
+  if (process.env.BILLING_ENABLED !== "true") {
+    // Self-hosted / legacy: use API key gate (allow all if no key configured)
+    const key = req.headers["x-api-key"] || req.query.api_key;
+    const configuredKey = process.env.API_KEY;
+    if (!configuredKey || key === configuredKey) {
+      next();
+      return;
+    }
+    res.status(401).json({ error: "Invalid API key" });
+    return;
+  }
+
   const authHeader = req.headers["authorization"];
   const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
   if (!token) {

@@ -130,6 +130,18 @@ const migrations = {
     "tasks.screenshot_path": "ALTER TABLE tasks ADD COLUMN screenshot_path TEXT",
     "tasks.screenshot_base64": "ALTER TABLE tasks ADD COLUMN screenshot_base64 TEXT",
     "tasks.submitter_notified_at": "ALTER TABLE tasks ADD COLUMN submitter_notified_at INTEGER",
+    // Monetization: user accounts + per-workspace billing
+    "users.table": `CREATE TABLE IF NOT EXISTS users (
+    id TEXT PRIMARY KEY,
+    email TEXT NOT NULL UNIQUE,
+    password_hash TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`,
+    "workspaces.owner_id": "ALTER TABLE workspaces ADD COLUMN owner_id TEXT REFERENCES users(id)",
+    "workspaces.plan": "ALTER TABLE workspaces ADD COLUMN plan TEXT NOT NULL DEFAULT 'free'",
+    "workspaces.task_count_this_month": "ALTER TABLE workspaces ADD COLUMN task_count_this_month INTEGER NOT NULL DEFAULT 0",
+    "workspaces.plan_expires_at": "ALTER TABLE workspaces ADD COLUMN plan_expires_at INTEGER",
+    "workspaces.billing_month": "ALTER TABLE workspaces ADD COLUMN billing_month TEXT",
 };
 for (const [key, sql] of Object.entries(migrations)) {
     const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);
