@@ -169,12 +169,27 @@ export function seedFromEnv() {
   const projDesc  = process.env.SEED_PROJECT_DESC || "";
   const notifyEmail = process.env.SEED_NOTIFY_EMAIL || "";
   const customFields = process.env.SEED_CUSTOM_FIELDS || "";
+  const adminEmail    = process.env.SEED_ADMIN_EMAIL;
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
+  const adminUserId   = process.env.SEED_ADMIN_USER_ID || "seed-admin-user";
 
   if (!wsName || !wsId || !projName || !projToken) return;
 
+  // Seed admin user account if credentials provided
+  if (adminEmail && adminPassword) {
+    const existingUser = db.prepare("SELECT id FROM users WHERE email = ?").get(adminEmail);
+    if (!existingUser) {
+      const bcrypt = require("bcryptjs");
+      const hash = bcrypt.hashSync(adminPassword, 10);
+      db.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(adminUserId, adminEmail, hash);
+      console.log(`  ✓ Seeded admin user: ${adminEmail}`);
+    }
+  }
+
   const existingWs = db.prepare("SELECT id FROM workspaces WHERE id = ?").get(wsId);
   if (!existingWs) {
-    db.prepare("INSERT INTO workspaces (id, name) VALUES (?, ?)").run(wsId, wsName);
+    const ownerId = adminEmail ? adminUserId : null;
+    db.prepare("INSERT INTO workspaces (id, name, owner_id, plan) VALUES (?, ?, ?, 'pro')").run(wsId, wsName, ownerId);
   }
 
   const existingProj = db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
