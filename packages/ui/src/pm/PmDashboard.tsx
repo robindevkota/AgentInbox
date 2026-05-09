@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useNavigate } from "react-router-dom";
 
 interface Task {
   id: string;
@@ -66,6 +67,9 @@ interface Stats {
   pending: number;
   escalated: number;
   projects: number;
+  plan?: string;
+  task_count_this_month?: number;
+  free_task_limit?: number;
 }
 
 type Screen = "onboarding" | "login" | "dashboard";
@@ -73,48 +77,21 @@ type Screen = "onboarding" | "login" | "dashboard";
 // ── Top-level router ─────────────────────────────────────────────────────────
 
 export function PmDashboard() {
-  const savedWsId = localStorage.getItem("pm_workspace_id") || "";
-  const savedKey  = localStorage.getItem("pm_api_key") || "";
+  const navigate = useNavigate();
+  const workspaceId = localStorage.getItem("pm_workspace_id") || "";
 
-  const [screen, setScreen]           = useState<Screen>(savedWsId ? "dashboard" : "onboarding");
-  const [workspaceId, setWorkspaceId] = useState(savedWsId);
-  const [apiKey, setApiKey]           = useState(savedKey);
-  const [projects, setProjects]       = useState<Project[]>([]);
-
-  function handleAuthSuccess(wsId: string, key: string, projs: Project[]) {
-    localStorage.setItem("pm_workspace_id", wsId);
-    localStorage.setItem("pm_api_key", key);
-    setWorkspaceId(wsId);
-    setApiKey(key);
-    setProjects(projs);
-    setScreen("dashboard");
+  function handleLogout() {
+    localStorage.removeItem("auth_token");
+    localStorage.removeItem("pm_workspace_id");
+    localStorage.removeItem("pm_api_key");
+    navigate("/login");
   }
 
-  if (screen === "onboarding") {
-    return <OnboardingScreen onDone={handleAuthSuccess} />;
-  }
-  if (screen === "login") {
-    return (
-      <LoginScreen
-        defaultWsId={savedWsId}
-        defaultKey={savedKey}
-        onDone={handleAuthSuccess}
-        onNewWorkspace={() => setScreen("onboarding")}
-      />
-    );
-  }
   return (
     <DashboardScreen
       workspaceId={workspaceId}
-      apiKey={apiKey}
-      initialProjects={projects}
-      onLogout={() => {
-        localStorage.removeItem("pm_workspace_id");
-        localStorage.removeItem("pm_api_key");
-        setWorkspaceId("");
-        setApiKey("");
-        setScreen("onboarding");
-      }}
+      initialProjects={[]}
+      onLogout={handleLogout}
     />
   );
 }
@@ -495,12 +472,10 @@ function LoginScreen({
 
 function DashboardScreen({
   workspaceId,
-  apiKey,
   initialProjects,
   onLogout,
 }: {
   workspaceId: string;
-  apiKey: string;
   initialProjects: Project[];
   onLogout: () => void;
 }) {
@@ -516,9 +491,10 @@ function DashboardScreen({
 
   const authHeaders = useCallback((): Record<string, string> => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
-    if (apiKey) h["x-api-key"] = apiKey;
+    const token = localStorage.getItem("auth_token");
+    if (token) h["Authorization"] = `Bearer ${token}`;
     return h;
-  }, [apiKey]);
+  }, []);
 
   useEffect(() => {
     fetch(`/api/workspaces/${workspaceId}/stats`, { headers: authHeaders() })
@@ -589,11 +565,22 @@ function DashboardScreen({
           <div className="flex items-center justify-between">
             <div>
               <div className="text-white font-extrabold text-base tracking-tight">AgentInbox</div>
-              <div className="text-xs text-slate-500 truncate max-w-[160px] mt-0.5" title={workspaceId}>
+              <div className="text-xs text-slate-500 truncate max-w-[140px] mt-0.5" title={workspaceId}>
                 {workspaceId.slice(0, 14)}…
               </div>
             </div>
-            <button onClick={onLogout} title="Log out" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">⎋</button>
+            <div className="flex items-center gap-2">
+              {stats?.plan && (
+                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                  stats.plan === "paid"
+                    ? "bg-indigo-500 text-white"
+                    : "bg-slate-700 text-slate-300"
+                }`}>
+                  {stats.plan === "paid" ? "Pro" : "Free"}
+                </span>
+              )}
+              <button onClick={onLogout} title="Log out" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">⎋</button>
+            </div>
           </div>
         </div>
 
@@ -655,6 +642,39 @@ function DashboardScreen({
             onCreated={handleProjectCreated}
             onClose={() => setNewProjOpen(false)}
           />
+        )}
+
+        {/* Upgrade banner — free tier approaching/at limit */}
+        {stats?.plan === "free" && stats.task_count_this_month !== undefined && stats.free_task_limit !== undefined && (
+          (() => {
+            const used = stats.task_count_this_month!;
+            const limit = stats.free_task_limit!;
+            const atLimit = used >= limit;
+            const nearLimit = used >= limit * 0.8;
+            if (!nearLimit) return null;
+            return (
+              <div className={`px-5 py-3 flex items-center justify-between text-sm ${
+                atLimit ? "bg-red-50 border-b border-red-200 text-red-800" : "bg-amber-50 border-b border-amber-200 text-amber-800"
+              }`}>
+                <span>
+                  {atLimit
+                    ? `Free plan limit reached — ${used}/${limit} tasks this month.`
+                    : `${used}/${limit} tasks used this month.`}
+                  {atLimit ? " New submissions are blocked." : " Upgrade before you hit the limit."}
+                </span>
+                <a
+                  href="mailto:sophiabrut1@gmail.com?subject=AgentInbox Pro Upgrade"
+                  className={`ml-4 shrink-0 font-semibold px-3 py-1 rounded-lg text-xs transition-colors ${
+                    atLimit
+                      ? "bg-red-600 text-white hover:bg-red-700"
+                      : "bg-amber-500 text-white hover:bg-amber-600"
+                  }`}
+                >
+                  Upgrade to Pro →
+                </a>
+              </div>
+            );
+          })()
         )}
 
         {view === "stats" && (

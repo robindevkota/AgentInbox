@@ -3,10 +3,15 @@ import multer from "multer";
 import path from "path";
 import { z } from "zod";
 import { taskQueries } from "../queue/tasks";
-import { requireProjectToken, requireApiKey } from "../auth/tokens";
+import { requireProjectToken, requireAuth } from "../auth/tokens";
+import { signupUser, loginUser, getMe } from "../auth/users";
+import { db } from "../queue/db";
 import { parseFile } from "../files/parser";
 import { sendOtp } from "../email/mailer";
 import { fireWebhook } from "../webhook/notify";
+
+const FREE_TASK_LIMIT = 50;
+const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
 
 const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
@@ -173,6 +178,26 @@ export function createRouter(): Router {
           }
         }
 
+        // Enforce free-tier task limit (only when billing is enabled)
+        if (BILLING_ENABLED) {
+          const ws = db
+            .prepare("SELECT plan, task_count_this_month, billing_month FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
+            .get(project.id) as { plan: string; task_count_this_month: number; billing_month: string | null } | undefined;
+
+          if (ws && ws.plan === "free") {
+            const currentMonth = new Date().toISOString().slice(0, 7);
+            if (ws.billing_month !== currentMonth) {
+              db.prepare("UPDATE workspaces SET task_count_this_month = 0, billing_month = ? WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)").run(currentMonth, project.id);
+              ws.task_count_this_month = 0;
+            }
+            if (ws.task_count_this_month >= FREE_TASK_LIMIT) {
+              res.status(403).json({ error: "Free plan limit reached (50 tasks/month). Upgrade to Pro to continue.", upgrade_required: true });
+              return;
+            }
+            db.prepare("UPDATE workspaces SET task_count_this_month = task_count_this_month + 1 WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)").run(project.id);
+          }
+        }
+
         const task = taskQueries.createTask({
           project_id: project.id,
           title: body.title,
@@ -276,10 +301,50 @@ export function createRouter(): Router {
     req.on("close", () => clearInterval(interval));
   });
 
-  // ── PM / Admin routes (API key gated) ──────────────────────────────────
+  // ── Auth routes ──────────────────────────────────────────────────────────
+
+  router.post("/auth/signup", async (req: Request, res: Response) => {
+    try {
+      const { email, password, workspace_name } = z
+        .object({
+          email: z.string().email(),
+          password: z.string().min(8, "Password must be at least 8 characters"),
+          workspace_name: z.string().min(1),
+        })
+        .parse(req.body);
+      const result = await signupUser(email, password, workspace_name);
+      res.status(201).json(result);
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  router.post("/auth/login", async (req: Request, res: Response) => {
+    try {
+      const { email, password } = z
+        .object({ email: z.string().email(), password: z.string().min(1) })
+        .parse(req.body);
+      const result = await loginUser(email, password);
+      res.json(result);
+    } catch (err) {
+      res.status(401).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
+  router.get("/auth/me", requireAuth, (req: Request, res: Response) => {
+    const user = (req as any).user;
+    const me = getMe(user.userId);
+    if (!me) {
+      res.status(404).json({ error: "User not found" });
+      return;
+    }
+    res.json(me);
+  });
+
+  // ── PM / Admin routes (JWT auth for hosted, API key fallback for self-hosted) ──
 
   // Workspace management
-  router.post("/workspaces", requireApiKey, (req: Request, res: Response) => {
+  router.post("/workspaces", requireAuth, (req: Request, res: Response) => {
     try {
       const { name } = z.object({ name: z.string().min(1) }).parse(req.body);
       const workspace = taskQueries.createWorkspace(name);
@@ -290,15 +355,18 @@ export function createRouter(): Router {
   });
 
   // Usage dashboard stats
-  router.get("/workspaces/:workspaceId/stats", requireApiKey, (req: Request, res: Response) => {
+  router.get("/workspaces/:workspaceId/stats", requireAuth, (req: Request, res: Response) => {
     const stats = taskQueries.getWorkspaceStats(req.params.workspaceId);
-    res.json(stats);
+    const ws = db
+      .prepare("SELECT plan, task_count_this_month FROM workspaces WHERE id = ?")
+      .get(req.params.workspaceId) as { plan: string; task_count_this_month: number } | undefined;
+    res.json({ ...stats, plan: ws?.plan ?? "free", task_count_this_month: ws?.task_count_this_month ?? 0, free_task_limit: FREE_TASK_LIMIT });
   });
 
   // Project management
   router.post(
     "/workspaces/:workspaceId/projects",
-    requireApiKey,
+    requireAuth,
     (req: Request, res: Response) => {
       try {
         const body = z
@@ -328,14 +396,14 @@ export function createRouter(): Router {
 
   router.get(
     "/workspaces/:workspaceId/projects",
-    requireApiKey,
+    requireAuth,
     (req: Request, res: Response) => {
       const projects = taskQueries.listProjects(req.params.workspaceId);
       res.json(projects);
     }
   );
 
-  router.delete("/projects/:id", requireApiKey, (req: Request, res: Response) => {
+  router.delete("/projects/:id", requireAuth, (req: Request, res: Response) => {
     const deleted = taskQueries.deleteProject(req.params.id);
     if (!deleted) {
       res.status(404).json({ error: "Project not found" });
@@ -344,7 +412,7 @@ export function createRouter(): Router {
     res.json({ ok: true });
   });
 
-  router.patch("/projects/:id", requireApiKey, (req: Request, res: Response) => {
+  router.patch("/projects/:id", requireAuth, (req: Request, res: Response) => {
     try {
       const body = z
         .object({
@@ -374,7 +442,7 @@ export function createRouter(): Router {
   // Task list for PM dashboard
   router.get(
     "/projects/:projectId/tasks",
-    requireApiKey,
+    requireAuth,
     (req: Request, res: Response) => {
       const status = req.query.status as string | undefined;
       const tasks = taskQueries.listTasks(req.params.projectId, status as any);
@@ -383,7 +451,7 @@ export function createRouter(): Router {
   );
 
   // Full task detail + audit log
-  router.get("/tasks/:id", requireApiKey, (req: Request, res: Response) => {
+  router.get("/tasks/:id", requireAuth, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
@@ -395,7 +463,7 @@ export function createRouter(): Router {
 
   // ── Approval gate ────────────────────────────────────────────────────────
 
-  router.post("/tasks/:id/approve", requireApiKey, (req: Request, res: Response) => {
+  router.post("/tasks/:id/approve", requireAuth, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
@@ -416,7 +484,7 @@ export function createRouter(): Router {
     res.json(updated);
   });
 
-  router.post("/tasks/:id/reject", requireApiKey, (req: Request, res: Response) => {
+  router.post("/tasks/:id/reject", requireAuth, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
@@ -438,7 +506,7 @@ export function createRouter(): Router {
   });
 
   // Reopen a completed/failed/escalated task back to pending
-  router.post("/tasks/:id/reopen", requireApiKey, (req: Request, res: Response) => {
+  router.post("/tasks/:id/reopen", requireAuth, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
     if (!task) {
       res.status(404).json({ error: "Task not found" });
@@ -455,12 +523,12 @@ export function createRouter(): Router {
   });
 
   // Comments
-  router.get("/tasks/:id/comments", requireApiKey, (req: Request, res: Response) => {
+  router.get("/tasks/:id/comments", requireAuth, (req: Request, res: Response) => {
     const comments = taskQueries.getComments(req.params.id);
     res.json(comments);
   });
 
-  router.post("/tasks/:id/comments", requireApiKey, (req: Request, res: Response) => {
+  router.post("/tasks/:id/comments", requireAuth, (req: Request, res: Response) => {
     try {
       const { author, body } = z
         .object({ author: z.string().min(1), body: z.string().min(1) })
@@ -479,7 +547,7 @@ export function createRouter(): Router {
   });
 
   // Screenshot serving — base64 stored in DB, served as PNG
-  router.get("/tasks/:id/screenshot", requireApiKey, (req: Request, res: Response) => {
+  router.get("/tasks/:id/screenshot", requireAuth, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
     if (!task || !task.screenshot_base64) {
       res.status(404).json({ error: "No screenshot for this task" });

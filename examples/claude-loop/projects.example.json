@@ -1,0 +1,12 @@
+[
+  {
+    "token": "your-secret-token-here",
+    "dir": "C:\\Users\\you\\your-project",
+    "name": "My Project"
+  },
+  {
+    "token": "another-secret-token",
+    "dir": "C:\\Users\\you\\another-project",
+    "name": "Another Project"
+  }
+]

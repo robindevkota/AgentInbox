@@ -1,4 +1,7 @@
 node_modules/
+examples/claude-loop/projects.json
+**/projects.json
+packages/server/data/
 packages/ui/dist/
 data/
 .env
