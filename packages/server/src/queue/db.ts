@@ -160,45 +160,38 @@ export function nowUnix() {
   return Math.floor(Date.now() / 1000);
 }
 
-// Auto-seed from env vars so data survives redeploys via fixed token
+// Auto-seed default account so the hosted instance survives restarts (SQLite wiped on Render free tier)
 export function seedFromEnv() {
-  const wsName = process.env.SEED_WORKSPACE_NAME;
-  const wsId   = process.env.SEED_WORKSPACE_ID;
-  const projName  = process.env.SEED_PROJECT_NAME;
-  const projToken = process.env.SEED_PROJECT_TOKEN;
-  const projDesc  = process.env.SEED_PROJECT_DESC || "";
-  const notifyEmail = process.env.SEED_NOTIFY_EMAIL || "";
-  const customFields = process.env.SEED_CUSTOM_FIELDS || "";
-  const adminEmail    = process.env.SEED_ADMIN_EMAIL;
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD;
-  const adminUserId   = process.env.SEED_ADMIN_USER_ID || "seed-admin-user";
+  const wsId      = process.env.SEED_WORKSPACE_ID   || "robin-workspace-001";
+  const wsName    = process.env.SEED_WORKSPACE_NAME  || "Robin Workspace";
+  const projToken = process.env.SEED_PROJECT_TOKEN   || "898NSXnUt9stlGsOCtJM0jPaNSVGb7Mz";
+  const projName  = process.env.SEED_PROJECT_NAME    || "AgentInbox";
+  const adminEmail    = process.env.SEED_ADMIN_EMAIL    || "robin@agentinbox.com";
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || "Admin123!";
+  const adminUserId   = "seed-admin-user-001";
 
-  if (!wsName || !wsId || !projName || !projToken) return;
-
-  // Seed admin user account if credentials provided
-  if (adminEmail && adminPassword) {
-    const existingUser = db.prepare("SELECT id FROM users WHERE email = ?").get(adminEmail);
-    if (!existingUser) {
-      const bcrypt = require("bcryptjs");
-      const hash = bcrypt.hashSync(adminPassword, 10);
-      db.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(adminUserId, adminEmail, hash);
-      console.log(`  ✓ Seeded admin user: ${adminEmail}`);
-    }
+  // Seed admin user
+  const existingUser = db.prepare("SELECT id FROM users WHERE email = ?").get(adminEmail);
+  if (!existingUser) {
+    const bcrypt = require("bcryptjs");
+    const hash = bcrypt.hashSync(adminPassword, 10);
+    db.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(adminUserId, adminEmail, hash);
+    console.log(`  ✓ Seeded admin user: ${adminEmail}`);
   }
 
+  // Seed workspace
   const existingWs = db.prepare("SELECT id FROM workspaces WHERE id = ?").get(wsId);
   if (!existingWs) {
-    const ownerId = adminEmail ? adminUserId : null;
-    db.prepare("INSERT INTO workspaces (id, name, owner_id, plan) VALUES (?, ?, ?, 'pro')").run(wsId, wsName, ownerId);
+    db.prepare("INSERT INTO workspaces (id, name, owner_id, plan) VALUES (?, ?, ?, 'pro')").run(wsId, wsName, adminUserId);
+    console.log(`  ✓ Seeded workspace: ${wsName}`);
   }
 
+  // Seed project
   const existingProj = db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
   if (!existingProj) {
     const { nanoid } = require("nanoid");
-    const projId = nanoid();
-    db.prepare(`INSERT INTO projects (id, workspace_id, name, description, token, notify_email, brand_color, custom_fields)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
-    ).run(projId, wsId, projName, projDesc, projToken, notifyEmail, "#6366f1", customFields || null);
+    db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color) VALUES (?, ?, ?, ?, ?)`
+    ).run(nanoid(), wsId, projName, projToken, "#6366f1");
     console.log(`  ✓ Seeded project "${projName}" with token ${projToken}`);
   }
 }
