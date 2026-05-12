@@ -345,11 +345,9 @@ export function createRouter(): Router {
         res.status(403).json({ error: "Invalid reset secret" });
         return;
       }
-      const bcrypt = require("bcryptjs");
-      const hash = bcrypt.hashSync(new_password, 10);
-      // force-delete and re-insert so it works regardless of existing state
-      db.prepare("DELETE FROM users WHERE email = ?").run(email.toLowerCase());
-      db.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)").run("seed-admin-user-001", email.toLowerCase(), hash);
+      const bcryptjs = await import("bcryptjs");
+      const hash = await bcryptjs.hash(new_password, 10);
+      db.prepare("UPDATE users SET password_hash = ? WHERE email = ?").run(hash, email.toLowerCase());
       res.json({ ok: true, email });
     } catch (err) {
       res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
