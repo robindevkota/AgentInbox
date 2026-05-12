@@ -331,6 +331,11 @@ export function createRouter(): Router {
     }
   });
 
+  router.get("/auth/debug-users", (_req: Request, res: Response) => {
+    const users = db.prepare("SELECT id, email FROM users").all();
+    res.json(users);
+  });
+
   router.post("/auth/reset-password", async (req: Request, res: Response) => {
     try {
       const { email, new_password, reset_secret } = z
