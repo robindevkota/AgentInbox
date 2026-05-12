@@ -2,12 +2,14 @@
 
 Full setup from zero to autonomous Claude agent in ~10 minutes.
 
+**You do not install the server.** AgentInbox is hosted at `agentinbox-k2vf.onrender.com`. The only thing you install is `agentinbox-mcp` — an npm package that runs inside Claude Code. It's fetched automatically via `npx` when Claude Code starts.
+
 ---
 
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) installed and logged in (Claude Pro or API key)
-- Node.js 18+
+- Node.js 18+ (for `npx agentinbox-mcp`)
 - A project Claude can work in (any stack)
 
 ---
@@ -31,9 +33,9 @@ Optional but recommended:
 
 ### 3. Get your workspace token
 
-PM dashboard → **Settings** tab → **Workspace Token** → **Generate Token** → copy the `wt_...` value.
+PM dashboard → **Settings** tab → copy the `wt_...` token shown under **Workspace Token**.
 
-> Keep this token private — it gives full access to all tasks in your workspace.
+> Keep this token private — it gives full access to all tasks in your workspace. Add `.mcp.json` to `.gitignore` or use `CLAUDE.local.md` (which is gitignored by default) to store it.
 
 ### 4. Copy your submission link
 

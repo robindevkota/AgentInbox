@@ -27,6 +27,19 @@ PM dashboard shows: Done ✓  with technical + plain summaries
 
 ---
 
+## Two parts, one setup
+
+AgentInbox has two parts:
+
+| Part | What it is | How you get it |
+|------|-----------|----------------|
+| **Server + dashboard** | Hosted web app — task queue, PM dashboard, submission form | Use ours at `agentinbox-k2vf.onrender.com` — or self-host |
+| **`agentinbox-mcp`** | npm package — runs inside Claude Code on your machine | `npx agentinbox-mcp` (auto via `.mcp.json`) |
+
+You do **not** install the server. You just sign up and point your `.mcp.json` at it.
+
+---
+
 ## Quickstart (5 minutes)
 
 ### 1. Sign up
@@ -35,11 +48,11 @@ Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com
 
 ### 2. Get your workspace token
 
-PM dashboard → **Settings** → **Workspace Token** → copy the `wt_...` token.
+PM dashboard → **Settings** tab → copy the `wt_...` token.
 
-### 3. Add agentinbox-mcp to your project
+### 3. Add `agentinbox-mcp` to your project
 
-In your project root, create or edit `.mcp.json`:
+In your project root, create `.mcp.json`:
 
 ```json
 {
@@ -55,7 +68,7 @@ In your project root, create or edit `.mcp.json`:
 }
 ```
 
-That's it. Every time Claude Code opens in this directory, `agentinbox-mcp` starts automatically — no ngrok, no extra terminals, no router.
+That's it. Every time Claude Code opens in this directory, `agentinbox-mcp` connects automatically — no ngrok, no extra terminals, no router. The npm package is fetched by `npx` on first run and cached after that.
 
 ### 4. Write your agent instructions
 
@@ -229,23 +242,43 @@ When `agentinbox-mcp` starts, it logs to stderr (visible in Claude Code's MCP de
 
 ## Self-hosting
 
+You only need this if you want to run your own server instead of using the hosted version.
+
 **Requires:** Node.js 18+, pnpm
 
 ```bash
 git clone https://github.com/robindevkota/AgentInbox
 cd AgentInbox
+
+# Install dependencies
 pnpm install
-cd packages/server && pnpm build
-node dist/cli.js start --port 3000
+
+# Build UI + copy into server
+pnpm --filter @agentinbox/ui build
+node packages/server/scripts/copy-ui.js
+
+# Build server TypeScript
+cd packages/server && pnpm build && cd ../..
+
+# Start
+node packages/server/dist/cli.js start --port 3000
 ```
 
 Sign up at `http://localhost:3000/signup`. PM dashboard at `http://localhost:3000/pm`.
 
-Then in your project's `.mcp.json`, set:
+Then in your project's `.mcp.json`, point at your local server:
 ```json
-"env": {
-  "AGENTINBOX_TOKEN": "wt_xxx",
-  "AGENTINBOX_URL": "http://localhost:3000"
+{
+  "mcpServers": {
+    "agentinbox": {
+      "command": "npx",
+      "args": ["-y", "agentinbox-mcp"],
+      "env": {
+        "AGENTINBOX_TOKEN": "wt_xxx",
+        "AGENTINBOX_URL": "http://localhost:3000"
+      }
+    }
+  }
 }
 ```
 
@@ -254,6 +287,8 @@ Then in your project's `.mcp.json`, set:
 ```bash
 docker compose up
 ```
+
+Runs on port 3000. Sign up at `http://localhost:3000/signup`.
 
 ---
 
