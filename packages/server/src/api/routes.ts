@@ -697,7 +697,7 @@ export function createRouter(): Router {
         summary_plain: z.string().min(1),
         screenshot_base64: z.string().optional(),
       }).parse(req.body);
-      const updated = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, screenshot_base64);
+      const updated = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64);
       res.json(updated);
     } catch (err) { res.status(400).json({ error: String(err) }); }
   });
