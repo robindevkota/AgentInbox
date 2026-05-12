@@ -57,6 +57,14 @@ Developers find it on GitHub → try the hosted version → hit limits → upgra
 
 ---
 
+## Current Mode — All Signups Get Pro (Testing)
+
+`BILLING_ENABLED` is not set in Render env vars → every new signup gets `plan = 'pro'` automatically. Unlimited projects and tasks for all developers during testing phase.
+
+**To enable billing when ready:** Add `BILLING_ENABLED=true` to Render environment variables. New signups will get `free` tier. Existing accounts keep their current plan.
+
+---
+
 ## What Still Needs to Be Built
 
 ### Phase 3 — Stripe Billing
