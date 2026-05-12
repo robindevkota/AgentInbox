@@ -1,5 +1,6 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { io, Socket } from "socket.io-client";
 
 interface Task {
   id: string;
@@ -73,6 +74,47 @@ interface Stats {
 }
 
 type Screen = "onboarding" | "login" | "dashboard";
+
+interface Toast {
+  id: number;
+  type: "done" | "escalated" | "submitted" | "approval";
+  title: string;
+  body: string;
+  taskId?: string;
+}
+
+function playSound(type: "done" | "escalated" | "submitted" | "approval") {
+  const ctx = new (window.AudioContext || (window as any).webkitAudioContext)();
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+
+  if (type === "done") {
+    // Two rising tones — success
+    osc.frequency.setValueAtTime(440, ctx.currentTime);
+    osc.frequency.setValueAtTime(660, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(0.18, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.35);
+  } else if (type === "escalated") {
+    // Low descending tone — warning
+    osc.frequency.setValueAtTime(330, ctx.currentTime);
+    osc.frequency.setValueAtTime(220, ctx.currentTime + 0.15);
+    gain.gain.setValueAtTime(0.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.4);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.4);
+  } else {
+    // Single soft ping — neutral
+    osc.frequency.setValueAtTime(520, ctx.currentTime);
+    gain.gain.setValueAtTime(0.12, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+    osc.start(ctx.currentTime);
+    osc.stop(ctx.currentTime + 0.25);
+  }
+}
 
 // ── Top-level router ─────────────────────────────────────────────────────────
 
@@ -488,6 +530,9 @@ function DashboardScreen({
   const [view, setView]                 = useState<"tasks" | "stats" | "settings" | "new-project">("tasks");
   const [error, setError]               = useState("");
   const [newProjOpen, setNewProjOpen]   = useState(false);
+  const [toasts, setToasts]             = useState<Toast[]>([]);
+  const toastCounter                    = useRef(0);
+  const socketRef                       = useRef<Socket | null>(null);
 
   const authHeaders = useCallback((): Record<string, string> => {
     const h: Record<string, string> = { "Content-Type": "application/json" };
@@ -495,6 +540,60 @@ function DashboardScreen({
     if (token) h["Authorization"] = `Bearer ${token}`;
     return h;
   }, []);
+
+  const addToast = useCallback((toast: Omit<Toast, "id">) => {
+    const id = ++toastCounter.current;
+    setToasts((prev) => [...prev, { ...toast, id }]);
+    playSound(toast.type);
+    setTimeout(() => setToasts((prev) => prev.filter((t) => t.id !== id)), 5000);
+  }, []);
+
+  // PM socket — real-time task event notifications
+  useEffect(() => {
+    const token = localStorage.getItem("auth_token");
+    if (!token) return;
+
+    const socket = io(window.location.origin, {
+      path: "/agent-socket",
+      auth: { token: `Bearer ${token}` },
+      reconnectionDelay: 2000,
+      reconnectionAttempts: 10,
+    });
+    socketRef.current = socket;
+
+    socket.on("task.submitted", (data: { task_id: string; title: string; project_name: string; submitter_name?: string }) => {
+      addToast({ type: "submitted", title: "New task submitted", body: data.title, taskId: data.task_id });
+      // Add new task to list optimistically if it belongs to selected project
+      setTasks((prev) => {
+        if (prev.some((t) => t.id === data.task_id)) return prev;
+        return prev; // full reload handled by next manual refresh
+      });
+    });
+
+    socket.on("task.done", (data: { task_id: string; title: string; summary_plain: string }) => {
+      addToast({ type: "done", title: "Task completed ✓", body: data.summary_plain || data.title, taskId: data.task_id });
+      setTasks((prev) => prev.map((t) => t.id === data.task_id ? { ...t, status: "done" } : t));
+    });
+
+    socket.on("task.escalated", (data: { task_id: string; title: string; reason: string }) => {
+      addToast({ type: "escalated", title: "Task needs attention", body: data.reason || data.title, taskId: data.task_id });
+      setTasks((prev) => prev.map((t) => t.id === data.task_id ? { ...t, status: "escalated" } : t));
+    });
+
+    socket.on("task.approval_needed", (data: { task_id: string; title: string }) => {
+      addToast({ type: "approval", title: "Approval requested", body: data.title, taskId: data.task_id });
+      setTasks((prev) => prev.map((t) => t.id === data.task_id ? { ...t, status: "awaiting_approval" } : t));
+    });
+
+    return () => { socket.disconnect(); socketRef.current = null; };
+  }, [workspaceId, addToast]);
+
+  // Update tab title with unread count
+  useEffect(() => {
+    const unread = toasts.length;
+    document.title = unread > 0 ? `(${unread}) AgentInbox` : "AgentInbox";
+    return () => { document.title = "AgentInbox"; };
+  }, [toasts.length]);
 
   useEffect(() => {
     fetch(`/api/workspaces/${workspaceId}/stats`, { headers: authHeaders() })
@@ -807,6 +906,35 @@ function DashboardScreen({
           </>
         )}
       </div>
+
+      {/* ── Toast notification stack ── */}
+      {toasts.length > 0 && (
+        <div className="fixed bottom-5 right-5 z-50 flex flex-col gap-2 max-w-sm w-full">
+          {toasts.map((toast) => (
+            <div
+              key={toast.id}
+              onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+              className={`flex items-start gap-3 px-4 py-3 rounded-xl shadow-lg border cursor-pointer transition-all ${
+                toast.type === "done"
+                  ? "bg-emerald-50 border-emerald-200 text-emerald-900"
+                  : toast.type === "escalated"
+                  ? "bg-red-50 border-red-200 text-red-900"
+                  : toast.type === "approval"
+                  ? "bg-amber-50 border-amber-200 text-amber-900"
+                  : "bg-white border-slate-200 text-slate-900"
+              }`}
+            >
+              <span className="text-lg shrink-0">
+                {toast.type === "done" ? "✓" : toast.type === "escalated" ? "⚠" : toast.type === "approval" ? "👀" : "📬"}
+              </span>
+              <div className="min-w-0">
+                <p className="text-xs font-bold uppercase tracking-wide opacity-70">{toast.title}</p>
+                <p className="text-sm font-medium truncate">{toast.body}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

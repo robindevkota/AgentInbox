@@ -23,7 +23,7 @@ function createApp() {
     const app = (0, express_1.default)();
     const server = http_1.default.createServer(app);
     app.use((0, cors_1.default)());
-    app.use(express_1.default.json());
+    app.use(express_1.default.json({ limit: "10mb" }));
     // MCP endpoint — Claude connects here
     app.post("/mcp", server_1.handleMcpRequest);
     app.get("/mcp", server_1.handleMcpRequest);

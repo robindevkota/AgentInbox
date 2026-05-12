@@ -185,6 +185,32 @@ To stay focused, we are not building:
 
 ---
 
+## Current Priorities (May 2026)
+
+> `BILLING_ENABLED=false` — all signups get Pro during testing. Do not enable until MBL pilot is stable and Stripe is wired.
+
+### 🔴 Must Do Now
+
+| # | Task | Why |
+|---|---|---|
+| 1 | **PM dashboard socket notifications with sound** | PM has no idea when a task is done. Currently must manually refresh. |
+| 2 | **Stripe billing (Phase 3)** | Can't charge anyone. Needed before public launch. |
+| 3 | **Publish `agentinbox-mcp` to npm** | Without this, clients must clone the repo. Blocks all onboarding. |
+
+### 🟡 Do After First 3 Paying Customers
+
+| # | Task | Why |
+|---|---|---|
+| 4 | Screenshot storage on Cloudflare R2 (Phase 4) | Render filesystem resets on redeploy — screenshots lost |
+| 5 | Self-serve onboarding (Phase 5) | Manual token issuance doesn't scale past 5 clients |
+
+### 🟢 Later (5+ paying customers)
+
+- Enterprise features: SSO, audit log export, SLA docs (Phase 6)
+- Platform admin dashboard — only if support burden grows
+
+---
+
 ## Build Phases
 
 ### ✅ Phase 1 — Socket Server (replace ngrok + router)
@@ -207,7 +233,10 @@ To stay focused, we are not building:
 - [x] All 7 MCP tools exposed: `get_pending_tasks`, `get_task`, `get_file`, `update_task_status`, `complete_task`, `escalate_task`, `propose_plan`
 - [x] Calls `/api/agent/*` routes using `x-workspace-token` — no JWT needed
 - [x] Builds clean with TypeScript
-- [ ] Publish to npm as `agentinbox-mcp`
+- [x] `complete_task` screenshot_base64 param fixed (was routing to wrong param)
+- [x] Express JSON body limit raised to 10mb (screenshots are ~100kb base64)
+- [x] Full end-to-end tested on Render: submit → image read → Playwright screenshot → complete with proof
+- [ ] **Publish to npm as `agentinbox-mcp`** ← still pending
 
 **Client setup after publish:**
 ```json
@@ -222,41 +251,54 @@ To stay focused, we are not building:
 }
 ```
 
-### Phase 3 — Stripe Billing
-> Gate by plan, collect money.
+### 🔴 Phase 3 — Stripe Billing
+> Gate by plan, collect money. `BILLING_ENABLED=false` until this is done.
 
-- Stripe Checkout integration
-- Webhook: `checkout.session.completed` → set plan
-- Webhook: `customer.subscription.deleted` → downgrade
-- Token revocation on non-payment (with grace period)
-- Upgrade banner in PM dashboard
-- Usage visible per workspace
+- [ ] Stripe Checkout integration
+- [ ] Webhook: `checkout.session.completed` → set plan
+- [ ] Webhook: `customer.subscription.deleted` → downgrade
+- [ ] Token revocation on non-payment (with grace period)
+- [ ] Upgrade banner in PM dashboard when task limit hit
+- [ ] Usage visible per workspace in dashboard
 
 **Done when:** New signup gets Starter, hits 2 project limit, upgrades to Growth via Stripe.
 
-### Phase 4 — Screenshot Storage (R2)
-> Required before scaling. Currently storing on Render filesystem which resets.
+### 🔴 Phase 3b — PM Dashboard Socket Notifications
+> PM needs live updates without refreshing. Sound alert so they notice completed tasks.
 
-- Cloudflare R2 bucket
-- Screenshots upload to R2 on `complete_task`
-- Signed URLs served to PM dashboard
-- Old screenshots auto-expire after 90 days
+- [x] Server already emits `task.created` to agent socket room
+- [ ] Add `task.done`, `task.escalated`, `task.approved` events from server → **PM socket room**
+- [ ] PM dashboard connects to socket using JWT (existing auth)
+- [ ] Toast notification on `task.done` with sound (Web Audio API — no dependency needed)
+- [ ] Toast notification on `task.escalated` (different sound/color)
+- [ ] Browser tab title badge: `(3) AgentInbox` when unread tasks exist
+- [ ] Notifications auto-dismissed after 5 seconds
+
+**Done when:** PM gets a sound alert the moment Claude completes a task, without refreshing.
+
+### Phase 4 — Screenshot Storage (R2)
+> Required before scaling. Currently storing base64 in DB which is inefficient.
+
+- [ ] Cloudflare R2 bucket
+- [ ] Screenshots upload to R2 on `complete_task`
+- [ ] Signed URLs served to PM dashboard
+- [ ] Old screenshots auto-expire after 90 days
 
 ### Phase 5 — Self-Serve Onboarding
 > Remove manual token issuance.
 
-- Signup → select plan → Stripe → token issued → copy MCP config snippet
-- Token management page (rotate, revoke, view last connected)
-- Workspace settings (name, members, plan)
+- [ ] Signup → select plan → Stripe → token issued → copy MCP config snippet
+- [ ] Token management page (rotate, revoke, view last connected)
+- [ ] Workspace settings (name, members, plan)
 
 ### Phase 6 — Enterprise Features
 > Once we have 5+ paying Growth/Pro customers.
 
-- SSO (Google/Microsoft)
-- Audit log export (CSV)
-- Custom data residency option
-- SLA documentation
-- Onboarding service ($500-2000 one-time)
+- [ ] SSO (Google/Microsoft)
+- [ ] Audit log export (CSV)
+- [ ] Custom data residency option
+- [ ] SLA documentation
+- [ ] Onboarding service ($500-2000 one-time)
 
 ---
 
@@ -285,9 +327,9 @@ Manual token issuance takes 2 minutes per client. Don't over-engineer before you
 - Hosted on Render: `https://agentinbox-k2vf.onrender.com`
 - Turso DB: persistent, survives redeploys
 - Auth: email + password, JWT sessions
-- MBL Bank pilot: connected via ngrok + claude-router (temporary, to be replaced by socket)
-- ngrok domain: `footwear-chooser-spinner.ngrok-free.dev` (permanent, until socket replaces it)
-- All MCP tools working end-to-end
+- MBL Bank pilot: connected via `agentinbox-mcp` (socket, no ngrok needed)
+- All MCP tools working end-to-end including file upload + screenshot proof
 - Custom fields, file upload, approval gate, Playwright screenshots all working
 - Gmail integration archived — replaced by AgentInbox native flow
-- `BILLING_ENABLED` not set → all signups get pro plan during testing
+- `BILLING_ENABLED=false` → all signups get Pro plan during testing week
+- Next: PM socket notifications with sound, then Stripe

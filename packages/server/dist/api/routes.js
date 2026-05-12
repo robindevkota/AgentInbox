@@ -259,8 +259,16 @@ function createRouter() {
             const workspace = db_1.db
                 .prepare("SELECT id FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
                 .get(project.id);
-            if (workspace)
+            if (workspace) {
                 (0, manager_1.emitTaskCreated)(workspace.id, taskPayload);
+                (0, manager_1.emitToPm)(workspace.id, "task.submitted", {
+                    task_id: task.id,
+                    title: task.title,
+                    project_name: project.name,
+                    submitter_name: task.submitter_name,
+                    priority: task.priority,
+                });
+            }
             // Also fire webhook as fallback (ngrok/router still supported)
             (0, notify_1.fireWebhook)(taskPayload).catch(() => { });
             res.status(201).json({
@@ -679,7 +687,18 @@ function createRouter() {
                 summary_plain: zod_1.z.string().min(1),
                 screenshot_base64: zod_1.z.string().optional(),
             }).parse(req.body);
-            const updated = tasks_1.taskQueries.completeTask(req.params.id, summary_technical, summary_plain, screenshot_base64);
+            const updated = tasks_1.taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64);
+            if (!updated) {
+                res.status(404).json({ error: "Task not found" });
+                return;
+            }
+            const ws = req.agentWorkspace;
+            (0, manager_1.emitToPm)(ws.id, "task.done", {
+                task_id: updated.id,
+                title: updated.title,
+                summary_plain,
+                has_screenshot: !!screenshot_base64,
+            });
             res.json(updated);
         }
         catch (err) {
@@ -690,6 +709,16 @@ function createRouter() {
         try {
             const { reason } = zod_1.z.object({ reason: zod_1.z.string().min(1) }).parse(req.body);
             const updated = tasks_1.taskQueries.escalateTask(req.params.id, reason);
+            if (!updated) {
+                res.status(404).json({ error: "Task not found" });
+                return;
+            }
+            const ws = req.agentWorkspace;
+            (0, manager_1.emitToPm)(ws.id, "task.escalated", {
+                task_id: updated.id,
+                title: updated.title,
+                reason,
+            });
             res.json(updated);
         }
         catch (err) {
@@ -700,6 +729,16 @@ function createRouter() {
         try {
             const { plan } = zod_1.z.object({ plan: zod_1.z.string().min(1) }).parse(req.body);
             const updated = tasks_1.taskQueries.proposePlan(req.params.id, plan);
+            if (!updated) {
+                res.status(404).json({ error: "Task not found" });
+                return;
+            }
+            const ws = req.agentWorkspace;
+            (0, manager_1.emitToPm)(ws.id, "task.approval_needed", {
+                task_id: updated.id,
+                title: updated.title,
+                plan,
+            });
             res.json(updated);
         }
         catch (err) {

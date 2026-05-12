@@ -9,7 +9,7 @@ import { db } from "../queue/db";
 import { parseFile } from "../files/parser";
 import { sendOtp } from "../email/mailer";
 import { fireWebhook } from "../webhook/notify";
-import { emitTaskCreated } from "../socket/manager";
+import { emitTaskCreated, emitToPm } from "../socket/manager";
 
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
@@ -242,7 +242,16 @@ export function createRouter(): Router {
         const workspace = db
           .prepare("SELECT id FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
           .get(project.id) as { id: string } | undefined;
-        if (workspace) emitTaskCreated(workspace.id, taskPayload);
+        if (workspace) {
+          emitTaskCreated(workspace.id, taskPayload);
+          emitToPm(workspace.id, "task.submitted", {
+            task_id: task.id,
+            title: task.title,
+            project_name: project.name,
+            submitter_name: task.submitter_name,
+            priority: task.priority,
+          });
+        }
 
         // Also fire webhook as fallback (ngrok/router still supported)
         fireWebhook(taskPayload).catch(() => {});
@@ -698,6 +707,14 @@ export function createRouter(): Router {
         screenshot_base64: z.string().optional(),
       }).parse(req.body);
       const updated = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64);
+      if (!updated) { res.status(404).json({ error: "Task not found" }); return; }
+      const ws = (req as any).agentWorkspace;
+      emitToPm(ws.id, "task.done", {
+        task_id: updated.id,
+        title: updated.title,
+        summary_plain,
+        has_screenshot: !!screenshot_base64,
+      });
       res.json(updated);
     } catch (err) { res.status(400).json({ error: String(err) }); }
   });
@@ -706,6 +723,13 @@ export function createRouter(): Router {
     try {
       const { reason } = z.object({ reason: z.string().min(1) }).parse(req.body);
       const updated = taskQueries.escalateTask(req.params.id, reason);
+      if (!updated) { res.status(404).json({ error: "Task not found" }); return; }
+      const ws = (req as any).agentWorkspace;
+      emitToPm(ws.id, "task.escalated", {
+        task_id: updated.id,
+        title: updated.title,
+        reason,
+      });
       res.json(updated);
     } catch (err) { res.status(400).json({ error: String(err) }); }
   });
@@ -714,6 +738,13 @@ export function createRouter(): Router {
     try {
       const { plan } = z.object({ plan: z.string().min(1) }).parse(req.body);
       const updated = taskQueries.proposePlan(req.params.id, plan);
+      if (!updated) { res.status(404).json({ error: "Task not found" }); return; }
+      const ws = (req as any).agentWorkspace;
+      emitToPm(ws.id, "task.approval_needed", {
+        task_id: updated.id,
+        title: updated.title,
+        plan,
+      });
       res.json(updated);
     } catch (err) { res.status(400).json({ error: String(err) }); }
   });
