@@ -151,9 +151,9 @@ Read ONLY the relevant rule file before answering. Never load all at once.
 | `get_pending_tasks()` | Returns all unstarted tasks in the workspace |
 | `get_task(id)` | Full task detail including custom fields and parsed file content |
 | `update_task_status(id, status)` | Sets `in_progress`, `failed`, or `blocked` |
-| `complete_task(id, technical, plain, screenshot_base64?)` | Writes summaries, stores screenshot, marks done |
+| `complete_task(id, technical, plain, pr_link?, screenshot_base64?)` | Writes summaries, stores screenshot, marks done |
 | `get_file(task_id)` | Returns parsed content of uploaded PDF/image/doc |
-| `escalate_task(id, reason)` | Flags for human review |
+| `escalate_task(id, reason)` | Flags for human review — PM gets instant toast notification |
 | `propose_plan(id, plan)` | Proposes a fix plan — PM approves before Claude executes |
 
 The `screenshot_base64` parameter accepts a base64-encoded PNG. Pass a Playwright screenshot and it renders inline in the PM dashboard task detail.
@@ -167,6 +167,8 @@ Sign in at `/pm` with your credentials.
 - All projects and tasks in one view
 - Filter by status: pending / in_progress / awaiting_approval / done / failed / escalated
 - Click any task for full detail: submitted image, Claude's screenshot, technical summary, plain summary, audit log
+- **Real-time notifications** — toast alerts with sound when Claude completes, escalates, or needs approval. No refreshing needed.
+- **Tab badge** — browser tab shows `(3) AgentInbox` when unread notifications exist
 - Enable approval gate per project
 - Add custom fields (Environment, Module, Step, Case ID, etc.)
 - Copy submission links
@@ -265,7 +267,7 @@ docker compose up
 | `TURSO_AUTH_TOKEN` | _(none)_ | Turso auth token |
 | `JWT_SECRET` | `dev-secret` | Auth token signing — set in production |
 | `API_KEY` | _(none)_ | If set, secures the PM dashboard |
-| `SEED_ADMIN_EMAIL` | `robin@agentinbox.com` | Default admin email on fresh DB |
+| `SEED_ADMIN_EMAIL` | `admin@example.com` | Default admin email on fresh DB |
 | `SEED_ADMIN_PASSWORD` | `Admin123!` | Default admin password — change this |
 | `SMTP_HOST/USER/PASS` | _(none)_ | Email notifications on task completion |
 | `SLACK_BOT_TOKEN` | _(none)_ | Slack notifications |

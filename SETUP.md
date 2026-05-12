@@ -141,6 +141,8 @@ Claude will:
 
 Open [agentinbox-k2vf.onrender.com/pm](https://agentinbox-k2vf.onrender.com/pm) — the task should show as **Done** with Claude's screenshot and summaries.
 
+You'll also get a **real-time toast notification** with a sound the moment Claude completes the task — no refreshing needed. The browser tab title shows `(1) AgentInbox` so you notice even when the tab is in the background.
+
 ---
 
 ## Part 4 — Advanced: Rules pattern
