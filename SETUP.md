@@ -24,46 +24,37 @@ pnpm build
 
 ---
 
-## 2. Configure environment
+## 2. Start AgentInbox server
 
 ```bash
-cp .env.example .env
-```
-
-Edit `.env`:
-
-```env
-PORT=3000
-DATA_DIR=./data
-WEBHOOK_URL=http://localhost:4001/webhook
-```
-
-> If you are hosting on a server, set `BASE_URL=https://yourdomain.com`
-
----
-
-## 3. Start AgentInbox server
-
-```bash
-pnpm --filter server dev
+pnpm --filter=@robindevkota/agentinbox dev
 ```
 
 Or in production:
 
 ```bash
-pnpm --filter server start
+node packages/server/dist/cli.js start
 ```
 
-Open `http://localhost:3000` — you will see the AgentInbox dashboard.
+Open `http://localhost:3000` — you will see the AgentInbox UI.
 
 ---
 
-## 4. Create your first workspace and project
+## 3. Create your account
+
+Go to `http://localhost:3000/signup` — sign up with email + password. Your workspace is created automatically.
+
+PM dashboard: `http://localhost:3000/pm`
+
+---
+
+## 4. Create your first project
 
 1. Go to `http://localhost:3000/pm`
-2. Create a workspace (your agency or company name)
-3. Create a project (one project = one codebase)
-4. Copy the **submission link** — this is what you send to clients
+2. Click **+ New Project**
+3. Enter a name, optional description, brand color
+4. Optionally add custom fields (Environment, Module, Steps, Case ID, etc.)
+5. Copy the **submission link** — this is what you send to clients
 
 ---
 
@@ -116,7 +107,7 @@ Start now by calling mcp__agentinbox__get_pending_tasks.
 
 **With custom field routing (recommended):**
 
-If you configured Module/Environment dropdowns in the PM dashboard settings, add a module map so Claude goes directly to the right file:
+If you configured Module/Environment dropdowns in the PM dashboard project settings, add a module map so Claude goes directly to the right file:
 
 ```markdown
 Module Map (use custom_field_values.Module):
@@ -150,7 +141,7 @@ Edit `examples/claude-loop/projects.json` — add one entry per project:
 ]
 ```
 
-Get your project token from the PM dashboard → Settings → Submission link (it is the last part of the URL).
+Get your project token from the PM dashboard → submission link (it is the last part of the URL).
 
 ---
 
@@ -208,19 +199,18 @@ If you want PM and clients to access AgentInbox from anywhere without running it
 No hosting needed. Everything runs on your machine.
 
 ```bash
-pnpm --filter server dev
+node packages/server/dist/cli.js start
 ```
 
 - PM opens `http://localhost:3000/pm`
 - Clients use the submission link you copy from the PM dashboard
 - Data lives in `./data/agentinbox.db` — persists forever on your machine
-- Share your screen or use a tunnel (see Option B) if clients need remote access
 
 ---
 
 ### Option B — Render.com + Turso (free, no credit card required) ✅ Recommended for remote access
 
-**What you get:** A permanent public URL for PM and clients. Claude still runs on your dev machine. Data persists in Turso (free hosted SQLite — no resets).
+**What you get:** A permanent public URL for PM and clients. Claude still runs on your dev machine. Data persists in Turso (free hosted SQLite — survives all Render restarts and redeploys forever).
 
 **Step 1 — Create a free Turso database (one-time, ~2 minutes)**
 
@@ -242,7 +232,11 @@ pnpm --filter server dev
    - `TURSO_AUTH_TOKEN` = your token from Step 1
 8. Click **Save Changes** — Render restarts with persistent storage
 
-Your data now lives in Turso forever — redeploys never reset it.
+Sign up at `https://agentinbox-xxxx.onrender.com/signup` — your account and workspace are created on first signup.
+
+**Your data now lives in Turso forever** — redeploys, restarts, and free-tier spin-downs never reset it.
+
+> **Note:** Render free tier spins down after 15 minutes of inactivity. First request after a sleep takes ~30 seconds to wake up. All data is preserved — just a cold start delay.
 
 **Step 3 — Set up a permanent tunnel (ngrok)**
 
@@ -294,9 +288,12 @@ cd AgentInbox
 pnpm install && pnpm build
 
 # Set env
-echo "PORT=3000
+cat > packages/server/.env << EOF
+PORT=3000
 DATA_DIR=./data
-WEBHOOK_URL=https://your-static-domain.ngrok-free.app/webhook" > packages/server/.env
+WEBHOOK_URL=https://your-static-domain.ngrok-free.app/webhook
+JWT_SECRET=your-random-64-char-secret
+EOF
 
 # Run with PM2 to keep it alive
 npm install -g pm2
@@ -323,15 +320,17 @@ Use Task Scheduler to run the router at login:
 
 ---
 
-## Adding custom fields (Module, Environment, Steps dropdowns)
+## Adding custom fields (Module, Environment, Steps, Case ID dropdowns)
 
 1. Go to PM dashboard → select your project → **Settings**
 2. Scroll to **Custom fields**
-3. Add a field: name it `Module`, type `Dropdown`, options `checkout,auth,dashboard`
+3. Add a field: name it `Module`, type `Dropdown`, options `ncna,newcifindiv,newcifcorporate`
 4. Add another: `Environment`, options `UAT,Live`
-5. Click **Save settings**
-6. The submission form now shows those dropdowns
-7. Claude receives `custom_field_values: { "Module": "checkout", "Environment": "UAT" }` with every task
+5. Add another: `Steps`, options `screening,personal address,review`
+6. Add another: `Case ID`, type `Text`
+7. Click **Save settings**
+8. The submission form now shows those dropdowns
+9. Claude receives `custom_field_values: { "Module": "ncna", "Environment": "UAT" }` with every task
 
 ---
 
@@ -339,11 +338,12 @@ Use Task Scheduler to run the router at login:
 
 | Problem | Fix |
 |---|---|
-| Router starts but nothing happens after submit | Check `WEBHOOK_URL` in `.env` matches the port your router is on |
+| Router starts but nothing happens after submit | Check `WEBHOOK_URL` in Render env matches the ngrok URL + `/webhook` |
 | Claude says "message got cut off" | Make sure `scripts/agentinbox.md` starts with "You are an autonomous agent" |
 | Claude reads Gmail instead of tasks | Remove Gmail MCP or add "Do NOT read Gmail" to `scripts/agentinbox.md` |
-| Port already in use | Change `--port` on the router and update `WEBHOOK_URL` in `.env`, then restart the server |
-| Projects don't show after reload | Make sure `pm_workspace_id` is saved in browser localStorage (happens automatically after first login) |
+| Port already in use | Change `--port` on the router and update `WEBHOOK_URL` in Render, then redeploy |
+| Projects don't show after reload | Make sure `pm_workspace_id` is saved in browser localStorage (happens automatically after login) |
 | MCP not found | Run `claude mcp add --scope user agentinbox http://localhost:3000/mcp` again |
-| Data resets on Render redeploy | Set `TURSO_URL` and `TURSO_AUTH_TOKEN` env vars in Render — see Option B above |
-| "This link is invalid or expired" on submit form | Project was wiped from DB — create it again in PM dashboard, or set up Turso so data persists |
+| "Failed to fetch" on login | Render free tier is sleeping — wait 30 seconds and retry |
+| "Invalid email or password" | Use the reset endpoint: `POST /api/auth/reset-password` with `reset_secret: "reset-me-now"` |
+| First request is slow (~30s) | Normal on Render free tier — server wakes up on demand. All data is preserved. |

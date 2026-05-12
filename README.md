@@ -4,7 +4,7 @@
 
 AgentInbox is an open source task inbox that connects non-technical clients directly to a Claude agent. Clients submit bugs and feature requests through a simple web form. Claude picks them up, fixes them in your real codebase, and writes back a plain-English summary — no PM in the middle, no WhatsApp chains, no lost context.
 
-**The best part:** uses Claude Pro via CLI — no API key, no extra cost.
+**Uses Claude Pro via CLI — no API key, no extra cost.**
 
 ---
 
@@ -48,11 +48,11 @@ Client sees: Done ✓  (live, no refresh needed)
 
 ### 1. Create your account
 
-Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com/signup) → sign up → your workspace is ready.
+Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com/signup) → sign up → your workspace and first project are created automatically.
 
 ### 2. Create a project and copy your token
 
-Open the PM dashboard → New Project → copy the project token.
+Open the PM dashboard → **+ New Project** → copy the submission link token.
 
 ### 3. Set up the local router
 
@@ -82,12 +82,11 @@ In your project, create `scripts/agentinbox.md` — this is what Claude reads wh
 You are an autonomous agent working on My Project.
 
 When a task arrives:
-1. Read scripts/agentinbox-payload.json for the task details
-2. Do the work
-3. Write result to scripts/agentinbox-result.md
-4. Delete scripts/agentinbox-payload.json when done
+1. Call get_pending_tasks() to get all pending tasks
+2. For each task: update_task_status(in_progress) → fix it → complete_task(id, technical, plain)
+3. If you cannot solve a task, call escalate_task(id, reason)
 
-Stack: Next.js + Node.js. Read BRAIN.md for full context.
+Stack: React + TypeScript. Read CLAUDE.md for full context.
 ```
 
 ### 5. Start the router + ngrok
@@ -99,8 +98,6 @@ node claude-router.js --config projects.json --port 4001
 # Terminal 2 — tunnel
 ngrok http 4001
 ```
-
-Or add both to your project's `npm run dev` using `concurrently` so they start automatically.
 
 ### 6. Connect webhook
 
@@ -129,9 +126,9 @@ pnpm install
 pnpm dev
 ```
 
-Sign up at `http://localhost:5173/signup` — your workspace is created automatically.
+Sign up at `http://localhost:3000/signup` — your workspace is created automatically.
 
-PM dashboard: `http://localhost:5173/pm`
+PM dashboard: `http://localhost:3000/pm`
 
 ### Connect Claude via MCP (alternative to router)
 
@@ -167,13 +164,14 @@ Claude picks up tasks automatically when you open a session.
 
 ## PM Dashboard
 
-Sign in at `/pm` with your account.
+Sign in at `/pm` with your account credentials.
 
 - See all projects and tasks in one view
 - Filter by status: pending / in_progress / done / escalated
 - Enable approval gate — Claude proposes a plan, you approve before any code runs
 - Copy client submission links
 - View audit log for every task
+- Add custom fields (Environment, Module, Steps, Case ID, etc.) per project
 
 ---
 
@@ -185,7 +183,7 @@ Send your client one link — that's all they need:
 https://agentinbox-k2vf.onrender.com/submit/<project-token>
 ```
 
-No account. No install. Works on mobile. They type the bug, optionally upload a file or screenshot, and hit Submit. They watch the status update live.
+No account. No install. Works on mobile. They fill in the form, optionally upload a file or screenshot, and hit Submit. Status updates live.
 
 ---
 
@@ -194,9 +192,11 @@ No account. No install. Works on mobile. They type the bug, optionally upload a 
 | Variable | Default | What for |
 |----------|---------|----------|
 | `PORT` | `3000` | Server port |
-| `DATA_DIR` | `./data` | SQLite database location |
+| `DATA_DIR` | `./data` | Local SQLite database location (ignored when TURSO_URL is set) |
+| `TURSO_URL` | _(none)_ | Turso/libsql database URL — use for persistent hosted DB |
+| `TURSO_AUTH_TOKEN` | _(none)_ | Turso auth token |
+| `WEBHOOK_URL` | _(none)_ | URL of your local router (e.g. your ngrok tunnel) |
 | `JWT_SECRET` | `dev-secret` | Sign auth tokens — set a strong secret in production |
-| `BILLING_ENABLED` | `false` | Set to `true` to enforce free tier limits |
 | `SMTP_HOST/USER/PASS` | _(none)_ | Email notifications on task completion |
 | `SLACK_BOT_TOKEN` | _(none)_ | Slack notifications |
 | `SLACK_SIGNING_SECRET` | _(none)_ | Slack request verification |
@@ -209,7 +209,7 @@ No account. No install. Works on mobile. They type the bug, optionally upload a 
 AgentInbox (hosted or self-hosted)    Your machine
 ──────────────────────────────────    ──────────────────────────
 Auth + workspace management           claude-router.js (Node)
-SQLite task queue                     ngrok tunnel
+Turso/SQLite task queue               ngrok tunnel
 File storage                          Claude Code CLI
 React PM dashboard                    Your project codebase
 Client submission form                scripts/agentinbox.md
@@ -217,13 +217,15 @@ Client submission form                scripts/agentinbox.md
 
 AgentInbox holds tasks and statuses. Your local Claude does the actual work. Works with any project, any stack, any language.
 
+**Data persistence:** When using Turso (`TURSO_URL` set), all data — tasks, projects, users, completions — persists permanently regardless of server restarts or Render redeploys.
+
 ---
 
 ## Project structure
 
 ```
 packages/
-  server/              # MCP server + REST API (TypeScript · Express · SQLite)
+  server/              # MCP server + REST API (TypeScript · Express · libsql/SQLite)
   ui/                  # React UI (Vite · Tailwind)
     auth/              # Login + Signup pages
     submit/            # Client bug submission form
@@ -240,7 +242,11 @@ examples/
 
 ## Self-hosting in production
 
-Run behind a reverse proxy (nginx, Caddy) with HTTPS. Set `JWT_SECRET` to a strong random string. The SQLite database is a single file at `DATA_DIR/agentinbox.db` — back it up like any file.
+Run behind a reverse proxy (nginx, Caddy) with HTTPS. Set `JWT_SECRET` to a strong random string.
+
+**With Turso (recommended):** Set `TURSO_URL` and `TURSO_AUTH_TOKEN` — data persists forever across restarts and redeploys.
+
+**With local SQLite:** Data lives at `DATA_DIR/agentinbox.db` — back it up like any file.
 
 ```bash
 docker compose up
