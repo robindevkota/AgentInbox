@@ -336,6 +336,17 @@ export function createRouter(): Router {
     res.json(users);
   });
 
+  router.get("/auth/debug-bcrypt", async (_req: Request, res: Response) => {
+    try {
+      const bcryptjs = require("bcryptjs");
+      const hash = bcryptjs.hashSync("test", 10);
+      const valid = bcryptjs.compareSync("test", hash);
+      res.json({ ok: true, hash, valid });
+    } catch (err) {
+      res.status(500).json({ error: String(err) });
+    }
+  });
+
   router.post("/auth/reset-password", async (req: Request, res: Response) => {
     try {
       const { email, new_password, reset_secret } = z
