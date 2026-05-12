@@ -600,6 +600,16 @@ export function createRouter(): Router {
     }
   });
 
+  // Serve uploaded file attachment
+  router.get("/tasks/:id/file", requireAuth, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task || !task.file_path) {
+      res.status(404).json({ error: "No file for this task" });
+      return;
+    }
+    res.sendFile(path.resolve(task.file_path));
+  });
+
   // Screenshot serving — base64 stored in DB, served as PNG
   router.get("/tasks/:id/screenshot", requireAuth, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);

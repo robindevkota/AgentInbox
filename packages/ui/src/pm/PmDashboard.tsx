@@ -1066,7 +1066,19 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
       )}
 
       <Card title="Description"><p className="text-slate-700 text-sm whitespace-pre-wrap">{task.description}</p></Card>
-      {task.file_name && <Card title="Attached file"><p className="text-slate-600 text-sm">📎 {task.file_name}</p></Card>}
+      {task.file_name && (
+        <Card title="Attached file">
+          <p className="text-slate-600 text-sm mb-2">📎 {task.file_name}</p>
+          {/\.(png|jpe?g|gif|webp)$/i.test(task.file_name) && (
+            <img
+              src={`/api/tasks/${task.id}/file`}
+              alt={task.file_name}
+              className="rounded-lg w-full border border-slate-200"
+              onError={e => (e.currentTarget.style.display = "none")}
+            />
+          )}
+        </Card>
+      )}
       {task.proposed_plan && <Card title="Claude's proposed plan"><p className="text-sm text-amber-900 whitespace-pre-wrap bg-amber-50 rounded-lg p-3">{task.proposed_plan}</p></Card>}
       {task.rejected_reason && <Card title="Rejection reason"><p className="text-red-700 text-sm">{task.rejected_reason}</p></Card>}
       {task.summary_technical && (
