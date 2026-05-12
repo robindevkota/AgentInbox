@@ -21,7 +21,7 @@ export function createApp(): { app: Express; server: http.Server } {
   const server = http.createServer(app);
 
   app.use(cors());
-  app.use(express.json());
+  app.use(express.json({ limit: "10mb" }));
 
   // MCP endpoint — Claude connects here
   app.post("/mcp", handleMcpRequest);
