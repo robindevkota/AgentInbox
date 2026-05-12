@@ -327,7 +327,8 @@ export function createRouter(): Router {
       const result = await loginUser(email, password);
       res.json(result);
     } catch (err) {
-      res.status(401).json({ error: err instanceof Error ? err.message : String(err) });
+      console.error("[login error]", err);
+      res.status(401).json({ error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined });
     }
   });
 

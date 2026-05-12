@@ -1,4 +1,5 @@
-import * as bcrypt from "bcryptjs";
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const bcrypt = require("bcryptjs") as typeof import("bcryptjs");
 import jwt from "jsonwebtoken";
 import { db, nowUnix } from "../queue/db";
 
