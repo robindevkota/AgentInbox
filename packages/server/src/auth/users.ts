@@ -1,4 +1,4 @@
-const bcrypt = require("bcryptjs");
+import * as bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { db, nowUnix } from "../queue/db";
 
