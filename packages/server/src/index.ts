@@ -2,22 +2,23 @@ import "dotenv/config";
 import express, { type Express } from "express";
 import cors from "cors";
 import path from "path";
+import http from "http";
 import { createRouter } from "./api/routes";
 import { handleMcpRequest } from "./mcp/server";
 import { createSlackApp } from "./slack/bot";
 import { seedFromEnv } from "./queue/db";
+import { initSocketServer } from "./socket/manager";
 
 import fs from "fs";
-// npm package: ui-dist/ sits alongside dist/ inside the package root
-// monorepo dev: fall back to packages/ui/dist (Vite output)
 const UI_DIST = fs.existsSync(path.join(__dirname, "../ui-dist"))
   ? path.join(__dirname, "../ui-dist")
   : path.join(__dirname, "../../ui/dist");
 
 seedFromEnv();
 
-export function createApp(): Express {
+export function createApp(): { app: Express; server: http.Server } {
   const app = express();
+  const server = http.createServer(app);
 
   app.use(cors());
   app.use(express.json());
@@ -30,17 +31,18 @@ export function createApp(): Express {
   // REST API
   app.use("/api", createRouter());
 
-  // Slack — mount Bolt middleware if configured
+  // Slack
   const slackApp = createSlackApp();
   if (slackApp) {
-    // Use Bolt's built-in Express receiver for /slack/events
     app.post("/slack/events", async (req, res) => {
-      // Bolt handles verification and event routing
       await (slackApp as any).processEvent(req, res);
     });
   }
 
-  // Serve UI static files in production
+  // WebSocket server for agentinbox-mcp clients
+  initSocketServer(server);
+
+  // Serve UI static files
   app.use(express.static(UI_DIST));
   app.get("*", (_req, res) => {
     const indexPath = path.join(UI_DIST, "index.html");
@@ -49,5 +51,5 @@ export function createApp(): Express {
     });
   });
 
-  return app;
+  return { app, server };
 }

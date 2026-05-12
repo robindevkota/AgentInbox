@@ -48,6 +48,7 @@ const db_1 = require("../queue/db");
 const parser_1 = require("../files/parser");
 const mailer_1 = require("../email/mailer");
 const notify_1 = require("../webhook/notify");
+const manager_1 = require("../socket/manager");
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
 const upload = (0, multer_1.default)({
@@ -69,8 +70,16 @@ const upload = (0, multer_1.default)({
         cb(null, allowed.includes(file.mimetype));
     },
 });
-function baseUrl(req) {
-    return process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+function buildMcpConfig(token) {
+    return {
+        mcpServers: {
+            agentinbox: {
+                command: "npx",
+                args: ["-y", "agentinbox-mcp"],
+                env: { AGENTINBOX_TOKEN: token },
+            },
+        },
+    };
 }
 function createRouter() {
     const router = (0, express_1.Router)();
@@ -235,8 +244,7 @@ function createRouter() {
                 action: "task_submitted",
                 actor: body.submitter_email || body.submitter_name || "anonymous",
             });
-            // Fire webhook async — does not block the response
-            (0, notify_1.fireWebhook)({
+            const taskPayload = {
                 event: "task.created",
                 task_id: task.id,
                 project_id: project.id,
@@ -246,7 +254,15 @@ function createRouter() {
                 description: task.description,
                 submitter_name: task.submitter_name,
                 has_file: !!task.file_name,
-            }).catch(() => { });
+            };
+            // Emit to connected agentinbox-mcp socket for this workspace
+            const workspace = db_1.db
+                .prepare("SELECT id FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
+                .get(project.id);
+            if (workspace)
+                (0, manager_1.emitTaskCreated)(workspace.id, taskPayload);
+            // Also fire webhook as fallback (ngrok/router still supported)
+            (0, notify_1.fireWebhook)(taskPayload).catch(() => { });
             res.status(201).json({
                 id: task.id,
                 status: task.status,
@@ -591,6 +607,104 @@ function createRouter() {
         res.setHeader("Content-Type", mimeMap[ext] || "application/octet-stream");
         res.setHeader("Content-Length", buf.length);
         res.send(buf);
+    });
+    // ── Workspace token (for agentinbox-mcp) ────────────────────────────────
+    // GET current token (or issue one if not yet set)
+    router.get("/workspaces/:workspaceId/token", tokens_1.requireAuth, (req, res) => {
+        let token = tasks_1.taskQueries.getWorkspaceToken(req.params.workspaceId);
+        if (!token)
+            token = tasks_1.taskQueries.issueWorkspaceToken(req.params.workspaceId);
+        res.json({ token, mcp_config: buildMcpConfig(token) });
+    });
+    // POST rotate token
+    router.post("/workspaces/:workspaceId/token/rotate", tokens_1.requireAuth, (req, res) => {
+        const token = tasks_1.taskQueries.rotateWorkspaceToken(req.params.workspaceId);
+        res.json({ token, mcp_config: buildMcpConfig(token) });
+    });
+    // ── Agent routes (workspace token auth, used by agentinbox-mcp) ────────────
+    function requireWorkspaceToken(req, res, next) {
+        const token = req.headers["x-workspace-token"];
+        if (!token) {
+            res.status(401).json({ error: "Missing x-workspace-token" });
+            return;
+        }
+        const workspace = tasks_1.taskQueries.getWorkspaceByToken(token);
+        if (!workspace) {
+            res.status(401).json({ error: "Invalid workspace token" });
+            return;
+        }
+        req.agentWorkspace = workspace;
+        next();
+    }
+    router.get("/agent/workspace", requireWorkspaceToken, (req, res) => {
+        const ws = req.agentWorkspace;
+        res.json({ workspace_id: ws.id, workspace_name: ws.name, plan: ws.plan });
+    });
+    router.get("/agent/tasks/pending", requireWorkspaceToken, (req, res) => {
+        const ws = req.agentWorkspace;
+        const projects = db_1.db.prepare("SELECT id FROM projects WHERE workspace_id = ?").all(ws.id);
+        const tasks = projects.flatMap((p) => tasks_1.taskQueries.listTasks(p.id, "pending"));
+        res.json(tasks);
+    });
+    router.get("/agent/tasks/:id", requireWorkspaceToken, (req, res) => {
+        const task = tasks_1.taskQueries.getTask(req.params.id);
+        if (!task) {
+            res.status(404).json({ error: "Task not found" });
+            return;
+        }
+        res.json(task);
+    });
+    router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req, res) => {
+        const task = tasks_1.taskQueries.getTask(req.params.id);
+        if (!task || !task.file_content) {
+            res.status(404).json({ error: "No file for this task" });
+            return;
+        }
+        res.json({ file_name: task.file_name, file_content: task.file_content });
+    });
+    router.post("/agent/tasks/:id/status", requireWorkspaceToken, (req, res) => {
+        try {
+            const { status } = zod_1.z.object({ status: zod_1.z.enum(["in_progress", "blocked", "failed"]) }).parse(req.body);
+            const updated = tasks_1.taskQueries.updateStatus(req.params.id, status);
+            res.json(updated);
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
+    });
+    router.post("/agent/tasks/:id/complete", requireWorkspaceToken, (req, res) => {
+        try {
+            const { summary_technical, summary_plain, screenshot_base64 } = zod_1.z.object({
+                summary_technical: zod_1.z.string().min(1),
+                summary_plain: zod_1.z.string().min(1),
+                screenshot_base64: zod_1.z.string().optional(),
+            }).parse(req.body);
+            const updated = tasks_1.taskQueries.completeTask(req.params.id, summary_technical, summary_plain, screenshot_base64);
+            res.json(updated);
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
+    });
+    router.post("/agent/tasks/:id/escalate", requireWorkspaceToken, (req, res) => {
+        try {
+            const { reason } = zod_1.z.object({ reason: zod_1.z.string().min(1) }).parse(req.body);
+            const updated = tasks_1.taskQueries.escalateTask(req.params.id, reason);
+            res.json(updated);
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
+    });
+    router.post("/agent/tasks/:id/propose", requireWorkspaceToken, (req, res) => {
+        try {
+            const { plan } = zod_1.z.object({ plan: zod_1.z.string().min(1) }).parse(req.body);
+            const updated = tasks_1.taskQueries.proposePlan(req.params.id, plan);
+            res.json(updated);
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
     });
     // Screenshot serving — base64 stored in DB, served as PNG
     router.get("/tasks/:id/screenshot", tokens_1.requireAuth, (req, res) => {

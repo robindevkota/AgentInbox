@@ -1,0 +1,32 @@
+{
+  "name": "agentinbox-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for AgentInbox — connects your Claude agent to your AgentInbox workspace via WebSocket.",
+  "keywords": ["mcp", "agentinbox", "claude", "ai", "agent"],
+  "author": "Robin Devkota",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/robindevkota/AgentInbox.git"
+  },
+  "main": "dist/index.js",
+  "bin": {
+    "agentinbox-mcp": "dist/index.js"
+  },
+  "files": ["dist/"],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsx watch src/index.ts",
+    "prepublishOnly": "pnpm run build"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "socket.io-client": "^4.7.5"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": { "node": ">=18" }
+}

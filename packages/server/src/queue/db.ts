@@ -141,6 +141,7 @@ const migrations: Record<string, string> = {
   "workspaces.task_count_this_month": "ALTER TABLE workspaces ADD COLUMN task_count_this_month INTEGER NOT NULL DEFAULT 0",
   "workspaces.plan_expires_at": "ALTER TABLE workspaces ADD COLUMN plan_expires_at INTEGER",
   "workspaces.billing_month": "ALTER TABLE workspaces ADD COLUMN billing_month TEXT",
+  "workspaces.workspace_token": "ALTER TABLE workspaces ADD COLUMN workspace_token TEXT UNIQUE",
 };
 for (const [key, sql] of Object.entries(migrations)) {
   const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);

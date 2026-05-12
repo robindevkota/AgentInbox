@@ -257,8 +257,8 @@ else if (command === "start") {
     const PORT = parseInt(process.env.PORT || "3000", 10);
     const autoInstall = args.includes("--install");
     Promise.resolve().then(() => __importStar(require("./index"))).then(({ createApp }) => {
-        const app = createApp();
-        app.listen(PORT, () => {
+        const { server } = createApp();
+        server.listen(PORT, () => {
             const line = "─".repeat(45);
             console.log(`\n  ┌${line}┐`);
             console.log(`  │${"   AgentInbox is running".padEnd(45)}│`);

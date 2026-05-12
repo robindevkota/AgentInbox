@@ -9,6 +9,7 @@ import { db } from "../queue/db";
 import { parseFile } from "../files/parser";
 import { sendOtp } from "../email/mailer";
 import { fireWebhook } from "../webhook/notify";
+import { emitTaskCreated } from "../socket/manager";
 
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
@@ -34,8 +35,17 @@ const upload = multer({
   },
 });
 
-function baseUrl(req: Request): string {
-  return process.env.BASE_URL || `${req.protocol}://${req.get("host")}`;
+
+function buildMcpConfig(token: string): object {
+  return {
+    mcpServers: {
+      agentinbox: {
+        command: "npx",
+        args: ["-y", "agentinbox-mcp"],
+        env: { AGENTINBOX_TOKEN: token },
+      },
+    },
+  };
 }
 
 export function createRouter(): Router {
@@ -216,9 +226,8 @@ export function createRouter(): Router {
           actor: body.submitter_email || body.submitter_name || "anonymous",
         });
 
-        // Fire webhook async — does not block the response
-        fireWebhook({
-          event: "task.created",
+        const taskPayload = {
+          event: "task.created" as const,
           task_id: task.id,
           project_id: project.id,
           project_name: project.name,
@@ -227,7 +236,16 @@ export function createRouter(): Router {
           description: task.description,
           submitter_name: task.submitter_name,
           has_file: !!task.file_name,
-        }).catch(() => {});
+        };
+
+        // Emit to connected agentinbox-mcp socket for this workspace
+        const workspace = db
+          .prepare("SELECT id FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
+          .get(project.id) as { id: string } | undefined;
+        if (workspace) emitTaskCreated(workspace.id, taskPayload);
+
+        // Also fire webhook as fallback (ngrok/router still supported)
+        fireWebhook(taskPayload).catch(() => {});
 
         res.status(201).json({
           id: task.id,
@@ -612,6 +630,92 @@ export function createRouter(): Router {
     res.setHeader("Content-Type", mimeMap[ext] || "application/octet-stream");
     res.setHeader("Content-Length", buf.length);
     res.send(buf);
+  });
+
+  // ── Workspace token (for agentinbox-mcp) ────────────────────────────────
+
+  // GET current token (or issue one if not yet set)
+  router.get("/workspaces/:workspaceId/token", requireAuth, (req: Request, res: Response) => {
+    let token = taskQueries.getWorkspaceToken(req.params.workspaceId);
+    if (!token) token = taskQueries.issueWorkspaceToken(req.params.workspaceId);
+    res.json({ token, mcp_config: buildMcpConfig(token) });
+  });
+
+  // POST rotate token
+  router.post("/workspaces/:workspaceId/token/rotate", requireAuth, (req: Request, res: Response) => {
+    const token = taskQueries.rotateWorkspaceToken(req.params.workspaceId);
+    res.json({ token, mcp_config: buildMcpConfig(token) });
+  });
+
+  // ── Agent routes (workspace token auth, used by agentinbox-mcp) ────────────
+
+  function requireWorkspaceToken(req: Request, res: Response, next: Function) {
+    const token = req.headers["x-workspace-token"] as string;
+    if (!token) { res.status(401).json({ error: "Missing x-workspace-token" }); return; }
+    const workspace = taskQueries.getWorkspaceByToken(token);
+    if (!workspace) { res.status(401).json({ error: "Invalid workspace token" }); return; }
+    (req as any).agentWorkspace = workspace;
+    next();
+  }
+
+  router.get("/agent/workspace", requireWorkspaceToken, (req: Request, res: Response) => {
+    const ws = (req as any).agentWorkspace;
+    res.json({ workspace_id: ws.id, workspace_name: ws.name, plan: ws.plan });
+  });
+
+  router.get("/agent/tasks/pending", requireWorkspaceToken, (req: Request, res: Response) => {
+    const ws = (req as any).agentWorkspace;
+    const projects = db.prepare("SELECT id FROM projects WHERE workspace_id = ?").all(ws.id) as { id: string }[];
+    const tasks = projects.flatMap((p) => taskQueries.listTasks(p.id, "pending"));
+    res.json(tasks);
+  });
+
+  router.get("/agent/tasks/:id", requireWorkspaceToken, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task) { res.status(404).json({ error: "Task not found" }); return; }
+    res.json(task);
+  });
+
+  router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req: Request, res: Response) => {
+    const task = taskQueries.getTask(req.params.id);
+    if (!task || !task.file_content) { res.status(404).json({ error: "No file for this task" }); return; }
+    res.json({ file_name: task.file_name, file_content: task.file_content });
+  });
+
+  router.post("/agent/tasks/:id/status", requireWorkspaceToken, (req: Request, res: Response) => {
+    try {
+      const { status } = z.object({ status: z.enum(["in_progress", "blocked", "failed"]) }).parse(req.body);
+      const updated = taskQueries.updateStatus(req.params.id, status);
+      res.json(updated);
+    } catch (err) { res.status(400).json({ error: String(err) }); }
+  });
+
+  router.post("/agent/tasks/:id/complete", requireWorkspaceToken, (req: Request, res: Response) => {
+    try {
+      const { summary_technical, summary_plain, screenshot_base64 } = z.object({
+        summary_technical: z.string().min(1),
+        summary_plain: z.string().min(1),
+        screenshot_base64: z.string().optional(),
+      }).parse(req.body);
+      const updated = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, screenshot_base64);
+      res.json(updated);
+    } catch (err) { res.status(400).json({ error: String(err) }); }
+  });
+
+  router.post("/agent/tasks/:id/escalate", requireWorkspaceToken, (req: Request, res: Response) => {
+    try {
+      const { reason } = z.object({ reason: z.string().min(1) }).parse(req.body);
+      const updated = taskQueries.escalateTask(req.params.id, reason);
+      res.json(updated);
+    } catch (err) { res.status(400).json({ error: String(err) }); }
+  });
+
+  router.post("/agent/tasks/:id/propose", requireWorkspaceToken, (req: Request, res: Response) => {
+    try {
+      const { plan } = z.object({ plan: z.string().min(1) }).parse(req.body);
+      const updated = taskQueries.proposePlan(req.params.id, plan);
+      res.json(updated);
+    } catch (err) { res.status(400).json({ error: String(err) }); }
   });
 
   // Screenshot serving — base64 stored in DB, served as PNG

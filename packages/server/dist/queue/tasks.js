@@ -198,5 +198,27 @@ exports.taskQueries = {
             projects: projectCount,
         };
     },
+    // ── Workspace tokens (for agentinbox-mcp socket auth) ─────────────────────
+    issueWorkspaceToken(workspaceId) {
+        const token = `wt_${(0, nanoid_1.nanoid)(32)}`;
+        db_1.db.prepare("UPDATE workspaces SET workspace_token = ? WHERE id = ?").run(token, workspaceId);
+        return token;
+    },
+    getWorkspaceByToken(token) {
+        return db_1.db
+            .prepare("SELECT id, name, plan FROM workspaces WHERE workspace_token = ?")
+            .get(token);
+    },
+    rotateWorkspaceToken(workspaceId) {
+        const token = `wt_${(0, nanoid_1.nanoid)(32)}`;
+        db_1.db.prepare("UPDATE workspaces SET workspace_token = ? WHERE id = ?").run(token, workspaceId);
+        return token;
+    },
+    getWorkspaceToken(workspaceId) {
+        const row = db_1.db
+            .prepare("SELECT workspace_token FROM workspaces WHERE id = ?")
+            .get(workspaceId);
+        return row?.workspace_token ?? null;
+    },
 };
 //# sourceMappingURL=tasks.js.map

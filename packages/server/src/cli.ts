@@ -211,8 +211,8 @@ if (command === "router") {
   const autoInstall = args.includes("--install");
 
   import("./index").then(({ createApp }) => {
-    const app = createApp();
-    app.listen(PORT, () => {
+    const { server } = createApp();
+    server.listen(PORT, () => {
       const line = "─".repeat(45);
       console.log(`\n  ┌${line}┐`);
       console.log(`  │${"   AgentInbox is running".padEnd(45)}│`);

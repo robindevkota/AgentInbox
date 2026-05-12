@@ -139,5 +139,13 @@ export declare const taskQueries: {
         escalated: number;
         projects: number;
     };
+    issueWorkspaceToken(workspaceId: string): string;
+    getWorkspaceByToken(token: string): {
+        id: string;
+        name: string;
+        plan: string;
+    } | null;
+    rotateWorkspaceToken(workspaceId: string): string;
+    getWorkspaceToken(workspaceId: string): string | null;
 };
 //# sourceMappingURL=tasks.d.ts.map

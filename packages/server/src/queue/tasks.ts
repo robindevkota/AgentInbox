@@ -434,4 +434,31 @@ export const taskQueries = {
       projects: projectCount,
     };
   },
+
+  // ── Workspace tokens (for agentinbox-mcp socket auth) ─────────────────────
+
+  issueWorkspaceToken(workspaceId: string): string {
+    const token = `wt_${nanoid(32)}`;
+    db.prepare("UPDATE workspaces SET workspace_token = ? WHERE id = ?").run(token, workspaceId);
+    return token;
+  },
+
+  getWorkspaceByToken(token: string): { id: string; name: string; plan: string } | null {
+    return db
+      .prepare("SELECT id, name, plan FROM workspaces WHERE workspace_token = ?")
+      .get(token) as { id: string; name: string; plan: string } | null;
+  },
+
+  rotateWorkspaceToken(workspaceId: string): string {
+    const token = `wt_${nanoid(32)}`;
+    db.prepare("UPDATE workspaces SET workspace_token = ? WHERE id = ?").run(token, workspaceId);
+    return token;
+  },
+
+  getWorkspaceToken(workspaceId: string): string | null {
+    const row = db
+      .prepare("SELECT workspace_token FROM workspaces WHERE id = ?")
+      .get(workspaceId) as { workspace_token: string | null } | null;
+    return row?.workspace_token ?? null;
+  },
 };
