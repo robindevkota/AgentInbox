@@ -102,7 +102,7 @@ function runClaude(token) {
   const child = spawn(
     "powershell",
     ["-NoProfile", "-Command", `Get-Content -Raw "${tmpFile}" | claude --dangerously-skip-permissions --print`],
-    { cwd: project.dir, stdio: "inherit", shell: false }
+    { cwd: project.dir, stdio: "inherit", shell: false, env: { ...process.env, CLAUDE_CODE_MAX_OUTPUT_TOKENS: "100000" } }
   );
 
   child.on("close", (code) => {
