@@ -582,7 +582,7 @@ function DashboardScreen({
                   {stats.plan === "paid" ? "Pro" : "Free"}
                 </span>
               )}
-              <button onClick={onLogout} title="Log out" className="text-slate-500 hover:text-slate-300 text-sm transition-colors">⎋</button>
+              <button onClick={onLogout} title="Log out" className="text-xs text-slate-400 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition-colors">Logout</button>
             </div>
           </div>
         </div>
