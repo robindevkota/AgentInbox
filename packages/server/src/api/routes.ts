@@ -4,7 +4,7 @@ import path from "path";
 import { z } from "zod";
 import { taskQueries } from "../queue/tasks";
 import { requireProjectToken, requireAuth } from "../auth/tokens";
-import { signupUser, loginUser, getMe } from "../auth/users";
+import { signupUser, loginUser, getMe, verifyToken } from "../auth/users";
 import { db } from "../queue/db";
 import { parseFile } from "../files/parser";
 import { sendOtp } from "../email/mailer";
@@ -366,9 +366,19 @@ export function createRouter(): Router {
     }
   });
 
-  router.get("/auth/me", requireAuth, (req: Request, res: Response) => {
-    const user = (req as any).user;
-    const me = getMe(user.userId);
+  router.get("/auth/me", (req: Request, res: Response) => {
+    const authHeader = req.headers["authorization"];
+    const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+    if (!token) {
+      res.status(401).json({ error: "Authentication required" });
+      return;
+    }
+    const payload = verifyToken(token);
+    if (!payload) {
+      res.status(401).json({ error: "Invalid or expired token" });
+      return;
+    }
+    const me = getMe(payload.userId);
     if (!me) {
       res.status(404).json({ error: "User not found" });
       return;
