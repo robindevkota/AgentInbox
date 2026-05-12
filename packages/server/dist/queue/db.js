@@ -130,6 +130,7 @@ const migrations = {
     "tasks.screenshot_path": "ALTER TABLE tasks ADD COLUMN screenshot_path TEXT",
     "tasks.screenshot_base64": "ALTER TABLE tasks ADD COLUMN screenshot_base64 TEXT",
     "tasks.submitter_notified_at": "ALTER TABLE tasks ADD COLUMN submitter_notified_at INTEGER",
+    "tasks.file_data": "ALTER TABLE tasks ADD COLUMN file_data TEXT",
     // Monetization: user accounts + per-workspace billing
     "users.table": `CREATE TABLE IF NOT EXISTS users (
     id TEXT PRIMARY KEY,

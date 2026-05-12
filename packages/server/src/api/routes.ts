@@ -13,19 +13,9 @@ import { fireWebhook } from "../webhook/notify";
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
 
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-const UPLOADS_DIR = path.join(DATA_DIR, "uploads");
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOADS_DIR),
-  filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-    cb(null, `${unique}${path.extname(file.originalname)}`);
-  },
-});
 
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: 20 * 1024 * 1024 },
   fileFilter: (_req, file, cb) => {
     const allowed = [
@@ -164,15 +154,21 @@ export function createRouter(): Router {
           })
           .parse(req.body);
 
-        let filePath: string | undefined;
         let fileName: string | undefined;
         let fileContent: string | undefined;
+        let fileData: string | undefined;
 
         if (req.file) {
-          filePath = req.file.path;
           fileName = req.file.originalname;
+          fileData = req.file.buffer.toString("base64");
           try {
-            fileContent = await parseFile(req.file.path, req.file.mimetype);
+            // Write to a temp file for parsing, then clean up
+            const os = await import("os");
+            const fs = await import("fs");
+            const tmpPath = path.join(os.tmpdir(), `upload-${Date.now()}${path.extname(fileName)}`);
+            fs.writeFileSync(tmpPath, req.file.buffer);
+            fileContent = await parseFile(tmpPath, req.file.mimetype);
+            fs.unlinkSync(tmpPath);
           } catch {
             fileContent = `[Could not parse file: ${fileName}]`;
           }
@@ -205,9 +201,9 @@ export function createRouter(): Router {
           priority: body.priority,
           submitter_name: body.submitter_name,
           submitter_email: body.submitter_email,
-          file_path: filePath,
           file_name: fileName,
           file_content: fileContent,
+          file_data: fileData,
           custom_field_values: body.custom_field_values
             ? JSON.stringify(body.custom_field_values)
             : undefined,
@@ -230,7 +226,7 @@ export function createRouter(): Router {
           title: task.title,
           description: task.description,
           submitter_name: task.submitter_name,
-          has_file: !!task.file_path,
+          has_file: !!task.file_name,
         }).catch(() => {});
 
         res.status(201).json({
@@ -600,14 +596,22 @@ export function createRouter(): Router {
     }
   });
 
-  // Serve uploaded file attachment
+  // Serve uploaded file attachment from base64 stored in DB
   router.get("/tasks/:id/file", requireAuth, (req: Request, res: Response) => {
     const task = taskQueries.getTask(req.params.id);
-    if (!task || !task.file_path) {
+    if (!task || !task.file_data) {
       res.status(404).json({ error: "No file for this task" });
       return;
     }
-    res.sendFile(path.resolve(task.file_path));
+    const buf = Buffer.from(task.file_data, "base64");
+    const ext = task.file_name ? path.extname(task.file_name).toLowerCase() : "";
+    const mimeMap: Record<string, string> = {
+      ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+      ".gif": "image/gif", ".webp": "image/webp", ".pdf": "application/pdf",
+    };
+    res.setHeader("Content-Type", mimeMap[ext] || "application/octet-stream");
+    res.setHeader("Content-Length", buf.length);
+    res.send(buf);
   });
 
   // Screenshot serving — base64 stored in DB, served as PNG

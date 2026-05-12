@@ -11,6 +11,7 @@ export interface Task {
     file_path: string | null;
     file_name: string | null;
     file_content: string | null;
+    file_data: string | null;
     summary_technical: string | null;
     summary_plain: string | null;
     pr_link: string | null;
@@ -101,6 +102,7 @@ export declare const taskQueries: {
         file_path?: string;
         file_name?: string;
         file_content?: string;
+        file_data?: string;
         custom_field_values?: string;
     }): Task;
     getTask(id: string): Task | undefined;
