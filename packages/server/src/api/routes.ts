@@ -496,6 +496,15 @@ export function createRouter(): Router {
     res.json({ ...task, audit });
   });
 
+  router.delete("/tasks/:id", requireAuth, (req: Request, res: Response) => {
+    const deleted = taskQueries.deleteTask(req.params.id);
+    if (!deleted) {
+      res.status(404).json({ error: "Task not found" });
+      return;
+    }
+    res.json({ success: true });
+  });
+
   // ── Approval gate ────────────────────────────────────────────────────────
 
   router.post("/tasks/:id/approve", requireAuth, (req: Request, res: Response) => {
