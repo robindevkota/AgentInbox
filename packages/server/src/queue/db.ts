@@ -162,6 +162,7 @@ export function nowUnix() {
 
 // Auto-seed default account so the hosted instance survives restarts (SQLite wiped on Render free tier)
 export function seedFromEnv() {
+  if (!process.env.TURSO_URL) db.pragma("foreign_keys = OFF");
   const wsId      = process.env.SEED_WORKSPACE_ID   || "robin-workspace-001";
   const wsName    = process.env.SEED_WORKSPACE_NAME  || "Robin Workspace";
   const projToken = process.env.SEED_PROJECT_TOKEN   || "898NSXnUt9stlGsOCtJM0jPaNSVGb7Mz";
@@ -171,11 +172,13 @@ export function seedFromEnv() {
   const adminUserId   = "seed-admin-user-001";
 
   // Seed admin user
-  const existingUser = db.prepare("SELECT id FROM users WHERE email = ?").get(adminEmail);
+  const existingUser = db.prepare("SELECT id FROM users WHERE id = ? OR email = ?").get(adminUserId, adminEmail);
   if (!existingUser) {
     const bcrypt = require("bcryptjs");
     const hash = bcrypt.hashSync(adminPassword, 10);
-    db.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(adminUserId, adminEmail, hash);
+    if (!process.env.TURSO_URL) db.pragma("foreign_keys = OFF");
+    db.prepare("INSERT OR REPLACE INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(adminUserId, adminEmail, hash);
+    if (!process.env.TURSO_URL) db.pragma("foreign_keys = ON");
     console.log(`  ✓ Seeded admin user: ${adminEmail}`);
   }
 
@@ -194,4 +197,6 @@ export function seedFromEnv() {
     ).run(nanoid(), wsId, projName, projToken, "#6366f1");
     console.log(`  ✓ Seeded project "${projName}" with token ${projToken}`);
   }
+
+  if (!process.env.TURSO_URL) db.pragma("foreign_keys = ON");
 }
