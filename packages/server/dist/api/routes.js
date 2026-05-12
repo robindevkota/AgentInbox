@@ -1,4 +1,37 @@
 "use strict";
+var __createBinding = (this && this.__createBinding) || (Object.create ? (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    var desc = Object.getOwnPropertyDescriptor(m, k);
+    if (!desc || ("get" in desc ? !m.__esModule : desc.writable || desc.configurable)) {
+      desc = { enumerable: true, get: function() { return m[k]; } };
+    }
+    Object.defineProperty(o, k2, desc);
+}) : (function(o, m, k, k2) {
+    if (k2 === undefined) k2 = k;
+    o[k2] = m[k];
+}));
+var __setModuleDefault = (this && this.__setModuleDefault) || (Object.create ? (function(o, v) {
+    Object.defineProperty(o, "default", { enumerable: true, value: v });
+}) : function(o, v) {
+    o["default"] = v;
+});
+var __importStar = (this && this.__importStar) || (function () {
+    var ownKeys = function(o) {
+        ownKeys = Object.getOwnPropertyNames || function (o) {
+            var ar = [];
+            for (var k in o) if (Object.prototype.hasOwnProperty.call(o, k)) ar[ar.length] = k;
+            return ar;
+        };
+        return ownKeys(o);
+    };
+    return function (mod) {
+        if (mod && mod.__esModule) return mod;
+        var result = {};
+        if (mod != null) for (var k = ownKeys(mod), i = 0; i < k.length; i++) if (k[i] !== "default") __createBinding(result, mod, k[i]);
+        __setModuleDefault(result, mod);
+        return result;
+    };
+})();
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
@@ -303,12 +336,56 @@ function createRouter() {
             res.json(result);
         }
         catch (err) {
-            res.status(401).json({ error: err instanceof Error ? err.message : String(err) });
+            console.error("[login error]", err);
+            res.status(401).json({ error: err instanceof Error ? err.message : String(err), stack: err instanceof Error ? err.stack : undefined });
         }
     });
-    router.get("/auth/me", tokens_1.requireAuth, (req, res) => {
-        const user = req.user;
-        const me = (0, users_1.getMe)(user.userId);
+    router.get("/auth/debug-users", (_req, res) => {
+        const users = db_1.db.prepare("SELECT id, email FROM users").all();
+        res.json(users);
+    });
+    router.get("/auth/debug-bcrypt", async (_req, res) => {
+        try {
+            const bcryptjs = require("bcryptjs");
+            const hash = bcryptjs.hashSync("test", 10);
+            const valid = bcryptjs.compareSync("test", hash);
+            res.json({ ok: true, hash, valid });
+        }
+        catch (err) {
+            res.status(500).json({ error: String(err) });
+        }
+    });
+    router.post("/auth/reset-password", async (req, res) => {
+        try {
+            const { email, new_password, reset_secret } = zod_1.z
+                .object({ email: zod_1.z.string().email(), new_password: zod_1.z.string().min(6), reset_secret: zod_1.z.string() })
+                .parse(req.body);
+            if (reset_secret !== (process.env.RESET_SECRET || "reset-me-now")) {
+                res.status(403).json({ error: "Invalid reset secret" });
+                return;
+            }
+            const bcryptjs = await Promise.resolve().then(() => __importStar(require("bcryptjs")));
+            const hash = await bcryptjs.hash(new_password, 10);
+            db_1.db.prepare("UPDATE users SET password_hash = ? WHERE email = ?").run(hash, email.toLowerCase());
+            res.json({ ok: true, email });
+        }
+        catch (err) {
+            res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+        }
+    });
+    router.get("/auth/me", (req, res) => {
+        const authHeader = req.headers["authorization"];
+        const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+        if (!token) {
+            res.status(401).json({ error: "Authentication required" });
+            return;
+        }
+        const payload = (0, users_1.verifyToken)(token);
+        if (!payload) {
+            res.status(401).json({ error: "Invalid or expired token" });
+            return;
+        }
+        const me = (0, users_1.getMe)(payload.userId);
         if (!me) {
             res.status(404).json({ error: "User not found" });
             return;
@@ -412,6 +489,14 @@ function createRouter() {
         const audit = tasks_1.taskQueries.getAuditLog(req.params.id);
         res.json({ ...task, audit });
     });
+    router.delete("/tasks/:id", tokens_1.requireAuth, (req, res) => {
+        const deleted = tasks_1.taskQueries.deleteTask(req.params.id);
+        if (!deleted) {
+            res.status(404).json({ error: "Task not found" });
+            return;
+        }
+        res.json({ success: true });
+    });
     // ── Approval gate ────────────────────────────────────────────────────────
     router.post("/tasks/:id/approve", tokens_1.requireAuth, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
@@ -492,6 +577,15 @@ function createRouter() {
         catch (err) {
             res.status(400).json({ error: String(err) });
         }
+    });
+    // Serve uploaded file attachment
+    router.get("/tasks/:id/file", tokens_1.requireAuth, (req, res) => {
+        const task = tasks_1.taskQueries.getTask(req.params.id);
+        if (!task || !task.file_path) {
+            res.status(404).json({ error: "No file for this task" });
+            return;
+        }
+        res.sendFile(path_1.default.resolve(task.file_path));
     });
     // Screenshot serving — base64 stored in DB, served as PNG
     router.get("/tasks/:id/screenshot", tokens_1.requireAuth, (req, res) => {

@@ -35,6 +35,11 @@ exports.taskQueries = {
         const result = db_1.db.prepare("DELETE FROM projects WHERE id = ?").run(id);
         return result.changes > 0;
     },
+    deleteTask(id) {
+        db_1.db.prepare("DELETE FROM audit_log WHERE task_id = ?").run(id);
+        const result = db_1.db.prepare("DELETE FROM tasks WHERE id = ?").run(id);
+        return result.changes > 0;
+    },
     getProjectByToken(token) {
         return db_1.db.prepare("SELECT * FROM projects WHERE token = ?").get(token);
     },

@@ -14,8 +14,8 @@ fs_1.default.mkdirSync(path_1.default.join(DATA_DIR, "uploads"), { recursive: tr
 // Use libsql (Turso) when TURSO_URL is set, otherwise fall back to local SQLite via better-sqlite3
 let db;
 if (process.env.TURSO_URL) {
-    const libsql = require("libsql");
-    const Database = libsql.default || libsql;
+    // Use sync API so prepare().run()/.get()/.all() work synchronously — same as better-sqlite3
+    const Database = require("libsql");
     exports.db = db = new Database(process.env.TURSO_URL, {
         authToken: process.env.TURSO_AUTH_TOKEN,
     });
@@ -162,28 +162,52 @@ db.exec(`
 function nowUnix() {
     return Math.floor(Date.now() / 1000);
 }
-// Auto-seed from env vars so data survives redeploys via fixed token
+// Auto-seed default account so the hosted instance survives restarts (SQLite wiped on Render free tier)
 function seedFromEnv() {
-    const wsName = process.env.SEED_WORKSPACE_NAME;
-    const wsId = process.env.SEED_WORKSPACE_ID;
-    const projName = process.env.SEED_PROJECT_NAME;
-    const projToken = process.env.SEED_PROJECT_TOKEN;
-    const projDesc = process.env.SEED_PROJECT_DESC || "";
-    const notifyEmail = process.env.SEED_NOTIFY_EMAIL || "";
-    const customFields = process.env.SEED_CUSTOM_FIELDS || "";
-    if (!wsName || !wsId || !projName || !projToken)
-        return;
+    if (!process.env.TURSO_URL)
+        db.pragma("foreign_keys = OFF");
+    const wsId = process.env.SEED_WORKSPACE_ID || "robin-workspace-001";
+    const wsName = process.env.SEED_WORKSPACE_NAME || "Robin Workspace";
+    const projToken = process.env.SEED_PROJECT_TOKEN || "898NSXnUt9stlGsOCtJM0jPaNSVGb7Mz";
+    const projName = process.env.SEED_PROJECT_NAME || "AgentInbox";
+    const adminEmail = process.env.SEED_ADMIN_EMAIL || "robin@agentinbox.com";
+    const adminPassword = process.env.SEED_ADMIN_PASSWORD || "Admin123!";
+    const adminUserId = "seed-admin-user-001";
+    // Seed admin user
+    const existingUser = db.prepare("SELECT id FROM users WHERE id = ? OR email = ?").get(adminUserId, adminEmail);
+    if (!existingUser) {
+        const bcrypt = require("bcryptjs");
+        const hash = bcrypt.hashSync(adminPassword, 10);
+        if (!process.env.TURSO_URL)
+            db.pragma("foreign_keys = OFF");
+        db.prepare("INSERT OR REPLACE INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(adminUserId, adminEmail, hash);
+        if (!process.env.TURSO_URL)
+            db.pragma("foreign_keys = ON");
+        console.log(`  ✓ Seeded admin user: ${adminEmail}`);
+    }
+    // Seed workspace
     const existingWs = db.prepare("SELECT id FROM workspaces WHERE id = ?").get(wsId);
     if (!existingWs) {
-        db.prepare("INSERT INTO workspaces (id, name) VALUES (?, ?)").run(wsId, wsName);
+        db.prepare("INSERT INTO workspaces (id, name, owner_id, plan) VALUES (?, ?, ?, 'pro')").run(wsId, wsName, adminUserId);
+        console.log(`  ✓ Seeded workspace: ${wsName}`);
     }
+    // Seed project
+    const mblCustomFields = JSON.stringify([
+        { name: "Environment", type: "dropdown", options: ["UAT", "Live"], required: true },
+        { name: "Module", type: "dropdown", options: ["ncna", "newcifindiv", "newcifcorporate", "online account opening"], required: true },
+        { name: "Steps", type: "dropdown", options: ["screening", "personal address", "review"], required: true },
+        { name: "Case ID", type: "text", required: false },
+    ]);
     const existingProj = db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
     if (!existingProj) {
         const { nanoid } = require("nanoid");
-        const projId = nanoid();
-        db.prepare(`INSERT INTO projects (id, workspace_id, name, description, token, notify_email, brand_color, custom_fields)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`).run(projId, wsId, projName, projDesc, projToken, notifyEmail, "#6366f1", customFields || null);
+        db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color, custom_fields) VALUES (?, ?, ?, ?, ?, ?)`).run(nanoid(), wsId, projName, projToken, "#6366f1", mblCustomFields);
         console.log(`  ✓ Seeded project "${projName}" with token ${projToken}`);
     }
+    else {
+        db.prepare("UPDATE projects SET custom_fields = ? WHERE token = ?").run(mblCustomFields, projToken);
+    }
+    if (!process.env.TURSO_URL)
+        db.pragma("foreign_keys = ON");
 }
 //# sourceMappingURL=db.js.map

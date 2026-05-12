@@ -120,7 +120,82 @@ function runClaude(token) {
 
 // ── Webhook server ────────────────────────────────────────────────────────────
 const server = http.createServer((req, res) => {
-  if (req.method !== "POST" || req.url !== "/webhook") {
+  // ── CORS headers (allow Magic Builder frontend to POST directly) ──
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.setHeader("Access-Control-Allow-Headers", "Content-Type, X-AgentInbox-Secret");
+  if (req.method === "OPTIONS") { res.writeHead(204); res.end(); return; }
+
+  // ── /status/:slug — poll for generation completion (GET) ─────────────────
+  const statusMatch = req.url.match(/^\/status\/([^/?]+)$/);
+  if (statusMatch && req.method === "GET") {
+    const slug = statusMatch[1];
+    const project = Object.values(projectMap).find(p => p.name === "NewWeb Magic Builder");
+    if (!project) { res.writeHead(500); res.end(JSON.stringify({ error: "Not configured" })); return; }
+
+    const payloadPath = path.join(project.dir, "scripts", "agentinbox-payload.json");
+    const resultPath  = path.join(project.dir, "scripts", "agentinbox-result.md");
+
+    const payloadGone = !fs.existsSync(payloadPath);
+    const resultExists = fs.existsSync(resultPath);
+
+    if (payloadGone && resultExists) {
+      res.writeHead(200); res.end(JSON.stringify({ status: "done", slug })); return;
+    }
+    res.writeHead(200); res.end(JSON.stringify({ status: "pending", slug })); return;
+  }
+
+  if (req.method !== "POST") {
+    res.writeHead(404); res.end("Not found"); return;
+  }
+
+  // ── /generate — Magic Builder direct trigger ──────────────────────────────
+  // Accepts the full wizard payload, writes it to scripts/agentinbox-payload.json
+  // inside the NewWeb project directory, then triggers Claude to generate the site.
+  if (req.url === "/generate") {
+    let body = "";
+    req.on("data", (chunk) => (body += chunk));
+    req.on("end", () => {
+      try {
+        const payload = JSON.parse(body);
+        if (!payload.slug || !payload.prompt) {
+          res.writeHead(400); res.end(JSON.stringify({ error: "Missing slug or prompt" })); return;
+        }
+
+        // Find NewWeb project entry
+        const project = Object.values(projectMap).find(p => p.name === "NewWeb Magic Builder");
+        if (!project) {
+          res.writeHead(500); res.end(JSON.stringify({ error: "NewWeb Magic Builder not configured in projects.json" })); return;
+        }
+
+        // Write payload and clear any previous result so status polling starts fresh
+        const payloadPath = path.join(project.dir, "scripts", "agentinbox-payload.json");
+        const resultPath  = path.join(project.dir, "scripts", "agentinbox-result.md");
+        fs.writeFileSync(payloadPath, JSON.stringify(payload, null, 2), "utf-8");
+        try { fs.unlinkSync(resultPath); } catch {}
+
+        console.log(`[NewWeb Magic Builder] Generation request: "${payload.brandName || payload.slug}" (${payload.businessType || "unknown type"})`);
+        res.writeHead(202); res.end(JSON.stringify({ status: "queued", slug: payload.slug }));
+
+        // Trigger Claude — uses scripts/agentinbox.md as prompt
+        const token = project.token;
+        const s = state[token];
+        if (s.running) {
+          s.queue.push(payload.slug);
+          console.log(`[NewWeb Magic Builder] Claude busy — "${payload.slug}" queued`);
+        } else {
+          runClaude(token);
+        }
+      } catch (e) {
+        console.error("[/generate] Error:", e.message);
+        res.writeHead(400); res.end(JSON.stringify({ error: "Bad request" }));
+      }
+    });
+    return;
+  }
+
+  // ── /webhook — standard AgentInbox task webhook ───────────────────────────
+  if (req.url !== "/webhook") {
     res.writeHead(404); res.end("Not found"); return;
   }
 

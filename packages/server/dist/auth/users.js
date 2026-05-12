@@ -8,7 +8,8 @@ exports.verifyToken = verifyToken;
 exports.signupUser = signupUser;
 exports.loginUser = loginUser;
 exports.getMe = getMe;
-const bcryptjs_1 = __importDefault(require("bcryptjs"));
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const bcrypt = require("bcryptjs");
 const jsonwebtoken_1 = __importDefault(require("jsonwebtoken"));
 const db_1 = require("../queue/db");
 const { nanoid } = require("nanoid");
@@ -30,7 +31,7 @@ async function signupUser(email, password, workspaceName) {
     if (existing) {
         throw new Error("An account with this email already exists");
     }
-    const passwordHash = await bcryptjs_1.default.hash(password, 10);
+    const passwordHash = await bcrypt.hash(password, 10);
     const userId = nanoid();
     const workspaceId = nanoid();
     db_1.db.prepare("INSERT INTO users (id, email, password_hash) VALUES (?, ?, ?)").run(userId, email.toLowerCase(), passwordHash);
@@ -46,7 +47,7 @@ async function loginUser(email, password) {
     if (!user) {
         throw new Error("Invalid email or password");
     }
-    const valid = await bcryptjs_1.default.compare(password, user.password_hash);
+    const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) {
         throw new Error("Invalid email or password");
     }

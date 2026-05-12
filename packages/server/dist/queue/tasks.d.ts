@@ -87,6 +87,7 @@ export declare const taskQueries: {
         custom_fields: string;
     }>): Project | undefined;
     deleteProject(id: string): boolean;
+    deleteTask(id: string): boolean;
     getProjectByToken(token: string): Project | undefined;
     getProjectById(id: string): Project | undefined;
     listProjects(workspaceId: string): Project[];
