@@ -190,12 +190,20 @@ export function seedFromEnv() {
   }
 
   // Seed project
+  const mblCustomFields = JSON.stringify([
+    { name: "Environment", type: "dropdown", options: ["UAT", "Live"], required: true },
+    { name: "Module", type: "dropdown", options: ["ncna", "newcifindiv", "newcifcorporate", "online account opening"], required: true },
+    { name: "Steps", type: "dropdown", options: ["screening", "personal address", "review"], required: true },
+    { name: "Case ID", type: "text", required: false },
+  ]);
   const existingProj = db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
   if (!existingProj) {
     const { nanoid } = require("nanoid");
-    db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color) VALUES (?, ?, ?, ?, ?)`
-    ).run(nanoid(), wsId, projName, projToken, "#6366f1");
+    db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color, custom_fields) VALUES (?, ?, ?, ?, ?, ?)`
+    ).run(nanoid(), wsId, projName, projToken, "#6366f1", mblCustomFields);
     console.log(`  ✓ Seeded project "${projName}" with token ${projToken}`);
+  } else {
+    db.prepare("UPDATE projects SET custom_fields = ? WHERE token = ?").run(mblCustomFields, projToken);
   }
 
   if (!process.env.TURSO_URL) db.pragma("foreign_keys = ON");
