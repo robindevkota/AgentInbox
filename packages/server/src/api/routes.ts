@@ -331,6 +331,28 @@ export function createRouter(): Router {
     }
   });
 
+  router.post("/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { email, new_password, reset_secret } = z
+        .object({ email: z.string().email(), new_password: z.string().min(6), reset_secret: z.string() })
+        .parse(req.body);
+      if (reset_secret !== (process.env.RESET_SECRET || "reset-me-now")) {
+        res.status(403).json({ error: "Invalid reset secret" });
+        return;
+      }
+      const bcrypt = await import("bcryptjs");
+      const hash = await bcrypt.hash(new_password, 10);
+      const result = db.prepare("UPDATE users SET password_hash = ? WHERE email = ?").run(hash, email.toLowerCase());
+      if (result.changes === 0) {
+        res.status(404).json({ error: "User not found" });
+        return;
+      }
+      res.json({ ok: true });
+    } catch (err) {
+      res.status(400).json({ error: err instanceof Error ? err.message : String(err) });
+    }
+  });
+
   router.get("/auth/me", requireAuth, (req: Request, res: Response) => {
     const user = (req as any).user;
     const me = getMe(user.userId);
