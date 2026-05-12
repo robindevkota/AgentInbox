@@ -1,349 +1,235 @@
 # AgentInbox — Setup Guide
 
-Clients submit bugs. Claude fixes them. Everyone sees what happened.
+Full setup from zero to autonomous Claude agent in ~10 minutes.
 
 ---
 
-## What you need
+## Prerequisites
 
+- [Claude Code](https://claude.ai/code) installed and logged in (Claude Pro or API key)
 - Node.js 18+
-- pnpm (`npm install -g pnpm`)
-- Claude Code CLI (`npm install -g @anthropic-ai/claude-code`)
-- A project codebase you want Claude to work on
+- A project Claude can work in (any stack)
 
 ---
 
-## 1. Install AgentInbox
+## Part 1 — AgentInbox account
 
-```bash
-git clone https://github.com/robindevkota/AgentInbox.git
-cd AgentInbox
-pnpm install
-pnpm build
-```
+### 1. Sign up
 
----
+Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com/signup)
 
-## 2. Start AgentInbox server
+- Enter your name, email, and password
+- Your workspace and first project are created automatically
 
-```bash
-pnpm --filter=@robindevkota/agentinbox dev
-```
+### 2. Create a project
 
-Or in production:
+PM dashboard → **New Project** → give it a name.
 
-```bash
-node packages/server/dist/cli.js start
-```
+Optional but recommended:
+- **Require Approval** — Claude proposes a plan before running any code. Good for production.
+- **Custom Fields** — add Environment, Module, Step, Case ID dropdowns so clients give structured info.
 
-Open `http://localhost:3000` — you will see the AgentInbox UI.
+### 3. Get your workspace token
 
----
+PM dashboard → **Settings** tab → **Workspace Token** → **Generate Token** → copy the `wt_...` value.
 
-## 3. Create your account
+> Keep this token private — it gives full access to all tasks in your workspace.
 
-Go to `http://localhost:3000/signup` — sign up with email + password. Your workspace is created automatically.
+### 4. Copy your submission link
 
-PM dashboard: `http://localhost:3000/pm`
+PM dashboard → click your project → copy the **Submission Link**.
+Share this with your clients or QA team. No account needed to submit.
 
 ---
 
-## 4. Create your first project
+## Part 2 — Connect Claude Code
 
-1. Go to `http://localhost:3000/pm`
-2. Click **+ New Project**
-3. Enter a name, optional description, brand color
-4. Optionally add custom fields (Environment, Module, Steps, Case ID, etc.)
-5. Copy the **submission link** — this is what you send to clients
+### 5. Add `agentinbox-mcp` to your project
 
----
-
-## 5. Add AgentInbox MCP to Claude (one-time global setup)
-
-This lets Claude talk to AgentInbox from any project directory.
-
-```bash
-claude mcp add --scope user agentinbox http://localhost:3000/mcp
-```
-
-Verify it is registered:
-
-```bash
-claude mcp list
-```
-
-You should see `agentinbox` in the list.
-
----
-
-## 6. Set up your project to receive tasks
-
-Inside your project repository, create `scripts/agentinbox.md`. This file tells Claude what to do when a task arrives.
-
-**Minimal version:**
-
-```markdown
-You are an autonomous agent. Follow these steps exactly without asking questions.
-
-STEP 1: Call mcp__agentinbox__get_pending_tasks to get all pending tasks.
-
-STEP 2: For each task:
-  a) Call mcp__agentinbox__update_task_status with status "in_progress"
-  b) Call mcp__agentinbox__get_task to read the full description
-  c) If has_file=true, call mcp__agentinbox__get_file to see the attachment
-  d) Fix the issue in the codebase
-  e) Call mcp__agentinbox__complete_task with summary_technical and summary_plain
-
-STEP 3: If you cannot solve a task, call mcp__agentinbox__escalate_task.
-
-STEP 4: Process ALL pending tasks before stopping.
-
-Project context:
-- Stack: [your stack here, e.g. React + TypeScript]
-- Key files: [e.g. src/components/, src/api/]
-
-Start now by calling mcp__agentinbox__get_pending_tasks.
-```
-
-**With custom field routing (recommended):**
-
-If you configured Module/Environment dropdowns in the PM dashboard project settings, add a module map so Claude goes directly to the right file:
-
-```markdown
-Module Map (use custom_field_values.Module):
-- "checkout"   → src/pages/checkout/
-- "auth"       → src/pages/auth/
-- "dashboard"  → src/pages/dashboard/
-
-Environment Map (use custom_field_values.Environment):
-- "UAT"  → fix in development branch only
-- "Live" → production-ready fix
-```
-
----
-
-## 7. Configure the router
-
-Edit `examples/claude-loop/projects.json` — add one entry per project:
+In your project root, create `.mcp.json`:
 
 ```json
-[
-  {
-    "token": "YOUR_PROJECT_TOKEN",
-    "dir": "/absolute/path/to/your/project",
-    "name": "My Project"
-  },
-  {
-    "token": "ANOTHER_TOKEN",
-    "dir": "/absolute/path/to/other/project",
-    "name": "Other Project"
+{
+  "mcpServers": {
+    "agentinbox": {
+      "command": "npx",
+      "args": ["-y", "agentinbox-mcp"],
+      "env": {
+        "AGENTINBOX_TOKEN": "wt_your_token_here"
+      }
+    }
   }
-]
+}
 ```
 
-Get your project token from the PM dashboard → submission link (it is the last part of the URL).
+### 6. Write your agent instructions
 
----
+Create `CLAUDE.local.md` in your project root and add it to `.gitignore`:
 
-## 8. Start the router
+```markdown
+## AgentInbox — Autonomous Task Processing
+
+When triggered via AgentInbox, process ALL pending tasks autonomously.
+Do not ask for confirmation. Work through all tasks before stopping.
+
+### Rules
+1. Call get_pending_tasks() — get all unstarted tasks
+2. For each task:
+   - update_task_status(id, "in_progress")
+   - get_task(id) to read full details
+   - If has_file is true, call get_file(task_id) to read the attachment
+   - Analyse the task against your codebase
+   - Fix the bug or implement the feature
+   - Take a Playwright screenshot of your live site as proof
+   - complete_task(id, summary_technical, summary_plain, screenshot_base64=<base64>)
+3. If you cannot solve a task, call escalate_task(id, reason) — never leave it stuck
+4. Work through ALL pending tasks before stopping
+
+### Completion summaries
+- summary_technical: file path + what changed + line number
+  e.g. "Fixed label in schemas/form.json line 42 — renamed 'acc_type' to 'Account Type'"
+- summary_plain: one sentence, no jargon
+  e.g. "The account type field now shows the correct label."
+
+### Your project context
+Stack: [e.g. React + TypeScript + Express]
+Key files: [e.g. src/components/, schemas/]
+Deploy command: [e.g. npm run build && npm run deploy]
+Live URL: [e.g. https://your-site.com]
+```
+
+### 7. Open Claude Code in your project
 
 ```bash
-node examples/claude-loop/claude-router.js \
-  --config examples/claude-loop/projects.json \
-  --port 4001
+cd your-project
+claude
 ```
 
-On Windows:
-
-```powershell
-node "examples\claude-loop\claude-router.js" --config "examples\claude-loop\projects.json" --port 4001
+Claude loads `agentinbox-mcp` automatically. You'll see in the MCP logs:
 ```
-
-You should see:
-
-```
-╔══════════════════════════════════════════════════════════════╗
-║              AgentInbox Claude Router                        ║
-╠══════════════════════════════════════════════════════════════╣
-║  Webhook:  http://localhost:4001/webhook                     ║
-║  Projects: 1                                                 ║
-╠══════════════════════════════════════════════════════════════╣
-║  • My Project        /absolute/path/to/your/project         ║
-╚══════════════════════════════════════════════════════════════╝
-
-Waiting for tasks... (Ctrl+C to stop)
+[agentinbox-mcp] Connected to AgentInbox server
+[agentinbox-mcp] Workspace: Your Org (ws-id)
 ```
 
 ---
 
-## 9. Test end to end
+## Part 3 — Test it end to end
 
-1. Open your submission link: `http://localhost:3000/submit/YOUR_TOKEN`
-2. Fill in the form and submit a task
-3. Watch the router terminal — you should see `New task received`
-4. Claude will wake up, read the task, and fix it
-5. Check the PM dashboard to see the completed task with technical and plain-English summaries
+### 8. Submit a test task
+
+Open your submission link in a browser and submit a simple test task:
+- Title: `Test — change page title`
+- Description: `Change the H1 on the homepage from "Hello" to "Hello World"`
+- Priority: low
+
+### 9. Trigger Claude
+
+In your Claude Code session, type:
+
+```
+check my agent inbox and process any pending tasks
+```
+
+Claude will:
+1. Call `get_pending_tasks()`
+2. Read the task
+3. Make the change
+4. Take a screenshot
+5. Call `complete_task()` with a summary
+
+### 10. Check the PM dashboard
+
+Open [agentinbox-k2vf.onrender.com/pm](https://agentinbox-k2vf.onrender.com/pm) — the task should show as **Done** with Claude's screenshot and summaries.
 
 ---
 
-## Hosting on a server (optional)
+## Part 4 — Advanced: Rules pattern
 
-If you want PM and clients to access AgentInbox from anywhere without running it locally.
+For complex codebases, split Claude's domain knowledge into topic files so it only loads what's relevant.
 
-**Architecture:** The AgentInbox server (UI + API + MCP) runs in the cloud. Claude still runs on your dev machine. Clients and PM access the cloud URL.
+```
+.claude/
+  rules/
+    01-schema-fields.md      # field types, required, dependencies
+    02-widget-logic.md       # which UI component maps to which field
+    03-validation.md         # validation patterns
+    04-deploy.md             # how to build and deploy
+  CLAUDE.md                  # index — tells Claude which rule to load per topic
+CLAUDE.local.md              # gitignored — tokens, AgentInbox config
+```
+
+**`CLAUDE.md` example:**
+```markdown
+## Rule Index
+| Topic         | File                              |
+|---------------|-----------------------------------|
+| Schema fields | .claude/rules/01-schema-fields.md |
+| Widget logic  | .claude/rules/02-widget-logic.md  |
+| Validation    | .claude/rules/03-validation.md    |
+| Deploy        | .claude/rules/04-deploy.md        |
+
+Read ONLY the relevant rule file. Never load all at once.
+```
+
+In your `CLAUDE.local.md` agent instructions, add:
+```markdown
+- Read the relevant .claude/rules/ file before touching any schema/component
+```
 
 ---
 
-### Option A — Run locally (simplest, recommended for solo developers)
+## Part 5 — Monitoring
 
-No hosting needed. Everything runs on your machine.
+### PM dashboard
+`https://agentinbox-k2vf.onrender.com/pm`
 
+Filter tasks by status, click any task to see the full audit trail, Claude's screenshot, and both summaries.
+
+### Client task status page
+```
+https://agentinbox-k2vf.onrender.com/task/<task-id>
+```
+Clients can track their submission live without an account.
+
+### REST API (for integrations)
 ```bash
-node packages/server/dist/cli.js start
+# Pending tasks
+curl -H "x-workspace-token: wt_xxx" \
+  https://agentinbox-k2vf.onrender.com/api/agent/tasks/pending
+
+# Workspace info
+curl -H "x-workspace-token: wt_xxx" \
+  https://agentinbox-k2vf.onrender.com/api/agent/workspace
 ```
-
-- PM opens `http://localhost:3000/pm`
-- Clients use the submission link you copy from the PM dashboard
-- Data lives in `./data/agentinbox.db` — persists forever on your machine
-
----
-
-### Option B — Render.com + Turso (free, no credit card required) ✅ Recommended for remote access
-
-**What you get:** A permanent public URL for PM and clients. Claude still runs on your dev machine. Data persists in Turso (free hosted SQLite — survives all Render restarts and redeploys forever).
-
-**Step 1 — Create a free Turso database (one-time, ~2 minutes)**
-
-1. Sign up at [turso.tech](https://turso.tech) (GitHub login, free, no card)
-2. Click **Create Database** → name it `agentinbox` → pick your nearest region
-3. Click into the database → copy the **Database URL** (starts with `libsql://`)
-4. Click **Create Token** → copy the token
-
-**Step 2 — Deploy to Render**
-
-1. Fork `https://github.com/robindevkota/AgentInbox` to your GitHub account
-2. Go to [render.com](https://render.com) → sign up with GitHub (free, no card)
-3. Click **New +** → **Web Service** → connect your forked repo
-4. Render auto-detects `render.yaml` → click **Apply**
-5. Wait ~5 minutes for the build to finish
-6. You get a URL like `https://agentinbox-xxxx.onrender.com`
-7. Go to **Environment** → add these two vars:
-   - `TURSO_URL` = your database URL from Step 1
-   - `TURSO_AUTH_TOKEN` = your token from Step 1
-8. Click **Save Changes** — Render restarts with persistent storage
-
-Sign up at `https://agentinbox-xxxx.onrender.com/signup` — your account and workspace are created on first signup.
-
-**Your data now lives in Turso forever** — redeploys, restarts, and free-tier spin-downs never reset it.
-
-> **Note:** Render free tier spins down after 15 minutes of inactivity. First request after a sleep takes ~30 seconds to wake up. All data is preserved — just a cold start delay.
-
-**Step 3 — Set up a permanent tunnel (ngrok)**
-
-The hosted server needs to reach your local Claude router via webhook.
-
-1. Sign up at [ngrok.com](https://ngrok.com) (free, email only)
-2. Download ngrok from [ngrok.com/download](https://ngrok.com/download) and install
-3. Run: `ngrok config add-authtoken YOUR_NGROK_TOKEN`
-4. Get your free static domain: ngrok dashboard → **Cloud Edge** → **Domains**
-5. Start the tunnel (run this every time you work):
-   ```bash
-   ngrok http --domain=your-static-domain.ngrok-free.app 4001
-   ```
-
-**Step 4 — Connect webhook to Render**
-
-In Render dashboard → your service → **Environment** → add:
-```
-WEBHOOK_URL = https://your-static-domain.ngrok-free.app/webhook
-```
-
-Save — Render restarts. Now tasks submitted via the hosted URL trigger Claude on your machine.
-
-**Step 5 — Register MCP with Claude (one-time)**
-
-```bash
-claude mcp add --transport http --scope user agentinbox https://agentinbox-xxxx.onrender.com/mcp
-```
-
-**Every time you sit down to work, run two commands:**
-```bash
-# Terminal 1 — router
-node examples/claude-loop/claude-router.js --config examples/claude-loop/projects.json --port 4001
-
-# Terminal 2 — tunnel (permanent URL, never need to update Render again)
-ngrok http --domain=your-static-domain.ngrok-free.app 4001
-```
-
----
-
-### Option C — VPS (~$5/month, fully persistent, no extra services)
-
-Any VPS works: Hetzner, DigitalOcean, Linode, Vultr. SQLite persists on disk — no Turso needed.
-
-```bash
-# On the server
-git clone https://github.com/robindevkota/AgentInbox.git
-cd AgentInbox
-pnpm install && pnpm build
-
-# Set env
-cat > packages/server/.env << EOF
-PORT=3000
-DATA_DIR=./data
-WEBHOOK_URL=https://your-static-domain.ngrok-free.app/webhook
-JWT_SECRET=your-random-64-char-secret
-EOF
-
-# Run with PM2 to keep it alive
-npm install -g pm2
-pm2 start "node packages/server/dist/cli.js start" --name agentinbox
-pm2 save
-pm2 startup
-```
-
-> The router stays on your developer machine — Claude runs locally and calls back to the server via webhook.
-
----
-
-## Auto-start on Windows (so the router survives reboots)
-
-Use Task Scheduler to run the router at login:
-
-1. Open **Task Scheduler** → Create Basic Task
-2. Trigger: **At log on**
-3. Action: Start a program
-   - Program: `node`
-   - Arguments: `"C:\path\to\AgentInbox\examples\claude-loop\claude-router.js" --config "C:\path\to\AgentInbox\examples\claude-loop\projects.json" --port 4001`
-   - Start in: `C:\path\to\AgentInbox`
-4. Finish
-
----
-
-## Adding custom fields (Module, Environment, Steps, Case ID dropdowns)
-
-1. Go to PM dashboard → select your project → **Settings**
-2. Scroll to **Custom fields**
-3. Add a field: name it `Module`, type `Dropdown`, options `ncna,newcifindiv,newcifcorporate`
-4. Add another: `Environment`, options `UAT,Live`
-5. Add another: `Steps`, options `screening,personal address,review`
-6. Add another: `Case ID`, type `Text`
-7. Click **Save settings**
-8. The submission form now shows those dropdowns
-9. Claude receives `custom_field_values: { "Module": "ncna", "Environment": "UAT" }` with every task
 
 ---
 
 ## Troubleshooting
 
-| Problem | Fix |
-|---|---|
-| Router starts but nothing happens after submit | Check `WEBHOOK_URL` in Render env matches the ngrok URL + `/webhook` |
-| Claude says "message got cut off" | Make sure `scripts/agentinbox.md` starts with "You are an autonomous agent" |
-| Claude reads Gmail instead of tasks | Remove Gmail MCP or add "Do NOT read Gmail" to `scripts/agentinbox.md` |
-| Port already in use | Change `--port` on the router and update `WEBHOOK_URL` in Render, then redeploy |
-| Projects don't show after reload | Make sure `pm_workspace_id` is saved in browser localStorage (happens automatically after login) |
-| MCP not found | Run `claude mcp add --scope user agentinbox http://localhost:3000/mcp` again |
-| "Failed to fetch" on login | Render free tier is sleeping — wait 30 seconds and retry |
-| "Invalid email or password" | Use the reset endpoint: `POST /api/auth/reset-password` with `reset_secret: "reset-me-now"` |
-| First request is slow (~30s) | Normal on Render free tier — server wakes up on demand. All data is preserved. |
+**MCP not connecting**
+- Check `AGENTINBOX_TOKEN` is set correctly in `.mcp.json`
+- Verify the token starts with `wt_`
+- Run `claude mcp list` to confirm `agentinbox` is registered
+
+**Tasks not appearing**
+- Make sure the submission link token matches the project in your workspace
+- Check the PM dashboard — the task may already be in_progress
+
+**Claude not processing autonomously**
+- Add "process ALL pending tasks without asking for confirmation" to `CLAUDE.local.md`
+- Make sure `CLAUDE.local.md` is in the project root Claude Code opens in
+
+**Screenshot missing in task detail**
+- Make sure Claude calls `complete_task` with the `screenshot_base64` parameter
+- Add to your agent instructions: "`screenshot_base64` is required, never omit it"
+
+---
+
+## Self-hosting
+
+See the [main README](README.md#self-hosting) for Docker and bare-metal setup.
+
+For self-hosted, add `AGENTINBOX_URL` to your `.mcp.json` env:
+```json
+"AGENTINBOX_URL": "http://localhost:3000"
+```
