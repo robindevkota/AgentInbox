@@ -210,6 +210,16 @@ function seedFromEnv() {
     else {
         db.prepare("UPDATE projects SET custom_fields = ? WHERE token = ?").run(mblCustomFields, projToken);
     }
+    // Seed NewWeb Magic Builder project
+    const newwebToken = process.env.SEED_NEWWEB_TOKEN || "newweb-magic-builder-k9x2m";
+    const newwebProjName = "NewWeb Magic Builder";
+    const existingNewweb = db.prepare("SELECT id FROM projects WHERE token = ?").get(newwebToken);
+    if (!existingNewweb) {
+        const { nanoid } = require("nanoid");
+        db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color) VALUES (?, ?, ?, ?, ?)`)
+            .run(nanoid(), wsId, newwebProjName, newwebToken, "#6366f1");
+        console.log(`  ✓ Seeded project "${newwebProjName}" with token ${newwebToken}`);
+    }
     if (!process.env.TURSO_URL)
         db.pragma("foreign_keys = ON");
 }
