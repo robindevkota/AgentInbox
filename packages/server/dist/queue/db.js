@@ -203,8 +203,8 @@ function seedFromEnv() {
     ]);
     const existingProj = db.prepare("SELECT id FROM projects WHERE token = ?").get(projToken);
     if (!existingProj) {
-        const { nanoid } = require("nanoid");
-        db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color, custom_fields) VALUES (?, ?, ?, ?, ?, ?)`).run(nanoid(), wsId, projName, projToken, "#6366f1", mblCustomFields);
+        const id = require("crypto").randomUUID();
+        db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color, custom_fields) VALUES (?, ?, ?, ?, ?, ?)`).run(id, wsId, projName, projToken, "#6366f1", mblCustomFields);
         console.log(`  ✓ Seeded project "${projName}" with token ${projToken}`);
     }
     else {
@@ -215,9 +215,9 @@ function seedFromEnv() {
     const newwebProjName = "NewWeb Magic Builder";
     const existingNewweb = db.prepare("SELECT id FROM projects WHERE token = ?").get(newwebToken);
     if (!existingNewweb) {
-        const { nanoid } = require("nanoid");
+        const id = require("crypto").randomUUID();
         db.prepare(`INSERT INTO projects (id, workspace_id, name, token, brand_color) VALUES (?, ?, ?, ?, ?)`)
-            .run(nanoid(), wsId, newwebProjName, newwebToken, "#6366f1");
+            .run(id, wsId, newwebProjName, newwebToken, "#6366f1");
         console.log(`  ✓ Seeded project "${newwebProjName}" with token ${newwebToken}`);
     }
     if (!process.env.TURSO_URL)
