@@ -273,87 +273,18 @@ When `agentinbox-mcp` starts, it logs to stderr (visible in Claude Code's MCP de
 
 ---
 
-## Self-hosting
-
-You only need this if you want to run your own server instead of using the hosted version.
-
-**Requires:** Node.js 18+, pnpm
-
-```bash
-git clone https://github.com/robindevkota/AgentInbox
-cd AgentInbox
-
-# Install dependencies
-pnpm install
-
-# Build UI + copy into server
-pnpm --filter @agentinbox/ui build
-node packages/server/scripts/copy-ui.js
-
-# Build server TypeScript
-cd packages/server && pnpm build && cd ../..
-
-# Start
-node packages/server/dist/cli.js start --port 3000
-```
-
-Sign up at `http://localhost:3000/signup`. PM dashboard at `http://localhost:3000/pm`.
-
-Then in your project's `.mcp.json`, point at your local server:
-```json
-{
-  "mcpServers": {
-    "agentinbox": {
-      "command": "npx",
-      "args": ["-y", "agentinbox-mcp"],
-      "env": {
-        "AGENTINBOX_TOKEN": "wt_xxx",
-        "AGENTINBOX_URL": "http://localhost:3000"
-      }
-    }
-  }
-}
-```
-
-### Docker
-
-```bash
-docker compose up
-```
-
-Runs on port 3000. Sign up at `http://localhost:3000/signup`.
-
----
-
-## Environment variables
-
-| Variable | Default | Purpose |
-|----------|---------|---------|
-| `PORT` | `3000` | Server port |
-| `DATA_DIR` | `./data` | SQLite path (ignored when TURSO_URL is set) |
-| `TURSO_URL` | _(none)_ | Turso database URL — use for persistent cloud DB |
-| `TURSO_AUTH_TOKEN` | _(none)_ | Turso auth token |
-| `JWT_SECRET` | `dev-secret` | Auth token signing — set in production |
-| `API_KEY` | _(none)_ | If set, secures the PM dashboard |
-| `SEED_ADMIN_EMAIL` | `admin@example.com` | Default admin email on fresh DB |
-| `SEED_ADMIN_PASSWORD` | `Admin123!` | Default admin password — change this |
-| `SMTP_HOST/USER/PASS` | _(none)_ | Email notifications on task completion |
-| `SLACK_BOT_TOKEN` | _(none)_ | Slack notifications |
-
----
-
 ## Architecture
 
 ```
-AgentInbox (hosted or self-hosted)      Your machine
-─────────────────────────────────────   ──────────────────────────────────
-Auth + workspace management             agentinbox-mcp  (npm package)
-SQLite/Turso task queue                   └─ WebSocket → server (real-time)
-File storage (base64 in DB)               └─ REST calls /api/agent/*
-React PM dashboard                      Claude Code CLI
-Client submission form                  Your project codebase
-REST + WebSocket API                    CLAUDE.md + .claude/rules/
-                                        CLAUDE.local.md  (gitignored)
+AgentInbox (hosted at agentinbox-k2vf.onrender.com)    Your machine
+──────────────────────────────────────────────────      ──────────────────────────────────
+Auth + workspace management                             agentinbox-mcp  (npm package)
+Turso task queue                                          └─ WebSocket → server (real-time)
+File storage (base64 in DB)                               └─ REST calls /api/agent/*
+React PM dashboard                                      Claude Code CLI
+Client submission form                                  Your project codebase
+REST + WebSocket API                                    CLAUDE.md + .claude/rules/
+                                                        CLAUDE.local.md  (gitignored)
 ```
 
 AgentInbox holds the queue and UI. Your local Claude does the actual work in your codebase. No ngrok, no extra terminals — `agentinbox-mcp` connects out to the server automatically.

@@ -420,13 +420,3 @@ curl -H "x-workspace-token: wt_xxx" \
 - Make sure Claude calls `complete_task` with the `screenshot_base64` parameter
 - Add to your agent instructions: "`screenshot_base64` is required, never omit it"
 
----
-
-## Self-hosting
-
-See the [main README](README.md#self-hosting) for Docker and bare-metal setup.
-
-For self-hosted, add `AGENTINBOX_URL` to your `.mcp.json` env:
-```json
-"AGENTINBOX_URL": "http://localhost:3000"
-```
