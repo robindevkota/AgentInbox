@@ -629,22 +629,23 @@ function createRouter() {
         const token = tasks_1.taskQueries.rotateWorkspaceToken(req.params.workspaceId);
         res.json({ token, mcp_config: buildMcpConfig(token) });
     });
-    // GET /setup/download — returns SETUP.md with workspace token pre-filled
-    router.get("/setup/download", tokens_1.requireAuth, (req, res) => {
+    // GET /setup/download — public endpoint, optional ?token=wt_... for pre-filled version
+    router.get("/setup/download", (req, res) => {
+        // Try to resolve workspace token — from query param or JWT header
+        let wsToken = req.query.token || "wt_YOUR_TOKEN_HERE";
+        // If JWT provided, use it to get the real token
         const authHeader = req.headers["authorization"];
         const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-        if (!jwt) {
-            res.status(401).json({ error: "Auth required" });
-            return;
+        if (jwt) {
+            const payload = (0, users_1.verifyToken)(jwt);
+            if (payload) {
+                let t = tasks_1.taskQueries.getWorkspaceToken(payload.workspaceId);
+                if (!t)
+                    t = tasks_1.taskQueries.issueWorkspaceToken(payload.workspaceId);
+                if (t)
+                    wsToken = t;
+            }
         }
-        const payload = (0, users_1.verifyToken)(jwt);
-        if (!payload) {
-            res.status(401).json({ error: "Invalid token" });
-            return;
-        }
-        let wsToken = tasks_1.taskQueries.getWorkspaceToken(payload.workspaceId);
-        if (!wsToken)
-            wsToken = tasks_1.taskQueries.issueWorkspaceToken(payload.workspaceId);
         const setupMd = `# AgentInbox — Setup Guide
 
 Full setup from zero to autonomous Claude agent in ~10 minutes.

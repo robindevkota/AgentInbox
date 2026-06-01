@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { useNavigate, Link, useSearchParams } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export function Signup() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
-  const downloadAfter = searchParams.get("next") === "setup-download";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [workspaceName, setWorkspaceName] = useState("");
@@ -25,22 +23,6 @@ export function Signup() {
       if (!res.ok) throw new Error(data.error || "Signup failed");
       localStorage.setItem("auth_token", data.token);
       localStorage.setItem("pm_workspace_id", data.workspaceId);
-
-      if (downloadAfter) {
-        // trigger setup file download with token pre-filled
-        const dlRes = await fetch("/api/setup/download", {
-          headers: { Authorization: `Bearer ${data.token}` },
-        });
-        if (dlRes.ok) {
-          const blob = await dlRes.blob();
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url; a.download = "agentinbox-setup.md";
-          document.body.appendChild(a); a.click();
-          document.body.removeChild(a); URL.revokeObjectURL(url);
-        }
-      }
-
       navigate("/pm");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");

@@ -656,16 +656,22 @@ export function createRouter(): Router {
     res.json({ token, mcp_config: buildMcpConfig(token) });
   });
 
-  // GET /setup/download — returns SETUP.md with workspace token pre-filled
-  router.get("/setup/download", requireAuth, (req: Request, res: Response) => {
+  // GET /setup/download — public endpoint, optional ?token=wt_... for pre-filled version
+  router.get("/setup/download", (req: Request, res: Response) => {
+    // Try to resolve workspace token — from query param or JWT header
+    let wsToken: string = (req.query.token as string) || "wt_YOUR_TOKEN_HERE";
+
+    // If JWT provided, use it to get the real token
     const authHeader = req.headers["authorization"];
     const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-    if (!jwt) { res.status(401).json({ error: "Auth required" }); return; }
-    const payload = verifyToken(jwt);
-    if (!payload) { res.status(401).json({ error: "Invalid token" }); return; }
-
-    let wsToken = taskQueries.getWorkspaceToken(payload.workspaceId);
-    if (!wsToken) wsToken = taskQueries.issueWorkspaceToken(payload.workspaceId);
+    if (jwt) {
+      const payload = verifyToken(jwt);
+      if (payload) {
+        let t = taskQueries.getWorkspaceToken(payload.workspaceId);
+        if (!t) t = taskQueries.issueWorkspaceToken(payload.workspaceId);
+        if (t) wsToken = t;
+      }
+    }
 
     const setupMd = `# AgentInbox — Setup Guide
 
