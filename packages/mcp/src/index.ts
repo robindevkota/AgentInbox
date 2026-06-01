@@ -27,7 +27,7 @@ import {
 import { io as SocketClient, Socket } from "socket.io-client";
 
 const TOKEN = process.env.AGENTINBOX_TOKEN;
-const SERVER_URL = process.env.AGENTINBOX_URL || "https://agentinbox-k2vf.onrender.com";
+const SERVER_URL = process.env.AGENTINBOX_URL || "https://useagentinbox.com";
 const API_BASE = `${SERVER_URL}/api`;
 
 if (!TOKEN) {

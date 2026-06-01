@@ -33,7 +33,7 @@ Two parts:
 
 | Part | What it is | How you get it |
 |------|-----------|----------------|
-| **Server + dashboard** | Hosted web app — task queue, PM dashboard, submission form | Use hosted at `agentinbox-k2vf.onrender.com` — or self-host |
+| **Server + dashboard** | Hosted web app — task queue, PM dashboard, submission form | Use hosted at `useagentinbox.com` — or self-host |
 | **`agentinbox-mcp`** | npm package running inside Claude Code | Auto-fetched via `npx` when Claude Code starts |
 
 You do **not** clone the repo. You do **not** install a server. Sign up, add 8 lines to `.mcp.json`, done.
@@ -44,7 +44,7 @@ You do **not** clone the repo. You do **not** install a server. Sign up, add 8 l
 
 ```
 Client opens submission link (no account needed)
-  └── agentinbox-k2vf.onrender.com/submit/<project-token>
+  └── useagentinbox.com/submit/<project-token>
   └── Types: "login button broken on mobile"
   └── Optionally uploads: screenshot.png / spec.pdf
 
@@ -92,8 +92,8 @@ AgentInbox holds the queue and UI. Your local Claude does the actual work. No ng
 
 ### ✅ Fully live on Render
 
-- PM dashboard: `https://agentinbox-k2vf.onrender.com/pm`
-- Submit form: `https://agentinbox-k2vf.onrender.com/submit/<token>`
+- PM dashboard: `https://useagentinbox.com/pm`
+- Submit form: `https://useagentinbox.com/submit/<token>`
 - Persistent DB via Turso — survives redeploys
 - Auth: email + password, JWT sessions, 30-day tokens
 - `BILLING_ENABLED=false` — all signups get Pro during testing week

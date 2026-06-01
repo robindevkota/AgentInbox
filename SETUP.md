@@ -2,7 +2,7 @@
 
 Full setup from zero to autonomous Claude agent in ~10 minutes.
 
-**You do not install the server.** AgentInbox is hosted at `agentinbox-k2vf.onrender.com`. The only thing you install is `agentinbox-mcp` — an npm package that runs inside Claude Code. It's fetched automatically via `npx` when Claude Code starts.
+**You do not install the server.** AgentInbox is hosted at `useagentinbox.com`. The only thing you install is `agentinbox-mcp` — an npm package that runs inside Claude Code. It's fetched automatically via `npx` when Claude Code starts.
 
 ---
 
@@ -52,7 +52,7 @@ That's the only manual step. Claude handles the rest.
 
 ### 1. Sign up
 
-Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com/signup)
+Go to [useagentinbox.com/signup](https://useagentinbox.com/signup)
 
 - Enter your name, email, and password
 - Your workspace and first project are created automatically
@@ -340,7 +340,7 @@ Claude will:
 
 ### 10. Check the PM dashboard
 
-Open [agentinbox-k2vf.onrender.com/pm](https://agentinbox-k2vf.onrender.com/pm) — the task should show as **Done** with Claude's screenshot and summaries.
+Open [useagentinbox.com/pm](https://useagentinbox.com/pm) — the task should show as **Done** with Claude's screenshot and summaries.
 
 You'll also get a **real-time toast notification** with a sound the moment Claude completes the task — no refreshing needed. The browser tab title shows `(1) AgentInbox` so you notice even when the tab is in the background.
 
@@ -384,13 +384,13 @@ In your `CLAUDE.local.md` agent instructions, add:
 ## Part 5 — Monitoring
 
 ### PM dashboard
-`https://agentinbox-k2vf.onrender.com/pm`
+`https://useagentinbox.com/pm`
 
 Filter tasks by status, click any task to see the full audit trail, Claude's screenshot, and both summaries.
 
 ### Client task status page
 ```
-https://agentinbox-k2vf.onrender.com/task/<task-id>
+https://useagentinbox.com/task/<task-id>
 ```
 Clients can track their submission live without an account.
 
@@ -398,11 +398,11 @@ Clients can track their submission live without an account.
 ```bash
 # Pending tasks
 curl -H "x-workspace-token: wt_xxx" \
-  https://agentinbox-k2vf.onrender.com/api/agent/tasks/pending
+  https://useagentinbox.com/api/agent/tasks/pending
 
 # Workspace info
 curl -H "x-workspace-token: wt_xxx" \
-  https://agentinbox-k2vf.onrender.com/api/agent/workspace
+  https://useagentinbox.com/api/agent/workspace
 ```
 
 ---

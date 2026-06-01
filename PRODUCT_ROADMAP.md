@@ -324,7 +324,7 @@ Manual token issuance takes 2 minutes per client. Don't over-engineer before you
 
 ## Current Status (May 2026)
 
-- Hosted on Render: `https://agentinbox-k2vf.onrender.com`
+- Hosted on Render: `https://useagentinbox.com`
 - Turso DB: persistent, survives redeploys
 - Auth: email + password, JWT sessions
 - MBL Bank pilot: connected via `agentinbox-mcp` (socket, no ngrok needed)

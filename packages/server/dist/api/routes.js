@@ -650,7 +650,7 @@ function createRouter() {
 
 Full setup from zero to autonomous Claude agent in ~10 minutes.
 
-**You do not install the server.** AgentInbox is hosted at \`agentinbox-k2vf.onrender.com\`. The only thing you install is \`agentinbox-mcp\` — fetched automatically via \`npx\` when Claude Code starts.
+**You do not install the server.** AgentInbox is hosted at \`useagentinbox.com\`. The only thing you install is \`agentinbox-mcp\` — fetched automatically via \`npx\` when Claude Code starts.
 
 ---
 
@@ -706,7 +706,7 @@ Keep this private — it gives access to all tasks in your workspace.
 
 ## PM Dashboard
 
-https://agentinbox-k2vf.onrender.com/pm
+https://useagentinbox.com/pm
 
 ---
 

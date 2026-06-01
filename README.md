@@ -33,7 +33,7 @@ AgentInbox has two parts:
 
 | Part | What it is | How you get it |
 |------|-----------|----------------|
-| **Server + dashboard** | Hosted web app — task queue, PM dashboard, submission form | Use ours at `agentinbox-k2vf.onrender.com` — or self-host |
+| **Server + dashboard** | Hosted web app — task queue, PM dashboard, submission form | Use ours at `useagentinbox.com` — or self-host |
 | **`agentinbox-mcp`** | npm package — runs inside Claude Code on your machine | `npx agentinbox-mcp` (auto via `.mcp.json`) |
 
 You do **not** install the server. You just sign up and point your `.mcp.json` at it.
@@ -44,7 +44,7 @@ You do **not** install the server. You just sign up and point your `.mcp.json` a
 
 ### 1. Sign up
 
-Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com/signup) → workspace and first project created automatically.
+Go to [useagentinbox.com/signup](https://useagentinbox.com/signup) → workspace and first project created automatically.
 
 ### 2. Get your workspace token
 
@@ -98,7 +98,7 @@ Key files: [e.g. src/, schemas/]
 ### 5. Share your submission link
 
 ```
-https://agentinbox-k2vf.onrender.com/submit/<project-token>
+https://useagentinbox.com/submit/<project-token>
 ```
 
 Send this link to your clients or QA team. No account needed to submit.
@@ -132,7 +132,7 @@ Instead of a human filling the submission form, your app POSTs the task:
 
 ```js
 // From your app, backend, cron job, or script
-await fetch("https://agentinbox-k2vf.onrender.com/submit/your-project-token", {
+await fetch("https://useagentinbox.com/submit/your-project-token", {
   method: "POST",
   headers: { "Content-Type": "application/json" },
   body: JSON.stringify({
@@ -147,7 +147,7 @@ Claude picks it up, handles it using the instructions in your `CLAUDE.local.md`,
 
 ```js
 // Poll until done
-const task = await fetch(`https://agentinbox-k2vf.onrender.com/api/agent/tasks/${taskId}`, {
+const task = await fetch(`https://useagentinbox.com/api/agent/tasks/${taskId}`, {
   headers: { "x-workspace-token": "wt_your_token" }
 }).then(r => r.json())
 
@@ -242,21 +242,21 @@ Sign in at `/pm` with your credentials.
 ```bash
 # Get pending tasks (agent view)
 curl -H "x-workspace-token: wt_xxx" \
-  https://agentinbox-k2vf.onrender.com/api/agent/tasks/pending
+  https://useagentinbox.com/api/agent/tasks/pending
 
 # Get workspace info
 curl -H "x-workspace-token: wt_xxx" \
-  https://agentinbox-k2vf.onrender.com/api/agent/workspace
+  https://useagentinbox.com/api/agent/workspace
 ```
 
 ### PM dashboard
 
-`https://agentinbox-k2vf.onrender.com/pm` — sign in to see all tasks across all projects.
+`https://useagentinbox.com/pm` — sign in to see all tasks across all projects.
 
 ### Task status page (shareable with clients)
 
 ```
-https://agentinbox-k2vf.onrender.com/task/<task-id>
+https://useagentinbox.com/task/<task-id>
 ```
 
 Clients can track their submission in real time without an account.
@@ -276,7 +276,7 @@ When `agentinbox-mcp` starts, it logs to stderr (visible in Claude Code's MCP de
 ## Architecture
 
 ```
-AgentInbox (hosted at agentinbox-k2vf.onrender.com)    Your machine
+AgentInbox (hosted at useagentinbox.com)    Your machine
 ──────────────────────────────────────────────────      ──────────────────────────────────
 Auth + workspace management                             agentinbox-mcp  (npm package)
 Turso task queue                                          └─ WebSocket → server (real-time)

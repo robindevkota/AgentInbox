@@ -904,7 +904,7 @@ export function HomePage() {
           <div className="flex items-center gap-6">
             <a href="/pm" className="hover:text-slate-400 transition-colors">PM Dashboard</a>
             <a href="/signup" className="hover:text-slate-400 transition-colors">Sign up</a>
-            <a href="https://agentinbox-k2vf.onrender.com/signup" className="hover:text-slate-400 transition-colors">Sign up free</a>
+            <a href="https://useagentinbox.com/signup" className="hover:text-slate-400 transition-colors">Sign up free</a>
           </div>
         </footer>
 

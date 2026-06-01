@@ -1,12 +1,12 @@
 # agentinbox-mcp
 
-MCP server for [AgentInbox](https://agentinbox-k2vf.onrender.com) — connects your Claude Code agent to your AgentInbox workspace. One-time setup, no ngrok, no extra terminals.
+MCP server for [AgentInbox](https://useagentinbox.com) — connects your Claude Code agent to your AgentInbox workspace. One-time setup, no ngrok, no extra terminals.
 
 ## Setup
 
 ### 1. Get your workspace token
 
-Sign in at [agentinbox-k2vf.onrender.com/pm](https://agentinbox-k2vf.onrender.com/pm) → **Settings** → **Workspace Token** → copy the `wt_...` token.
+Sign in at [useagentinbox.com/pm](https://useagentinbox.com/pm) → **Settings** → **Workspace Token** → copy the `wt_...` token.
 
 ### 2. Add to `.mcp.json` in your project root
 
@@ -87,7 +87,7 @@ Client submits bug              Claude fixes your codebase
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `AGENTINBOX_TOKEN` | Yes | — | Workspace token (`wt_...`) from the PM dashboard |
-| `AGENTINBOX_URL` | No | `https://agentinbox-k2vf.onrender.com` | Override for self-hosted instances |
+| `AGENTINBOX_URL` | No | `https://useagentinbox.com` | Override for self-hosted instances |
 
 ---
 
@@ -114,5 +114,5 @@ If you're running AgentInbox locally or on your own server:
 
 ## Links
 
-- [PM Dashboard](https://agentinbox-k2vf.onrender.com/pm)
-- [Sign up](https://agentinbox-k2vf.onrender.com/signup)
+- [PM Dashboard](https://useagentinbox.com/pm)
+- [Sign up](https://useagentinbox.com/signup)
