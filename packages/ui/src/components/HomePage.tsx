@@ -631,6 +631,10 @@ export function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <a href="/login" className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
+            <a href="/signup?next=setup-download"
+              className="border border-indigo-500/50 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+              ↓ Setup guide
+            </a>
             <a href="/signup" className="bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               style={{ boxShadow: "0 0 20px rgba(99,102,241,0.4)" }}>
               Get started free →
@@ -673,10 +677,12 @@ export function HomePage() {
               style={{ boxShadow: "0 0 40px rgba(99,102,241,0.45)" }}>
               Start free — 5 min setup →
             </a>
-            <a href="/pm" className="inline-flex items-center gap-2 border border-slate-700 hover:border-slate-500 text-slate-300 hover:text-white font-semibold px-8 py-4 rounded-xl transition-colors text-base">
-              PM Dashboard
+            <a href="/signup?next=setup-download"
+              className="inline-flex items-center gap-2 border border-indigo-500/40 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 font-semibold px-8 py-4 rounded-xl transition-colors text-base">
+              ↓ Download setup guide
             </a>
           </div>
+          <p className="text-slate-600 text-xs mt-3">Sign up → setup file downloads with your token pre-filled</p>
         </div>
 
         {/* Problem vs Solution */}

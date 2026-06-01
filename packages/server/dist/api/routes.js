@@ -629,6 +629,118 @@ function createRouter() {
         const token = tasks_1.taskQueries.rotateWorkspaceToken(req.params.workspaceId);
         res.json({ token, mcp_config: buildMcpConfig(token) });
     });
+    // GET /setup/download — returns SETUP.md with workspace token pre-filled
+    router.get("/setup/download", tokens_1.requireAuth, (req, res) => {
+        const authHeader = req.headers["authorization"];
+        const jwt = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
+        if (!jwt) {
+            res.status(401).json({ error: "Auth required" });
+            return;
+        }
+        const payload = (0, users_1.verifyToken)(jwt);
+        if (!payload) {
+            res.status(401).json({ error: "Invalid token" });
+            return;
+        }
+        let wsToken = tasks_1.taskQueries.getWorkspaceToken(payload.workspaceId);
+        if (!wsToken)
+            wsToken = tasks_1.taskQueries.issueWorkspaceToken(payload.workspaceId);
+        const setupMd = `# AgentInbox — Setup Guide
+
+Full setup from zero to autonomous Claude agent in ~10 minutes.
+
+**You do not install the server.** AgentInbox is hosted at \`agentinbox-k2vf.onrender.com\`. The only thing you install is \`agentinbox-mcp\` — fetched automatically via \`npx\` when Claude Code starts.
+
+---
+
+## Paste this prompt into Claude Code — it sets everything up automatically
+
+\`\`\`
+I want to set up AgentInbox in this project. My workspace token is: ${wsToken}
+
+Set up AgentInbox for my project by doing the following:
+1. Scan my project — understand my stack, key files, folder structure
+2. Create .mcp.json in the project root with this content:
+   {
+     "mcpServers": {
+       "agentinbox": {
+         "command": "npx",
+         "args": ["-y", "agentinbox-mcp"],
+         "env": { "AGENTINBOX_TOKEN": "${wsToken}" }
+       }
+     }
+   }
+3. Create CLAUDE.local.md with AgentInbox task processing rules filled in for my actual stack
+4. Add CLAUDE.local.md and .mcp.json to .gitignore
+5. Create .claude/rules/ files based on my codebase — one file per domain area
+6. Update CLAUDE.md with a rule index pointing to those files
+7. Tell me my submission link so I can share it with my client/QA team
+
+Do not ask questions — scan the codebase and make sensible decisions.
+\`\`\`
+
+That's it. Claude will scan your codebase and configure everything automatically.
+
+---
+
+## What Claude sets up for you
+
+- \`.mcp.json\` — connects Claude Code to AgentInbox via WebSocket (your token is already filled in above)
+- \`CLAUDE.local.md\` — tells Claude how to process tasks autonomously in your codebase
+- \`.claude/rules/\` — domain knowledge files so Claude understands your project
+- \`CLAUDE.md\` — rule index so Claude loads only what's relevant per task
+- Both sensitive files added to \`.gitignore\` automatically
+
+---
+
+## Your workspace token
+
+\`\`\`
+${wsToken}
+\`\`\`
+
+Keep this private — it gives access to all tasks in your workspace.
+
+---
+
+## PM Dashboard
+
+https://agentinbox-k2vf.onrender.com/pm
+
+---
+
+## MCP tools available to Claude
+
+| Tool | What it does |
+|---|---|
+| \`get_pending_tasks()\` | Get all unstarted tasks |
+| \`get_task(id)\` | Full task detail + file content |
+| \`update_task_status(id, status)\` | Set in_progress, blocked, failed |
+| \`complete_task(id, technical, plain, screenshot?)\` | Mark done with proof |
+| \`get_file(task_id)\` | Get uploaded PDF/image/doc content |
+| \`escalate_task(id, reason)\` | Flag for human review |
+| \`propose_plan(id, plan)\` | PM approves before Claude runs code |
+
+---
+
+## Troubleshooting
+
+**MCP not connecting**
+- Check AGENTINBOX_TOKEN is set correctly in .mcp.json
+- Verify the token starts with wt_
+- Run \`claude mcp list\` to confirm agentinbox is registered
+
+**Claude not processing tasks**
+- Type: "check my agent inbox and process any pending tasks"
+- Make sure CLAUDE.local.md is in the project root
+
+**Screenshot missing**
+- Add to CLAUDE.local.md: "screenshot_base64 is required, never omit it"
+`;
+        res.setHeader("Content-Disposition", "attachment; filename=\"agentinbox-setup.md\"");
+        res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+        res.send(setupMd);
+    });
     // ── Agent routes (workspace token auth, used by agentinbox-mcp) ────────────
     function requireWorkspaceToken(req, res, next) {
         const token = req.headers["x-workspace-token"];

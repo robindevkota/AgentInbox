@@ -1462,10 +1462,29 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
     }
   }
 }`}</div>
-          <button onClick={rotateToken} disabled={wsTokenRotating}
-            className="text-xs text-indigo-500 hover:text-indigo-700 underline transition-colors disabled:opacity-50">
-            {wsTokenRotating ? "Rotating..." : "Rotate token"}
-          </button>
+          <div className="flex items-center gap-4 mt-1">
+            <button onClick={rotateToken} disabled={wsTokenRotating}
+              className="text-xs text-indigo-500 hover:text-indigo-700 underline transition-colors disabled:opacity-50">
+              {wsTokenRotating ? "Rotating..." : "Rotate token"}
+            </button>
+            <a href="/api/setup/download"
+              onClick={(e) => {
+                e.preventDefault();
+                const token = localStorage.getItem("auth_token");
+                if (!token) return;
+                fetch("/api/setup/download", { headers: { Authorization: `Bearer ${token}` } })
+                  .then(r => r.blob()).then(blob => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = "agentinbox-setup.md";
+                    document.body.appendChild(a); a.click();
+                    document.body.removeChild(a); URL.revokeObjectURL(url);
+                  });
+              }}
+              className="text-xs text-emerald-600 hover:text-emerald-700 font-semibold underline transition-colors">
+              ↓ Download setup file
+            </a>
+          </div>
         </div>
 
         {/* Project settings */}
