@@ -1,5 +1,4 @@
 node_modules/
-examples/claude-loop/projects.json
 **/projects.json
 packages/server/data/
 packages/ui/dist/
@@ -10,3 +9,8 @@ data/
 *.db-wal
 .playwright-mcp/
 .serena/
+.claude/
+*.log
+*.png
+settings-workspace-token.png
+landing-*.png
