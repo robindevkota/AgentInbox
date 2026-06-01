@@ -13,12 +13,18 @@ Already have Claude Code open in your project? Paste this prompt and Claude will
 ```
 I want to set up AgentInbox in this project. My workspace token is: wt_YOUR_TOKEN_HERE
 
-Read this setup guide and set up AgentInbox for my project:
-https://raw.githubusercontent.com/robindevkota/AgentInbox/main/SETUP.md
-
-Do the following:
+Set up AgentInbox for my project by doing the following:
 1. Scan my project — understand my stack, key files, folder structure
-2. Create .mcp.json with my workspace token
+2. Create .mcp.json in the project root with this content:
+   {
+     "mcpServers": {
+       "agentinbox": {
+         "command": "npx",
+         "args": ["-y", "agentinbox-mcp"],
+         "env": { "AGENTINBOX_TOKEN": "wt_YOUR_TOKEN_HERE" }
+       }
+     }
+   }
 3. Create CLAUDE.local.md with AgentInbox task processing rules filled in for my actual stack
 4. Add CLAUDE.local.md and .mcp.json to .gitignore
 5. Create .claude/rules/ files based on my codebase — one file per domain area
