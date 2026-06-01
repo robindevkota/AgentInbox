@@ -133,16 +133,26 @@ const server = http.createServer((req, res) => {
     const project = Object.values(projectMap).find(p => p.name === "NewWeb Magic Builder");
     if (!project) { res.writeHead(500); res.end(JSON.stringify({ error: "Not configured" })); return; }
 
-    const payloadPath = path.join(project.dir, "scripts", "agentinbox-payload.json");
-    const resultPath  = path.join(project.dir, "scripts", "agentinbox-result.md");
+    const payloadPath  = path.join(project.dir, "scripts", "agentinbox-payload.json");
+    const resultPath   = path.join(project.dir, "scripts", "agentinbox-result.md");
+    const progressPath = path.join(project.dir, "scripts", "agentinbox-progress.md");
 
-    const payloadGone = !fs.existsSync(payloadPath);
+    const payloadGone  = !fs.existsSync(payloadPath);
     const resultExists = fs.existsSync(resultPath);
 
-    if (payloadGone && resultExists) {
-      res.writeHead(200); res.end(JSON.stringify({ status: "done", slug })); return;
+    // Read progress lines if the file exists
+    let lines = [];
+    if (fs.existsSync(progressPath)) {
+      lines = fs.readFileSync(progressPath, "utf-8")
+        .split("\n")
+        .map(l => l.trim())
+        .filter(Boolean);
     }
-    res.writeHead(200); res.end(JSON.stringify({ status: "pending", slug })); return;
+
+    if (payloadGone && resultExists) {
+      res.writeHead(200); res.end(JSON.stringify({ status: "done", slug, lines })); return;
+    }
+    res.writeHead(200); res.end(JSON.stringify({ status: "pending", slug, lines })); return;
   }
 
   if (req.method !== "POST") {
@@ -168,11 +178,13 @@ const server = http.createServer((req, res) => {
           res.writeHead(500); res.end(JSON.stringify({ error: "NewWeb Magic Builder not configured in projects.json" })); return;
         }
 
-        // Write payload and clear any previous result so status polling starts fresh
-        const payloadPath = path.join(project.dir, "scripts", "agentinbox-payload.json");
-        const resultPath  = path.join(project.dir, "scripts", "agentinbox-result.md");
+        // Write payload and clear any previous result/progress so status polling starts fresh
+        const payloadPath  = path.join(project.dir, "scripts", "agentinbox-payload.json");
+        const resultPath   = path.join(project.dir, "scripts", "agentinbox-result.md");
+        const progressPath = path.join(project.dir, "scripts", "agentinbox-progress.md");
         fs.writeFileSync(payloadPath, JSON.stringify(payload, null, 2), "utf-8");
         try { fs.unlinkSync(resultPath); } catch {}
+        try { fs.unlinkSync(progressPath); } catch {}
 
         console.log(`[NewWeb Magic Builder] Generation request: "${payload.brandName || payload.slug}" (${payload.businessType || "unknown type"})`);
         res.writeHead(202); res.end(JSON.stringify({ status: "queued", slug: payload.slug }));
@@ -224,11 +236,62 @@ const server = http.createServer((req, res) => {
       console.log(`[${project.name}] New task: "${payload.title}" (${payload.task_id})`);
       res.writeHead(200); res.end("ok");
 
-      const s = state[token];
-      if (s.running) {
-        s.queue.push(payload.task_id);
+      // For NewWeb Magic Builder: fetch the task description (the payload JSON),
+      // write it to agentinbox-payload.json, then trigger Claude
+      if (project.name === "NewWeb Magic Builder") {
+        const AGENTINBOX_URL = process.env.AGENTINBOX_URL || "http://localhost:3001";
+        const WORKSPACE_TOKEN = process.env.AGENTINBOX_WORKSPACE_TOKEN || "wt_viDerhoIo36j1rj8vtWu_aX8k0bOyfh2";
+
+        // Fetch full task to get description (which contains the JSON payload)
+        const fetchTask = () => new Promise((resolve) => {
+          const url = new URL(`/api/agent/tasks/${payload.task_id}`, AGENTINBOX_URL);
+          const options = {
+            hostname: url.hostname,
+            port: url.port,
+            path: url.pathname,
+            method: "GET",
+            headers: { "x-workspace-token": WORKSPACE_TOKEN },
+          };
+          const req2 = http.request(options, (r) => {
+            let data = "";
+            r.on("data", (c) => (data += c));
+            r.on("end", () => {
+              try { resolve(JSON.parse(data)); } catch { resolve(null); }
+            });
+          });
+          req2.on("error", () => resolve(null));
+          req2.end();
+        });
+
+        fetchTask().then((task) => {
+          if (task && task.description) {
+            try {
+              const wizardPayload = JSON.parse(task.description);
+              const payloadPath  = path.join(project.dir, "scripts", "agentinbox-payload.json");
+              const resultPath   = path.join(project.dir, "scripts", "agentinbox-result.md");
+              const progressPath = path.join(project.dir, "scripts", "agentinbox-progress.md");
+              fs.writeFileSync(payloadPath, JSON.stringify(wizardPayload, null, 2), "utf-8");
+              try { fs.unlinkSync(resultPath); } catch {}
+              try { fs.unlinkSync(progressPath); } catch {}
+              console.log(`[NewWeb Magic Builder] Payload written for: ${wizardPayload.brandName || wizardPayload.slug}`);
+            } catch (e) {
+              console.error("[NewWeb Magic Builder] Failed to parse task description as JSON:", e.message);
+            }
+          }
+          const s = state[token];
+          if (s.running) {
+            s.queue.push(payload.task_id);
+          } else {
+            runClaude(token);
+          }
+        });
       } else {
-        runClaude(token);
+        const s = state[token];
+        if (s.running) {
+          s.queue.push(payload.task_id);
+        } else {
+          runClaude(token);
+        }
       }
     } catch {
       res.writeHead(400); res.end("Bad request");

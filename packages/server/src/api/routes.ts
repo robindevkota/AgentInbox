@@ -156,7 +156,7 @@ export function createRouter(): Router {
         const body = z
           .object({
             title: z.string().min(1).max(200),
-            description: z.string().min(1).max(5000),
+            description: z.string().min(1).max(50000),
             priority: z.enum(["low", "medium", "high"]).optional(),
             submitter_name: z.string().max(100).optional(),
             submitter_email: z.string().email().optional(),

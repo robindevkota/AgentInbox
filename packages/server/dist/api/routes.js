@@ -180,7 +180,7 @@ function createRouter() {
             const body = zod_1.z
                 .object({
                 title: zod_1.z.string().min(1).max(200),
-                description: zod_1.z.string().min(1).max(5000),
+                description: zod_1.z.string().min(1).max(50000),
                 priority: zod_1.z.enum(["low", "medium", "high"]).optional(),
                 submitter_name: zod_1.z.string().max(100).optional(),
                 submitter_email: zod_1.z.string().email().optional(),
