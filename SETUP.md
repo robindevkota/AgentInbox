@@ -121,6 +121,138 @@ Claude loads `agentinbox-mcp` automatically. You'll see in the MCP logs:
 
 ---
 
+## Part 2.5 — Teach Claude your codebase
+
+This is the most important step. AgentInbox delivers the task — but **how well Claude fixes it depends entirely on what you put in `CLAUDE.local.md`**. A bare template produces generic fixes. A well-written context file produces fixes that match your conventions, use your patterns, and deploy correctly.
+
+### Simple project (fill in the template)
+
+For most projects, filling out the placeholders in `CLAUDE.local.md` is enough:
+
+```markdown
+## AgentInbox — Autonomous Task Processing
+
+When triggered via AgentInbox, process ALL pending tasks autonomously.
+Do not ask for confirmation. Work through all tasks before stopping.
+
+### Rules
+1. Call get_pending_tasks() — get all unstarted tasks
+2. For each task:
+   - update_task_status(id, "in_progress")
+   - get_task(id) to read full details
+   - If has_file is true, call get_file(task_id) to read the attachment
+   - Fix the bug or implement the feature
+   - Take a Playwright screenshot of your live site as proof
+   - complete_task(id, summary_technical, summary_plain, screenshot_base64=<base64>)
+3. If you cannot solve a task, call escalate_task(id, reason) — never leave it stuck
+4. Work through ALL pending tasks before stopping
+
+### Project context
+Stack: React + TypeScript + Express + PostgreSQL
+Key files: src/components/, src/api/routes/, src/db/schema.ts
+Run tests: npm test
+Deploy: npm run build && pm2 restart app
+Live URL: https://myapp.com
+Do NOT touch: src/legacy/, database migrations (ask first)
+```
+
+The more specific you are, the better. Tell Claude:
+- Where your components live
+- How to run your test suite
+- How to deploy or restart
+- What files or folders are off-limits
+- Any naming conventions or patterns you follow
+
+### Complex project (use the Rules pattern)
+
+For large codebases, put Claude's domain knowledge into separate rule files so it only loads what's relevant per task. This keeps context tight and fixes accurate.
+
+```
+your-project/
+  .claude/
+    rules/
+      01-architecture.md    # how the codebase is structured, key files
+      02-components.md      # component patterns, naming, props conventions
+      03-api.md             # API route patterns, auth middleware, error handling
+      04-database.md        # schema, query patterns, migration rules
+      05-deploy.md          # build steps, deployment, environment variables
+  CLAUDE.md                 # index — tells Claude which rule to load per topic
+  CLAUDE.local.md           # gitignored — AgentInbox token + task processing rules
+```
+
+**`CLAUDE.md` (checked in — safe to commit):**
+```markdown
+## Rule Index
+| Topic        | File                          |
+|--------------|-------------------------------|
+| Architecture | .claude/rules/01-architecture.md |
+| Components   | .claude/rules/02-components.md   |
+| API routes   | .claude/rules/03-api.md          |
+| Database     | .claude/rules/04-database.md     |
+| Deploy       | .claude/rules/05-deploy.md       |
+
+Read ONLY the relevant rule file before working on a task. Never load all at once.
+```
+
+**`CLAUDE.local.md` (gitignored — add your AgentInbox instructions here):**
+```markdown
+## AgentInbox — Autonomous Task Processing
+
+When triggered via AgentInbox, process ALL pending tasks autonomously.
+
+### Rules
+1. Call get_pending_tasks()
+2. For each task:
+   - update_task_status(id, "in_progress")
+   - get_task(id) — read title, description, custom_field_values
+   - Read the relevant .claude/rules/ file for context before making changes
+   - Fix the bug or implement the feature
+   - Run tests: npm test
+   - Take a Playwright screenshot of the live result
+   - complete_task(id, summary_technical, summary_plain, screenshot_base64=<base64>)
+3. If blocked, call escalate_task(id, reason)
+```
+
+### What makes a good rule file
+
+Each rule file should answer: *"What does Claude need to know to work in this area without asking questions?"*
+
+**Good `01-architecture.md`:**
+```markdown
+# Architecture
+
+Backend: Express + TypeScript at /backend/src
+Frontend: React + Vite at /frontend/src
+Database: PostgreSQL via Prisma — schema at /backend/prisma/schema.prisma
+
+Key entry points:
+- API server: /backend/src/index.ts
+- React root: /frontend/src/main.tsx
+- Route files: /backend/src/routes/*.ts
+
+Naming: kebab-case files, PascalCase components, camelCase functions.
+All API responses: { data, error } shape.
+Auth: JWT in Authorization header — middleware at /backend/src/middleware/auth.ts
+```
+
+**Good `05-deploy.md`:**
+```markdown
+# Deploy
+
+Local dev: npm run dev (starts both frontend + backend via concurrently)
+Build: npm run build (outputs to /dist)
+Deploy: git push origin main (auto-deploys via Render)
+Test: npm test (Jest + Supertest)
+
+After any schema change: npx prisma migrate dev
+After any frontend change: verify at http://localhost:3000
+Do NOT push directly to main without running tests first.
+```
+
+The rule files are plain markdown — write them like notes to a new developer joining your team.
+
+---
+
 ## Part 3 — Test it end to end
 
 ### 8. Submit a test task
