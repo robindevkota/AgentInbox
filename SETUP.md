@@ -200,6 +200,8 @@ your-project/
 | `CLAUDE.md` | Checked in — rule index + golden rules that always apply |
 | `CLAUDE.local.md` | Gitignored — your AgentInbox token + autonomous task instructions |
 
+> **`agents/` and `skills/` are completely optional.** They are Claude Code features — how you organise them is entirely up to you and depends on your workflow. AgentInbox only requires `CLAUDE.local.md` with the task processing rules. Everything else is how you choose to structure your Claude workspace. Start simple, add rules and agents only when you feel Claude needs more context to work accurately in your codebase.
+
 **`CLAUDE.md` (checked in — safe to commit):**
 ```markdown
 ## Rule Index
