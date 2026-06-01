@@ -22,6 +22,7 @@ Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com
 
 - Enter your name, email, and password
 - Your workspace and first project are created automatically
+- New accounts start on the **Free plan** — 1 project, 50 tasks/month. Upgrade anytime from the PM dashboard.
 
 ### 2. Create a project
 
@@ -33,7 +34,7 @@ Optional but recommended:
 
 ### 3. Get your workspace token
 
-PM dashboard → **Settings** tab → copy the `wt_...` token shown under **Workspace Token**.
+PM dashboard → click any project → **Settings** → scroll to **Workspace Token**. Copy the `wt_...` token. The Settings panel also shows a ready-to-paste `.mcp.json` snippet with your token already filled in.
 
 > Keep this token private — it gives full access to all tasks in your workspace. Add `.mcp.json` to `.gitignore` or use `CLAUDE.local.md` (which is gitignored by default) to store it.
 
@@ -124,9 +125,14 @@ Open your submission link in a browser and submit a simple test task:
 - Description: `Change the H1 on the homepage from "Hello" to "Hello World"`
 - Priority: low
 
-### 9. Trigger Claude
+### 9. Claude picks it up automatically
 
-In your Claude Code session, type:
+As soon as the task is submitted, `agentinbox-mcp` receives a real-time notification via WebSocket and logs it:
+```
+[agentinbox-mcp] New task: "Test — change page title" (task-id)
+```
+
+Claude will pick it up and process it automatically if your `CLAUDE.local.md` instructs it to. If Claude is idle or you want to trigger it manually, type:
 
 ```
 check my agent inbox and process any pending tasks
