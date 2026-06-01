@@ -211,6 +211,9 @@ Already built that makes this easy:
 **The pitch:**
 > Your PM, QA, or client submits a bug through a simple web form — no account needed. Your Claude agent picks it up, fixes it in your codebase, and posts a screenshot back to the dashboard as proof. Your PM sees it done without ever talking to a developer. Setup is 8 lines in your Claude config. You bring your own Claude key — we just connect the pipe.
 
+**Second angle — Claude Pro as free API:**
+> You're already paying $20/mo for Claude Pro. AgentInbox lets your clients submit work directly into it — no Anthropic API key, no per-token billing. Every bug your client submits gets handled by your existing Claude Pro session. Zero extra AI cost.
+
 ---
 
 ## Market Position
