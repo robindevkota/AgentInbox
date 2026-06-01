@@ -1,0 +1,6 @@
+[login error] Error: Invalid email or password
+    at loginUser (C:\Users\user\Desktop\Projects\AgentInbox\packages\server\dist\auth\users.js:52:15)
+    at async C:\Users\user\Desktop\Projects\AgentInbox\packages\server\dist\api\routes.js:356:28
+[login error] Error: Invalid email or password
+    at loginUser (C:\Users\user\Desktop\Projects\AgentInbox\packages\server\dist\auth\users.js:52:15)
+    at async C:\Users\user\Desktop\Projects\AgentInbox\packages\server\dist\api\routes.js:356:28

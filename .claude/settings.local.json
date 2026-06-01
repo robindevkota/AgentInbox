@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(Get-ChildItem -Path \"c:\\\\Users\\\\user\\\\Desktop\\\\Projects\\\\AgentInbox\" -Force)",
+      "Bash(Select-Object Name, FullName)",
+      "Bash(npx tsc *)",
+      "Bash(pnpm exec *)",
+      "Bash(DATA_DIR=./data-test pnpm exec tsx -e ' *)",
+      "Bash(DATA_DIR=./data-test pnpm exec tsx src/auth/users.ts)",
+      "Bash(echo \"exit: $?\")",
+      "Bash(DATA_DIR=./data-test pnpm exec tsx --import tsx/esm src/auth/test.ts)",
+      "Bash(DATA_DIR=./data-test pnpm exec tsx src/auth/test-auth.ts)",
+      "Bash(Remove-Item \"c:\\\\Users\\\\user\\\\Desktop\\\\Projects\\\\AgentInbox\\\\packages\\\\server\\\\src\\\\auth\\\\test-auth.ts\")"
+    ]
+  }
+}

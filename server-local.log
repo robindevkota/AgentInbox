@@ -1,0 +1,21 @@
+
+  ┌─────────────────────────────────────────────┐
+  │   AgentInbox is running                     │
+  └─────────────────────────────────────────────┘
+
+  Dashboard: http://localhost:4002/pm
+  Submit:    http://localhost:4002/submit/<token>
+  MCP:       http://localhost:4002/mcp
+
+  To register with Claude (one-time):
+  claude mcp add --scope user agentinbox http://localhost:4002/mcp
+
+  Or run with --install to do this automatically:
+
+  npx @robindevkota/agentinbox start --install
+
+  ⚠  No API_KEY set — PM dashboard is open to anyone.
+     Add API_KEY=your-secret to .env to secure it.
+
+  [socket] PM dashboard connected — workspace: robin-workspace-001
+  [socket] PM dashboard disconnected — workspace: robin-workspace-001

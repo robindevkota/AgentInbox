@@ -114,6 +114,5 @@ If you're running AgentInbox locally or on your own server:
 
 ## Links
 
-- [AgentInbox on GitHub](https://github.com/robindevkota/AgentInbox)
 - [PM Dashboard](https://agentinbox-k2vf.onrender.com/pm)
-- [Full documentation](https://github.com/robindevkota/AgentInbox#readme)
+- [Sign up](https://agentinbox-k2vf.onrender.com/signup)
