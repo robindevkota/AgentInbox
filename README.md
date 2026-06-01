@@ -334,30 +334,7 @@ packages/
   server/          # REST API + WebSocket server  (TypeScript · Express · SQLite)
   ui/              # React UI  (Vite · Tailwind)
   mcp/             # agentinbox-mcp npm package  (MCP + WebSocket client)
-examples/
-  claude-loop/     # Legacy: local router + ngrok (replaced by agentinbox-mcp)
 ```
-
----
-
-## Legacy setup (ngrok + claude-router)
-
-The original setup used ngrok + a local `claude-router.js` to receive webhooks. This still works but requires two extra terminals. The `agentinbox-mcp` approach is simpler and recommended for all new setups.
-
-<details>
-<summary>Show legacy setup</summary>
-
-```bash
-# Terminal 1 — router
-node examples/claude-loop/claude-router.js --config projects.json --port 4001
-
-# Terminal 2 — tunnel
-ngrok http --domain=your-static-domain.ngrok-free.app 4001
-```
-
-Then set **Webhook URL** in the PM dashboard Settings to your ngrok URL.
-
-</details>
 
 ---
 
