@@ -1327,6 +1327,33 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
   const [brandName, setBrandName]     = useState(project?.brand_name || "");
   const [brandColor, setBrandColor]   = useState(project?.brand_color || "#6366f1");
   const [requireApproval, setRequireApproval] = useState(!!project?.require_approval);
+  const [wsToken, setWsToken]         = useState<string | null>(null);
+  const [wsTokenCopied, setWsTokenCopied] = useState(false);
+  const [wsTokenRotating, setWsTokenRotating] = useState(false);
+
+  useEffect(() => {
+    fetch(`/api/workspaces/${workspaceId}/token`, { headers: authHeaders })
+      .then((r) => r.json())
+      .then((d) => setWsToken(d.token))
+      .catch(() => {});
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [workspaceId]);
+
+  async function rotateToken() {
+    if (!window.confirm("Rotate workspace token? Your current .mcp.json will stop working until you update it.")) return;
+    setWsTokenRotating(true);
+    const r = await fetch(`/api/workspaces/${workspaceId}/token/rotate`, { method: "POST", headers: authHeaders });
+    const d = await r.json();
+    setWsToken(d.token);
+    setWsTokenRotating(false);
+  }
+
+  function copyToken() {
+    if (!wsToken) return;
+    navigator.clipboard.writeText(wsToken);
+    setWsTokenCopied(true);
+    setTimeout(() => setWsTokenCopied(false), 2000);
+  }
   const [customFields, setCustomFields] = useState<CustomField[]>(() => {
     try { return project?.custom_fields ? JSON.parse(project.custom_fields) : []; } catch { return []; }
   });
@@ -1409,6 +1436,36 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
             <button onClick={() => navigator.clipboard.writeText(workspaceId)}
               className="shrink-0 bg-slate-600 hover:bg-slate-700 text-white text-xs px-3 py-2 rounded-lg transition-colors">Copy</button>
           </div>
+        </div>
+
+        {/* Workspace token — for .mcp.json */}
+        <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-5 shadow-sm">
+          <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-1">Workspace Token</p>
+          <p className="text-xs text-indigo-500 mb-3">Add this to your <code className="bg-indigo-100 px-1 rounded">.mcp.json</code> as <code className="bg-indigo-100 px-1 rounded">AGENTINBOX_TOKEN</code> to connect Claude Code.</p>
+          <div className="flex items-center gap-2 mb-3">
+            <code className="flex-1 text-xs bg-white border border-indigo-200 rounded-lg px-3 py-2 break-all text-slate-700">
+              {wsToken ?? "Loading..."}
+            </code>
+            <button onClick={copyToken}
+              className="shrink-0 bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-3 py-2 rounded-lg transition-colors">
+              {wsTokenCopied ? "Copied ✓" : "Copy"}
+            </button>
+          </div>
+          <div className="bg-indigo-100 rounded-lg px-4 py-3 text-xs text-indigo-700 font-mono mb-3 whitespace-pre">{`{
+  "mcpServers": {
+    "agentinbox": {
+      "command": "npx",
+      "args": ["-y", "agentinbox-mcp"],
+      "env": {
+        "AGENTINBOX_TOKEN": "${wsToken ?? "wt_..."}"
+      }
+    }
+  }
+}`}</div>
+          <button onClick={rotateToken} disabled={wsTokenRotating}
+            className="text-xs text-indigo-500 hover:text-indigo-700 underline transition-colors disabled:opacity-50">
+            {wsTokenRotating ? "Rotating..." : "Rotate token"}
+          </button>
         </div>
 
         {/* Project settings */}
