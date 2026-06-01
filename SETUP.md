@@ -167,18 +167,38 @@ The more specific you are, the better. Tell Claude:
 
 For large codebases, put Claude's domain knowledge into separate rule files so it only loads what's relevant per task. This keeps context tight and fixes accurate.
 
+**Recommended folder structure (works for any stack):**
+
 ```
 your-project/
   .claude/
     rules/
-      01-architecture.md    # how the codebase is structured, key files
-      02-components.md      # component patterns, naming, props conventions
-      03-api.md             # API route patterns, auth middleware, error handling
-      04-database.md        # schema, query patterns, migration rules
-      05-deploy.md          # build steps, deployment, environment variables
+      01-architecture.md    # how the codebase is structured, key entry points
+      02-data.md            # database schema, models, query patterns
+      03-api.md             # API patterns, auth, error handling conventions
+      04-ui.md              # UI patterns, components, naming conventions
+      05-testing.md         # how to run tests, what to test, test patterns
+      06-deploy.md          # build steps, deploy command, environments
+    agents/
+      fix-bug.md            # specialist agent for bug fixes
+      review.md             # specialist agent for code review before deploy
+    skills/
+      run-tests.md          # reusable skill: run test suite + report failures
+      take-screenshot.md    # reusable skill: Playwright screenshot of live site
   CLAUDE.md                 # index — tells Claude which rule to load per topic
   CLAUDE.local.md           # gitignored — AgentInbox token + task processing rules
+  .mcp.json                 # gitignored — MCP server config with workspace token
 ```
+
+**What each folder does:**
+
+| Folder | Purpose |
+|---|---|
+| `.claude/rules/` | Domain knowledge — Claude reads only the relevant file per task |
+| `.claude/agents/` | Specialist sub-agents Claude can spin up for specific task types |
+| `.claude/skills/` | Reusable task patterns Claude can invoke (run tests, take screenshot, deploy) |
+| `CLAUDE.md` | Checked in — rule index + golden rules that always apply |
+| `CLAUDE.local.md` | Gitignored — your AgentInbox token + autonomous task instructions |
 
 **`CLAUDE.md` (checked in — safe to commit):**
 ```markdown
