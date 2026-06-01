@@ -48,7 +48,7 @@ Go to [agentinbox-k2vf.onrender.com/signup](https://agentinbox-k2vf.onrender.com
 
 ### 2. Get your workspace token
 
-PM dashboard → **Settings** tab → copy the `wt_...` token.
+PM dashboard → click your project → **Settings** → scroll to **Workspace Token**. Copy the `wt_...` token. A ready-to-paste `.mcp.json` snippet is shown with your token already filled in.
 
 ### 3. Add `agentinbox-mcp` to your project
 
@@ -124,6 +124,39 @@ Give each client their own project token and submission link. All bugs flow into
 
 ### 6. Rule-driven autonomous agents
 Write `.claude/rules/` files per topic (schema fields, widget logic, validation, etc.). In `CLAUDE.local.md`, tell Claude which rule to read per area. Claude follows your conventions exactly — no hallucinated patterns.
+
+### 7. Claude Pro as a free API (programmatic submission)
+You're already paying $20/mo for Claude Pro. AgentInbox lets your own app submit tasks directly into your Claude Code session — no Anthropic API key, no per-token billing.
+
+Instead of a human filling the submission form, your app POSTs the task:
+
+```js
+// From your app, backend, cron job, or script
+await fetch("https://agentinbox-k2vf.onrender.com/submit/your-project-token", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    title: "Generate monthly report for user 123",
+    description: JSON.stringify({ userId: 123, type: "monthly", month: "2026-05" }),
+    priority: "high"
+  })
+})
+```
+
+Claude picks it up, handles it using the instructions in your `CLAUDE.local.md`, and posts the result back. Your app reads it:
+
+```js
+// Poll until done
+const task = await fetch(`https://agentinbox-k2vf.onrender.com/api/agent/tasks/${taskId}`, {
+  headers: { "x-workspace-token": "wt_your_token" }
+}).then(r => r.json())
+
+if (task.status === "done") {
+  console.log(task.summary_technical) // Claude's result
+}
+```
+
+**Real example:** NewWeb Magic Builder uses this pattern — the website wizard submits a JSON payload as a task, Claude Pro generates a full PageConfig and pushes it to MongoDB, the wizard reads the result back. Zero Anthropic API cost.
 
 ---
 
