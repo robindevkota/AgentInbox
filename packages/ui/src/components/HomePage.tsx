@@ -616,6 +616,22 @@ function Card({ children, className = "" }: { children: React.ReactNode; classNa
   );
 }
 
+// ── Setup guide download helper ───────────────────────────────────────────
+function downloadSetup() {
+  const token = localStorage.getItem("auth_token");
+  const headers: Record<string, string> = {};
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+  fetch("/api/setup/download", { headers })
+    .then(r => r.blob())
+    .then(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "agentinbox-setup.md";
+      document.body.appendChild(a); a.click();
+      document.body.removeChild(a); URL.revokeObjectURL(url);
+    });
+}
+
 // ── Main ──────────────────────────────────────────────────────────────────
 export function HomePage() {
   return (
@@ -631,10 +647,10 @@ export function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <a href="/login" className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
-            <a href="/api/setup/download"
-              className="border border-indigo-500/50 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors">
+            <button onClick={downloadSetup}
+              className="border border-indigo-500/50 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer">
               ↓ Setup guide
-            </a>
+            </button>
             <a href="/signup" className="bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               style={{ boxShadow: "0 0 20px rgba(99,102,241,0.4)" }}>
               Get started free →
@@ -677,10 +693,10 @@ export function HomePage() {
               style={{ boxShadow: "0 0 40px rgba(99,102,241,0.45)" }}>
               Start free — 5 min setup →
             </a>
-            <a href="/api/setup/download"
-              className="inline-flex items-center gap-2 border border-indigo-500/40 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 font-semibold px-8 py-4 rounded-xl transition-colors text-base">
+            <button onClick={downloadSetup}
+              className="inline-flex items-center gap-2 border border-indigo-500/40 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 font-semibold px-8 py-4 rounded-xl transition-colors text-base cursor-pointer">
               ↓ Download setup guide
-            </a>
+            </button>
           </div>
           <p className="text-slate-600 text-xs mt-3">Sign up to get a setup file with your token pre-filled</p>
         </div>
