@@ -6,6 +6,34 @@ Full setup from zero to autonomous Claude agent in ~10 minutes.
 
 ---
 
+## Let Claude set this up for you
+
+Already have Claude Code open in your project? Paste this prompt and Claude will read your codebase and set everything up automatically:
+
+```
+I want to set up AgentInbox in this project. My workspace token is: wt_YOUR_TOKEN_HERE
+
+Read this setup guide and set up AgentInbox for my project:
+https://raw.githubusercontent.com/robindevkota/AgentInbox/main/SETUP.md
+
+Do the following:
+1. Scan my project — understand my stack, key files, folder structure
+2. Create .mcp.json with my workspace token
+3. Create CLAUDE.local.md with AgentInbox task processing rules filled in for my actual stack
+4. Add CLAUDE.local.md and .mcp.json to .gitignore
+5. Create .claude/rules/ files based on my codebase — one file per domain area
+6. Update CLAUDE.md with a rule index pointing to those files
+7. Tell me my submission link so I can share it with my client/QA team
+
+Do not ask questions — scan the codebase and make sensible decisions.
+```
+
+**Before pasting:** replace `wt_YOUR_TOKEN_HERE` with your actual workspace token from the AgentInbox PM dashboard → Settings → Workspace Token.
+
+That's the only manual step. Claude handles the rest.
+
+---
+
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) installed and logged in (Claude Pro or API key)
