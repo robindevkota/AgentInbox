@@ -67,7 +67,12 @@ In your project root, create `.mcp.json`:
 
 ### 6. Write your agent instructions
 
-Create `CLAUDE.local.md` in your project root and add it to `.gitignore`:
+Create `CLAUDE.local.md` in your project root:
+
+```bash
+# Add to .gitignore so your token never gets committed
+echo "CLAUDE.local.md" >> .gitignore
+```
 
 ```markdown
 ## AgentInbox — Autonomous Task Processing
@@ -132,7 +137,7 @@ As soon as the task is submitted, `agentinbox-mcp` receives a real-time notifica
 [agentinbox-mcp] New task: "Test — change page title" (task-id)
 ```
 
-Claude will pick it up and process it automatically if your `CLAUDE.local.md` instructs it to. If Claude is idle or you want to trigger it manually, type:
+Claude receives the notification in real time. Since Claude Code requires an active session to act, trigger it manually the first time to verify everything works:
 
 ```
 check my agent inbox and process any pending tasks
