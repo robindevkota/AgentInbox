@@ -788,6 +788,76 @@ export function HomePage() {
           </div>
         </div>
 
+        {/* ── PM Workflow section ── */}
+        <div className="w-full max-w-5xl mb-16">
+          <h2 className="text-center text-3xl font-bold mb-2">Built for PMs and managers too</h2>
+          <p className="text-center text-slate-500 text-sm mb-10">Not just a developer tool — the PM controls everything from one dashboard.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {/* Left — PM steps */}
+            <div className="space-y-4">
+              {[
+                { step: "1", icon: "🏗️", title: "Create a project", desc: "Name it, set custom fields (Environment, Module, Priority, Case ID), toggle approval gate for production safety." },
+                { step: "2", icon: "🔗", title: "Share a submission link", desc: "One link for clients or QA. No account needed — they just open it in a browser and describe the bug." },
+                { step: "3", icon: "📋", title: "Monitor the live dashboard", desc: "See every task in real time — pending, in progress, done, escalated. Click any task to see Claude's full audit trail." },
+                { step: "4", icon: "🔔", title: "Get notified instantly", desc: "Toast alert with sound the moment Claude completes a fix. Tab badge shows unread count. No refreshing needed." },
+                { step: "5", icon: "✅", title: "Approve before code runs", desc: "Enable require-approval per project. Claude proposes a plan, PM approves or rejects before any code is touched." },
+                { step: "6", icon: "📤", title: "Client sees proof", desc: "Share a status link with the client. They see the fix, Claude's screenshot, and a plain-English summary — no account needed." },
+              ].map(({ step, icon, title, desc }) => (
+                <div key={step} className="flex gap-4 bg-slate-800/40 border border-slate-700/40 rounded-xl p-4 backdrop-blur-sm">
+                  <div className="shrink-0 w-9 h-9 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm">{step}</div>
+                  <div>
+                    <p className="text-white font-semibold text-sm mb-1">{icon} {title}</p>
+                    <p className="text-slate-400 text-xs leading-relaxed">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Right — PM dashboard mockup */}
+            <div className="bg-slate-800/50 border border-slate-700/40 rounded-2xl p-6 backdrop-blur-sm flex flex-col gap-4"
+              style={{ boxShadow: "0 0 40px rgba(99,102,241,0.06)" }}>
+              <div className="flex items-center justify-between mb-2">
+                <p className="text-white font-bold text-sm">PM Dashboard</p>
+                <div className="flex items-center gap-2">
+                  <div className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-emerald-400 text-xs font-medium">Live</span>
+                </div>
+              </div>
+              {/* Stats row */}
+              <div className="grid grid-cols-4 gap-2">
+                {[{ n: "12", l: "Total" }, { n: "9", l: "Done" }, { n: "2", l: "Active" }, { n: "1", l: "Escalated" }].map(({ n, l }) => (
+                  <div key={l} className="bg-slate-900/60 rounded-lg p-2 text-center">
+                    <p className="text-white font-bold text-lg">{n}</p>
+                    <p className="text-slate-500 text-xs">{l}</p>
+                  </div>
+                ))}
+              </div>
+              {/* Task list */}
+              {[
+                { title: "Login button broken on mobile", status: "done", time: "2 min ago" },
+                { title: "Wrong label on account type field", status: "done", time: "18 min ago" },
+                { title: "PDF upload fails on Safari", status: "in_progress", time: "just now" },
+                { title: "Add export to CSV feature", status: "pending", time: "5 min ago" },
+              ].map(({ title, status, time }) => (
+                <div key={title} className="flex items-center gap-3 bg-slate-900/40 rounded-xl px-3 py-2.5 border border-slate-700/30">
+                  <div className={`w-2 h-2 rounded-full shrink-0 ${status === "done" ? "bg-emerald-400" : status === "in_progress" ? "bg-amber-400 animate-pulse" : "bg-slate-500"}`} />
+                  <p className="text-slate-300 text-xs flex-1 truncate">{title}</p>
+                  <p className="text-slate-600 text-xs shrink-0">{time}</p>
+                </div>
+              ))}
+              {/* Toast */}
+              <div className="bg-emerald-900/40 border border-emerald-500/30 rounded-xl px-4 py-3 flex items-center gap-3">
+                <span className="text-lg">✅</span>
+                <div>
+                  <p className="text-emerald-300 text-xs font-semibold">Fix complete — Login button fixed</p>
+                  <p className="text-emerald-500/70 text-xs">Claude took a screenshot as proof</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 8-line setup */}
         <div className="w-full max-w-4xl mb-16">
           <div className="rounded-2xl border border-indigo-500/25 overflow-hidden"
