@@ -8,6 +8,7 @@ import { PmDashboard } from "./pm/PmDashboard";
 import { HomePage } from "./components/HomePage";
 import { Login } from "./auth/Login";
 import { Signup } from "./auth/Signup";
+import { PlaygroundPage } from "./playground/PlaygroundPage";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const token = localStorage.getItem("auth_token");
@@ -22,6 +23,7 @@ ReactDOM.createRoot(document.getElementById("root")!).render(
         <Route path="/" element={<HomePage />} />
         <Route path="/login" element={<Login />} />
         <Route path="/signup" element={<Signup />} />
+        <Route path="/playground" element={<PlaygroundPage />} />
         <Route path="/submit/:token" element={<SubmitPage />} />
         <Route path="/task/:taskId" element={<StatusPage />} />
         <Route

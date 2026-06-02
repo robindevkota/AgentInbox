@@ -2,6 +2,38 @@
 
 ---
 
+## 🟣 In Progress — Playground Page
+
+### /playground — Two-tab live demo (Animation + Chat)
+
+**Goal:** Show developers two use cases in one page. No signup needed. Claude processes live.
+
+**Tab 1 — Animation**
+- Canvas on left, prompt input on right
+- User types "make a particle explosion in blue" → hits Generate
+- Terminal appears showing Claude working (SSE polling)
+- Canvas renders the animation Claude wrote live
+
+**Tab 2 — Chat Support**
+- Fake store context on left (logo, sample products/orders)
+- Chat interface on right
+- User asks "where is my order?" → Claude reads fake store data → replies
+- Shows customer support use case
+
+**Architecture:**
+- New route `/playground` in server
+- Two AgentInbox projects: `playground-animation` + `playground-chat`
+- Two CLAUDE.local.md templates (one per use case)
+- SSE polling for live terminal feel (already exists in task stream)
+- Canvas renders JS code that Claude returns in `summary_technical`
+
+**Waitlist capture:** email input at bottom of both tabs
+
+**Effort:** ~3 days
+**Priority:** #1 — builds the undeniable demo before waitlist/Show HN
+
+---
+
 ## ✅ Completed This Session
 
 ### Approval Gate + Telegram (bidirectional) — DONE & PUSHED

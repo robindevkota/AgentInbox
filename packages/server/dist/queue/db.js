@@ -222,6 +222,19 @@ function seedFromEnv() {
             .run(id, wsId, newwebProjName, newwebToken, "#6366f1");
         console.log(`  ✓ Seeded project "${newwebProjName}" with token ${newwebToken}`);
     }
+    // Seed playground projects
+    const playgroundTokens = [
+        { token: "playground-animation-demo", name: "Playground — Animation" },
+        { token: "playground-chat-demo", name: "Playground — Chat Support" },
+    ];
+    for (const p of playgroundTokens) {
+        const exists = db.prepare("SELECT id FROM projects WHERE token = ?").get(p.token);
+        if (!exists) {
+            const id = require("crypto").randomUUID();
+            db.prepare("INSERT INTO projects (id, workspace_id, name, token, brand_color) VALUES (?, ?, ?, ?, ?)").run(id, wsId, p.name, p.token, "#6366f1");
+            console.log(`  ✓ Seeded project "${p.name}"`);
+        }
+    }
     if (!process.env.TURSO_URL)
         db.pragma("foreign_keys = ON");
 }
