@@ -726,6 +726,14 @@ function DashboardScreen({
         <div className="px-3 py-3 border-t border-white/5 space-y-0.5">
           <NavBtn active={view === "stats"} onClick={() => setView("stats")}>Usage stats</NavBtn>
           <NavBtn active={view === "settings"} onClick={() => setView("settings")}>Settings</NavBtn>
+          <a
+            href="/playground"
+            target="_blank"
+            rel="noreferrer"
+            className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-indigo-400 hover:bg-indigo-500/10 transition-all flex items-center gap-2"
+          >
+            <span>🎮</span> Playground
+          </a>
           <button
             onClick={onLogout}
             className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2"
