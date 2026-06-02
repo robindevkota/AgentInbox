@@ -2,25 +2,38 @@
 
 ---
 
-## 🟣 In Progress This Session
+## ✅ Completed This Session
 
-### Approval Gate + Telegram (bidirectional)
+### Approval Gate + Telegram (bidirectional) — DONE & PUSHED
 
-**Approval gate status:** 95% already built — dashboard toggle, propose_plan() MCP tool, approve/reject endpoints, UI buttons all exist. Only missing: CLAUDE.md instruction to check `require_approval` flag before touching files.
+**What was built:**
+- Telegram bot (@AgentInboxAlertBot) — polling every 3s, threaded replies routed to correct task
+- Bug submitted → 🐛 Telegram notification
+- Fix done → ✅ Telegram notification  
+- Escalated → 🚨 Telegram notification
+- Approval needed → ⏳ Telegram with plan, long press → Reply to approve/reject
+- `ask_developer()` MCP tool — Claude asks question, polls for reply, continues after 5min timeout
+- `notify_developer()` MCP tool — one-way ping
+- `require_approval` flag now returned in agent task endpoints
+- Rejection sets task back to `pending` so Claude revises and re-proposes
+- UI fix: approval gate toggle now saves correctly (Content-Type header)
+- `CLAUDE.local.md` — autonomous task loop instructions for Claude Code
+- `.mcp.json` — local agentinbox-mcp connection config
+- Tested end-to-end: bug → propose (green) → reject via Telegram → revise (red) → approve → fix committed ✅
 
-**Telegram — building now:**
-- [x] Telegram bot setup (BotFather token + Chat ID from developer)
-- [x] `TELEGRAM_BOT_TOKEN` + `TELEGRAM_CHAT_ID` env vars on server
-- [x] Telegram sender utility in server — `sendTelegram(text, replyToMsgId?)`
-- [x] Long-polling loop in server — checks `getUpdates` every 3s, routes replies to correct task
-- [x] `developer_reply` + `telegram_message_id` fields on tasks table (migration)
-- [x] `POST /api/agent/tasks/:id/reply` endpoint — sets `developer_reply` on task
-- [x] New MCP tool: `ask_developer(question, task_id)` — sends Telegram, Claude polls get_task()
-- [x] New MCP tool: `notify_developer(message, task_id)` — one-way Telegram ping
-- [x] Wire task events to Telegram: bug submitted, fix done, escalated, approval needed
-- [x] Wire Telegram "approve"/"reject: reason" reply → existing approve/reject endpoints
+**Credentials saved in memory:** `project-credentials.md`
 
-**Build order:** server Telegram util → polling loop → reply endpoint → MCP tools → event wiring → approval wiring
+**To add to Render env vars:**
+```
+TELEGRAM_BOT_TOKEN=8670075560:AAEr8qxNu3FguetI06xmvofBYpvBz7nRbhU
+TELEGRAM_CHAT_ID=6121077387
+```
+
+**To run agent locally:**
+```
+Terminal 1: cd packages/server && node dist/cli.js start
+Terminal 2: claude → "Read CLAUDE.local.md and start the autonomous task loop"
+```
 
 ---
 
@@ -67,7 +80,7 @@ Average fix time, completion rate, escalation % per workspace. 2 hours of SQL. T
 
 ## 🟢 Backlog (after first 3 paying customers)
 
-### 7. Approval Gate — Developer approves before Claude commits
+### ✅ 7. Approval Gate — DONE
 
 **The setting (per project, in Settings):**
 ```
@@ -120,7 +133,7 @@ On rejection → Claude reads the reason, revises the plan, proposes again
 
 ---
 
-### 8. Telegram — Two-way mid-task communication
+### ✅ 8. Telegram — Two-way mid-task communication — DONE
 
 **Full notification flow:**
 ```

@@ -166,8 +166,8 @@ export function SubmitPage() {
   if (step === "error") {
     return (
       <Shell project={null} accentColor={accentColor}>
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-          <p className="text-red-700 font-medium">{error}</p>
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 text-center">
+          <p className="text-red-400 font-medium">{error}</p>
         </div>
       </Shell>
     );
@@ -178,17 +178,17 @@ export function SubmitPage() {
       <Shell project={project} accentColor={accentColor}>
         <div className="space-y-5">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-1">Verify your email</h2>
-            <p className="text-slate-500 text-sm">Enter your work email to receive a one-time access code.</p>
+            <h2 className="text-lg font-semibold text-white mb-1">Verify your email</h2>
+            <p className="text-slate-400 text-sm">Enter your work email to receive a one-time access code.</p>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Work email</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Work email</label>
             <input
               type="email"
               value={otpEmail}
               onChange={(e) => setOtpEmail(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && requestOtp()}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow"
               placeholder="you@company.com"
             />
           </div>
@@ -210,8 +210,8 @@ export function SubmitPage() {
       <Shell project={project} accentColor={accentColor}>
         <div className="space-y-5">
           <div>
-            <h2 className="text-lg font-semibold text-slate-900 mb-1">Enter your code</h2>
-            <p className="text-slate-500 text-sm">We sent a 6-digit code to <strong>{otpEmail}</strong>.</p>
+            <h2 className="text-lg font-semibold text-white mb-1">Enter your code</h2>
+            <p className="text-slate-400 text-sm">We sent a 6-digit code to <strong>{otpEmail}</strong>.</p>
           </div>
           <div>
             <input
@@ -235,7 +235,7 @@ export function SubmitPage() {
           </button>
           <button
             onClick={() => { setStep("otp-email"); setError(""); setOtpCode(""); }}
-            className="w-full text-slate-500 text-sm hover:text-slate-700 transition-colors"
+            className="w-full text-slate-400 text-sm hover:text-slate-700 transition-colors"
           >
             Use a different email
           </button>
@@ -250,9 +250,9 @@ export function SubmitPage() {
         <div className="py-8 text-center">
           {/* Animated checkmark */}
           <div className="flex items-center justify-center mb-6">
-            <div className="w-20 h-20 rounded-full bg-green-100 flex items-center justify-center">
+            <div className="w-20 h-20 rounded-full bg-green-500/20 border border-green-500/30 flex items-center justify-center">
               <svg
-                className="w-10 h-10 text-green-600 checkmark-draw"
+                className="w-10 h-10 text-green-400 checkmark-draw"
                 viewBox="0 0 24 24"
                 fill="none"
                 stroke="currentColor"
@@ -274,7 +274,7 @@ export function SubmitPage() {
               </svg>
             </div>
           </div>
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Request received</h2>
+          <h2 className="text-2xl font-bold text-white mb-2">Request received</h2>
           <p className="text-slate-500 mb-8 max-w-sm mx-auto">
             We're on it. You'll see live updates as soon as progress is made.
           </p>
@@ -293,7 +293,7 @@ export function SubmitPage() {
     <Shell project={project} accentColor={accentColor}>
       <form onSubmit={handleSubmit} className="space-y-5">
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
             What's the issue or request? <span className="text-red-500">*</span>
           </label>
           <input
@@ -302,12 +302,12 @@ export function SubmitPage() {
             required
             maxLength={200}
             placeholder="e.g. Login button broken on mobile"
-            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm"
           />
         </div>
 
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
             Describe it in detail <span className="text-red-500">*</span>
           </label>
           <textarea
@@ -316,13 +316,13 @@ export function SubmitPage() {
             rows={5}
             maxLength={5000}
             placeholder="What happened? What did you expect? Steps to reproduce if it's a bug..."
-            className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm resize-y"
+            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm resize-y"
           />
         </div>
 
         {/* Priority */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Priority</label>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Priority</label>
           <div className="flex gap-2">
             {(["low", "medium", "high"] as const).map((p) => (
               <button
@@ -331,63 +331,58 @@ export function SubmitPage() {
                 onClick={() => setPriority(p)}
                 className={`flex-1 py-2.5 rounded-xl text-sm font-medium border transition-colors capitalize ${
                   priority === p
-                    ? p === "high" ? "bg-red-500 border-red-500 text-white"
-                    : p === "low" ? "bg-slate-200 border-slate-300 text-slate-700"
-                    : "bg-indigo-500 border-indigo-500 text-white"
-                    : "bg-white border-slate-200 text-slate-500 hover:border-slate-300"
+                    ? p === "high" ? "bg-red-500/20 border-red-500/50 text-red-300"
+                    : p === "low" ? "bg-white/10 border-white/20 text-slate-300"
+                    : "bg-indigo-500/20 border-indigo-500/50 text-indigo-300"
+                    : "bg-white/5 border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-400"
                 }`}
               >{p}</button>
             ))}
           </div>
         </div>
 
-        {/* Drag-drop file upload */}
+        {/* File upload */}
         <div>
-          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+          <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
             Attach a file <span className="text-slate-400 font-normal normal-case">(optional)</span>
-          </label>
+          </p>
           <div
             onDragOver={handleDragOver}
             onDragLeave={handleDragLeave}
             onDrop={handleDrop}
-            onClick={() => fileRef.current?.click()}
-            className={`cursor-pointer border-2 border-dashed rounded-xl px-4 py-6 text-center transition-colors ${
-              dragActive
-                ? "border-indigo-400 bg-indigo-50"
-                : "border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50"
+            className={`border-2 border-dashed rounded-xl px-4 py-6 text-center transition-colors ${
+              dragActive ? "border-indigo-500/50 bg-indigo-500/10" : "border-white/10 bg-white/5"
             }`}
           >
-            <input
-              ref={fileRef}
-              type="file"
-              accept=".pdf,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp"
-              className="hidden"
-              onChange={(e) => setFileName(e.target.files?.[0]?.name || null)}
-            />
             {fileName ? (
-              <div className="flex items-center justify-center gap-2 text-sm text-indigo-700 font-medium">
+              <div className="flex items-center justify-center gap-2 text-sm text-indigo-300 font-medium">
                 <span>📎</span>
                 <span className="truncate max-w-xs">{fileName}</span>
                 <button
                   type="button"
-                  onClick={(e) => { e.stopPropagation(); setFileName(null); if (fileRef.current) fileRef.current.value = ""; }}
-                  className="text-slate-400 hover:text-red-500 ml-1 font-bold"
+                  onClick={() => { setFileName(null); if (fileRef.current) fileRef.current.value = ""; }}
+                  className="text-slate-500 hover:text-red-400 ml-1 font-bold"
                 >×</button>
               </div>
             ) : (
-              <>
-                <p className="text-sm text-slate-500">
-                  <span className="font-medium text-indigo-600">Click to upload</span> or drag and drop
-                </p>
-                <p className="text-xs text-slate-400 mt-1">PDF, Word, images, text — up to 20MB</p>
-              </>
+              <div>
+                <p className="text-sm text-slate-500 mb-3">Drag and drop, or browse</p>
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept=".pdf,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp"
+                  onChange={(e) => setFileName(e.target.files?.[0]?.name || null)}
+                  className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 cursor-pointer"
+                />
+                <p className="text-xs text-slate-600 mt-2">PDF, Word, images, text — up to 20MB</p>
+              </div>
             )}
           </div>
         </div>
 
         {project?.custom_fields && project.custom_fields.length > 0 && project.custom_fields.map((field) => (
           <div key={field.name}>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">
               {field.name} {field.required && <span className="text-red-500">*</span>}
             </label>
             {field.type === "dropdown" && field.options && field.options.length > 0 ? (
@@ -395,11 +390,12 @@ export function SubmitPage() {
                 required={field.required}
                 value={customFieldValues[field.name] || ""}
                 onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
+                className="w-full bg-[#1a1d2e] border border-white/10 rounded-xl px-4 py-3 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500/50 focus:border-indigo-500/50 transition-all appearance-none"
+                style={{ colorScheme: "dark" }}
               >
-                <option value="">Select {field.name}...</option>
+                <option value="" className="bg-[#1a1d2e]">Select {field.name}...</option>
                 {field.options.map((opt) => (
-                  <option key={opt} value={opt}>{opt}</option>
+                  <option key={opt} value={opt} className="bg-[#1a1d2e]">{opt}</option>
                 ))}
               </select>
             ) : (
@@ -408,7 +404,7 @@ export function SubmitPage() {
                 required={field.required}
                 value={customFieldValues[field.name] || ""}
                 onChange={(e) => setCustomFieldValues((prev) => ({ ...prev, [field.name]: e.target.value }))}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
                 placeholder={`Enter ${field.name}`}
               />
             )}
@@ -417,29 +413,29 @@ export function SubmitPage() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Your name</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Your name</label>
             <input
               ref={nameRef}
               type="text"
               maxLength={100}
               placeholder="Optional"
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
             />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Your email</label>
+            <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Your email</label>
             <input
               ref={emailRef}
               type="email"
               defaultValue={otpEmail || ""}
               placeholder="Optional"
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
+              className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm transition-shadow"
             />
           </div>
         </div>
 
         {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm">
+          <div className="bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 text-red-400 text-sm">
             {error}
           </div>
         )}
@@ -465,28 +461,99 @@ function Shell({
   project: ProjectInfo | null;
   accentColor: string;
 }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    let animId: number;
+    const stars: { x: number; y: number; r: number; o: number; speed: number }[] = [];
+
+    function resize() {
+      canvas!.width = canvas!.offsetWidth;
+      canvas!.height = canvas!.offsetHeight;
+    }
+    resize();
+    window.addEventListener("resize", resize);
+
+    for (let i = 0; i < 120; i++) {
+      stars.push({
+        x: Math.random() * canvas.width,
+        y: Math.random() * canvas.height,
+        r: Math.random() * 1.5 + 0.3,
+        o: Math.random() * 0.7 + 0.1,
+        speed: Math.random() * 0.003 + 0.001,
+      });
+    }
+
+    let t = 0;
+    function draw() {
+      ctx!.clearRect(0, 0, canvas!.width, canvas!.height);
+      t += 0.01;
+      stars.forEach((s) => {
+        const opacity = s.o * (0.6 + 0.4 * Math.sin(t * s.speed * 100));
+        ctx!.beginPath();
+        ctx!.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+        ctx!.fillStyle = `rgba(255,255,255,${opacity})`;
+        ctx!.fill();
+      });
+      animId = requestAnimationFrame(draw);
+    }
+    draw();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      window.removeEventListener("resize", resize);
+    };
+  }, []);
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row">
-      {/* Left panel — brand gradient */}
-      <div
-        className="md:w-1/3 shrink-0 flex flex-col items-start justify-center px-10 py-12 md:py-0 md:min-h-screen"
-        style={{ background: `linear-gradient(135deg, ${accentColor} 0%, ${accentColor}bb 100%)` }}
-      >
-        {project?.brand_logo_url && (
-          <div className="mb-8">
-            <img src={project.brand_logo_url} alt="logo" className="h-10 w-auto" />
+    <div className="min-h-screen bg-[#06080f] flex flex-col md:flex-row">
+      {/* Left panel — dark with constellation + brand */}
+      <div className="md:w-[42%] shrink-0 relative flex flex-col items-start justify-center px-12 py-16 md:py-0 md:min-h-screen overflow-hidden">
+        {/* Dark gradient background */}
+        <div className="absolute inset-0" style={{ background: `linear-gradient(135deg, #0d0f1a 0%, #06080f 100%)` }} />
+        {/* Subtle color glow */}
+        <div className="absolute inset-0" style={{ background: `radial-gradient(ellipse at 30% 50%, ${accentColor}18 0%, transparent 70%)` }} />
+        {/* Constellation canvas */}
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+
+        {/* Content */}
+        <div className="relative z-10">
+          {project?.brand_logo_url && (
+            <img src={project.brand_logo_url} alt="logo" className="h-10 w-auto mb-8" />
+          )}
+          <div className="inline-flex items-center gap-2 bg-white/5 border border-white/10 rounded-full px-3 py-1.5 mb-6">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+            <span className="text-xs text-slate-400 font-medium">Claude is ready</span>
           </div>
-        )}
-        <h1 className="text-3xl font-bold text-white leading-snug mb-3">
-          {project?.brand_name || project?.name || "AgentInbox"}
-        </h1>
-        <p className="text-white/70 text-sm leading-relaxed">
-          {project?.description || "Submit a bug or feature request and we'll handle the rest."}
-        </p>
+          <h1 className="text-4xl font-bold text-white leading-tight mb-4">
+            {project?.brand_name || project?.name || "AgentInbox"}
+          </h1>
+          <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
+            {project?.description || "Submit a bug or feature request and we'll handle the rest."}
+          </p>
+
+          <div className="mt-10 space-y-3">
+            {[
+              { icon: "⚡", text: "Claude picks it up instantly" },
+              { icon: "🔒", text: "You approve before any code changes" },
+              { icon: "✅", text: "Screenshot proof when it's done" },
+            ].map((item) => (
+              <div key={item.text} className="flex items-center gap-3">
+                <span className="text-base">{item.icon}</span>
+                <span className="text-xs text-slate-500">{item.text}</span>
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
 
-      {/* Right panel — form */}
-      <div className="flex-1 flex items-start md:items-center justify-center px-6 py-12 overflow-y-auto">
+      {/* Right panel — dark form */}
+      <div className="flex-1 flex items-start md:items-center justify-center px-6 py-12 overflow-y-auto bg-[#0a0c12]">
         <div className="w-full max-w-lg">
           {children}
         </div>

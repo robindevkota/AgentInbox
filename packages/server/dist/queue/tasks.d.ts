@@ -26,6 +26,8 @@ export interface Task {
     slack_ts: string | null;
     custom_field_values: string | null;
     submitter_notified_at: number | null;
+    developer_reply: string | null;
+    telegram_message_id: number | null;
     created_at: number;
     updated_at: number;
 }

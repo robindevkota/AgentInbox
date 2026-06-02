@@ -14,6 +14,7 @@ const server_1 = require("./mcp/server");
 const bot_1 = require("./slack/bot");
 const db_1 = require("./queue/db");
 const manager_1 = require("./socket/manager");
+const bot_2 = require("./telegram/bot");
 const fs_1 = __importDefault(require("fs"));
 const UI_DIST = fs_1.default.existsSync(path_1.default.join(__dirname, "../ui-dist"))
     ? path_1.default.join(__dirname, "../ui-dist")
@@ -39,6 +40,8 @@ function createApp() {
     }
     // WebSocket server for agentinbox-mcp clients
     (0, manager_1.initSocketServer)(server);
+    // Telegram polling (no-op if env vars not set)
+    (0, bot_2.startTelegramPolling)();
     // Serve UI static files
     app.use(express_1.default.static(UI_DIST));
     app.get("*", (_req, res) => {

@@ -42,13 +42,14 @@ const multer_1 = __importDefault(require("multer"));
 const path_1 = __importDefault(require("path"));
 const zod_1 = require("zod");
 const tasks_1 = require("../queue/tasks");
+const db_1 = require("../queue/db");
 const tokens_1 = require("../auth/tokens");
 const users_1 = require("../auth/users");
-const db_1 = require("../queue/db");
 const parser_1 = require("../files/parser");
 const mailer_1 = require("../email/mailer");
 const notify_1 = require("../webhook/notify");
 const manager_1 = require("../socket/manager");
+const bot_1 = require("../telegram/bot");
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
 const upload = (0, multer_1.default)({
@@ -271,6 +272,8 @@ function createRouter() {
             }
             // Also fire webhook as fallback (ngrok/router still supported)
             (0, notify_1.fireWebhook)(taskPayload).catch(() => { });
+            // Telegram notification
+            (0, bot_1.notifyTaskSubmitted)(task.id, task.title, project.name).catch(() => { });
             res.status(201).json({
                 id: task.id,
                 status: task.status,
@@ -763,8 +766,8 @@ https://useagentinbox.com/pm
     });
     router.get("/agent/tasks/pending", requireWorkspaceToken, (req, res) => {
         const ws = req.agentWorkspace;
-        const projects = db_1.db.prepare("SELECT id FROM projects WHERE workspace_id = ?").all(ws.id);
-        const tasks = projects.flatMap((p) => tasks_1.taskQueries.listTasks(p.id, "pending"));
+        const projects = db_1.db.prepare("SELECT id, require_approval FROM projects WHERE workspace_id = ?").all(ws.id);
+        const tasks = projects.flatMap((p) => tasks_1.taskQueries.listTasks(p.id, "pending").map((t) => ({ ...t, require_approval: p.require_approval === 1 })));
         res.json(tasks);
     });
     router.get("/agent/tasks/:id", requireWorkspaceToken, (req, res) => {
@@ -773,7 +776,8 @@ https://useagentinbox.com/pm
             res.status(404).json({ error: "Task not found" });
             return;
         }
-        res.json(task);
+        const project = tasks_1.taskQueries.getProjectById(task.project_id);
+        res.json({ ...task, require_approval: project?.require_approval === 1 });
     });
     router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
@@ -812,6 +816,7 @@ https://useagentinbox.com/pm
                 summary_plain,
                 has_screenshot: !!screenshot_base64,
             });
+            (0, bot_1.notifyTaskDone)(updated.id, updated.title).catch(() => { });
             res.json(updated);
         }
         catch (err) {
@@ -832,6 +837,7 @@ https://useagentinbox.com/pm
                 title: updated.title,
                 reason,
             });
+            (0, bot_1.notifyTaskEscalated)(updated.id, updated.title, reason).catch(() => { });
             res.json(updated);
         }
         catch (err) {
@@ -852,7 +858,40 @@ https://useagentinbox.com/pm
                 title: updated.title,
                 plan,
             });
+            (0, bot_1.notifyApprovalNeeded)(updated.id, updated.title, plan).catch(() => { });
             res.json(updated);
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
+    });
+    // ── ask_developer reply endpoint (called by Telegram bot polling) ───────────
+    router.post("/agent/tasks/:id/ask", requireWorkspaceToken, async (req, res) => {
+        try {
+            const { question } = zod_1.z.object({ question: zod_1.z.string().min(1) }).parse(req.body);
+            const task = tasks_1.taskQueries.getTask(req.params.id);
+            if (!task) {
+                res.status(404).json({ error: "Task not found" });
+                return;
+            }
+            await (0, bot_1.askDeveloper)(task.id, task.title, question);
+            res.json({ ok: true });
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
+    });
+    router.post("/agent/tasks/:id/reply", requireWorkspaceToken, (req, res) => {
+        try {
+            const { reply } = zod_1.z.object({ reply: zod_1.z.string().min(1) }).parse(req.body);
+            const task = tasks_1.taskQueries.getTask(req.params.id);
+            if (!task) {
+                res.status(404).json({ error: "Task not found" });
+                return;
+            }
+            db_1.db.prepare("UPDATE tasks SET developer_reply = ?, updated_at = ? WHERE id = ?")
+                .run(reply, Math.floor(Date.now() / 1000), task.id);
+            res.json({ ok: true });
         }
         catch (err) {
             res.status(400).json({ error: String(err) });

@@ -214,7 +214,7 @@ function OnboardingScreen({
   const stepIdx = step === "workspace" ? 0 : step === "project" ? 1 : 2;
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-16">
+    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4 py-16">
       <div className="w-full max-w-lg">
 
         {/* Header */}
@@ -247,7 +247,7 @@ function OnboardingScreen({
         </div>
 
         {/* Card with indigo gradient header strip */}
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-2xl shadow-sm overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-indigo-500 to-indigo-400" />
           <div className="p-8">
 
@@ -255,7 +255,7 @@ function OnboardingScreen({
             {step === "workspace" && (
               <div className="space-y-5">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 mb-1">Name your workspace</h2>
+                  <h2 className="text-xl font-bold text-white mb-1">Name your workspace</h2>
                   <p className="text-slate-500 text-sm">This is your agency or company — you'll run multiple client projects under it.</p>
                 </div>
                 <div>
@@ -265,7 +265,7 @@ function OnboardingScreen({
                     value={wsName}
                     onChange={(e) => setWsName(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && createWorkspace()}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-lg text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                    className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-lg text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                     placeholder="e.g. Acme Agency"
                     autoFocus
                   />
@@ -285,7 +285,7 @@ function OnboardingScreen({
             {step === "project" && (
               <div className="space-y-4">
                 <div>
-                  <h2 className="text-xl font-bold text-slate-900 mb-1">Add your first project</h2>
+                  <h2 className="text-xl font-bold text-white mb-1">Add your first project</h2>
                   <p className="text-slate-500 text-sm">Each project gets its own submission link for a client or codebase.</p>
                 </div>
 
@@ -295,7 +295,7 @@ function OnboardingScreen({
                     type="text"
                     value={projName}
                     onChange={(e) => setProjName(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                    className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                     placeholder="e.g. form-gen-mbl"
                     autoFocus
                   />
@@ -307,7 +307,7 @@ function OnboardingScreen({
                     type="text"
                     value={projDesc}
                     onChange={(e) => setProjDesc(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                    className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                     placeholder="e.g. Mobile form generation app"
                   />
                 </div>
@@ -318,14 +318,14 @@ function OnboardingScreen({
                     type="email"
                     value={notifyEmail}
                     onChange={(e) => setNotifyEmail(e.target.value)}
-                    className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                    className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                     placeholder="you@email.com — get notified on task events"
                   />
                 </div>
 
-                <div className="flex items-center justify-between py-3 border-t border-slate-100">
+                <div className="flex items-center justify-between py-3 border-t border-[#2a2d3e]">
                   <div>
-                    <p className="text-sm font-medium text-slate-700">Require PM approval</p>
+                    <p className="text-sm font-medium text-slate-300">Require PM approval</p>
                     <p className="text-xs text-slate-400">Claude proposes a plan, you approve before any code runs</p>
                   </div>
                   <div
@@ -336,9 +336,9 @@ function OnboardingScreen({
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3 py-3 border-t border-slate-100">
+                <div className="flex items-center gap-3 py-3 border-t border-[#2a2d3e]">
                   <div className="flex-1">
-                    <p className="text-sm font-medium text-slate-700">Brand color</p>
+                    <p className="text-sm font-medium text-slate-300">Brand color</p>
                     <p className="text-xs text-slate-400">Shown on the client submission form</p>
                   </div>
                   <input
@@ -366,11 +366,11 @@ function OnboardingScreen({
               <div className="space-y-6">
                 <div className="text-center">
                   <div className="text-5xl mb-3">🎉</div>
-                  <h2 className="text-xl font-bold text-slate-900 mb-1">You're all set!</h2>
+                  <h2 className="text-xl font-bold text-white mb-1">You're all set!</h2>
                   <p className="text-slate-500 text-sm">Send this link to your client. That's all they need.</p>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div className="bg-[#0f1117] border border-[#2a2d3e] rounded-xl p-4">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Client submission link</p>
                   <div className="flex items-center gap-2">
                     <code className="flex-1 text-sm text-indigo-700 bg-indigo-50 rounded-lg px-3 py-2 break-all">
@@ -399,9 +399,9 @@ function OnboardingScreen({
                   <p className="text-xs text-amber-600 mt-2">You'll need this to log back into the dashboard.</p>
                 </div>
 
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-4">
+                <div className="bg-[#0f1117] border border-[#2a2d3e] rounded-xl p-4">
                   <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Connect Claude</p>
-                  <pre className="text-xs text-slate-700 overflow-x-auto">{`{
+                  <pre className="text-xs text-slate-300 overflow-x-auto">{`{
   "mcpServers": {
     "agentinbox": {
       "url": "${window.location.origin}/mcp"
@@ -456,13 +456,13 @@ function LoginScreen({
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#0f1117] flex items-center justify-center px-4">
       <div className="w-full max-w-sm">
         <div className="text-center mb-8">
           <div className="text-indigo-500 font-extrabold text-2xl tracking-tight mb-1">AgentInbox</div>
           <p className="text-slate-500 text-sm">PM Dashboard</p>
         </div>
-        <div className="bg-white border border-slate-200 rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-2xl shadow-sm overflow-hidden">
           <div className="h-1.5 bg-gradient-to-r from-indigo-500 to-indigo-400" />
           <div className="p-6 space-y-4">
             <div>
@@ -471,7 +471,7 @@ function LoginScreen({
                 type="text"
                 value={wsId}
                 onChange={(e) => setWsId(e.target.value)}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                 placeholder="Paste your workspace ID"
                 autoFocus
               />
@@ -485,7 +485,7 @@ function LoginScreen({
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && login()}
-                className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                 placeholder="Only needed if API_KEY is set in .env"
               />
             </div>
@@ -531,6 +531,7 @@ function DashboardScreen({
   const [error, setError]               = useState("");
   const [newProjOpen, setNewProjOpen]   = useState(false);
   const [toasts, setToasts]             = useState<Toast[]>([]);
+  const [sidebarOpen, setSidebarOpen]   = useState(true);
   const toastCounter                    = useRef(0);
   const socketRef                       = useRef<Socket | null>(null);
 
@@ -659,82 +660,98 @@ function DashboardScreen({
   }
 
   return (
-    <div className="h-screen flex bg-slate-50 overflow-hidden">
-      {/* ── Sidebar (dark) ── */}
-      <div className="w-64 bg-slate-900 text-white flex flex-col shrink-0">
-        {/* Logo + workspace */}
-        <div className="px-5 py-5 border-b border-slate-800">
-          <div className="flex items-center justify-between">
-            <div>
-              <div className="text-white font-extrabold text-base tracking-tight">AgentInbox</div>
-              <div className="text-xs text-slate-500 truncate max-w-[140px] mt-0.5" title={workspaceId}>
-                {workspaceId.slice(0, 14)}…
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {stats?.plan && (
-                <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                  stats.plan === "paid"
-                    ? "bg-indigo-500 text-white"
-                    : "bg-slate-700 text-slate-300"
-                }`}>
-                  {stats.plan === "paid" ? "Pro" : "Free"}
-                </span>
-              )}
-              <button onClick={onLogout} title="Log out" className="text-xs text-slate-400 hover:text-white hover:bg-slate-700 px-2 py-1 rounded transition-colors">Logout</button>
-            </div>
+    <div className="h-screen flex bg-[#0f1117] overflow-hidden">
+      {/* ── Sidebar ── */}
+      <div className={`${sidebarOpen ? "w-60" : "w-0 overflow-hidden"} bg-[#0a0c12] text-white flex flex-col shrink-0 border-r border-white/5 transition-all duration-200`}>
+        {/* Logo + hamburger */}
+        <div className="px-4 py-4 flex items-center justify-between border-b border-white/5">
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shrink-0">A</div>
+            <span className="text-white font-semibold text-sm">AgentInbox</span>
           </div>
+          {stats?.plan && (
+            <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+              stats.plan === "paid" ? "bg-indigo-500/20 text-indigo-400 border border-indigo-500/30" : "bg-white/5 text-slate-500 border border-white/10"
+            }`}>{stats.plan === "paid" ? "Pro" : "Free"}</span>
+          )}
         </div>
 
-        {/* Stats mini-cards */}
+        {/* Stats */}
         {stats && (
-          <div className="px-4 py-4 border-b border-slate-800">
-            <div className="grid grid-cols-2 gap-2">
-              <StatMini label="Total" value={stats.total_tasks} />
-              <StatMini label="Done" value={stats.done} color="text-green-400" />
-              <StatMini label="Active" value={stats.in_progress} color="text-indigo-400" />
-              <StatMini label="Escalated" value={stats.escalated} color="text-orange-400" />
+          <div className="px-3 pb-4 border-b border-white/5">
+            <div className="grid grid-cols-2 gap-1.5">
+              <div className="bg-white/5 rounded-xl px-3 py-2.5 text-center">
+                <div className="text-lg font-bold text-white">{stats.total_tasks}</div>
+                <div className="text-xs text-slate-500">Total</div>
+              </div>
+              <div className="bg-white/5 rounded-xl px-3 py-2.5 text-center">
+                <div className="text-lg font-bold text-green-400">{stats.done}</div>
+                <div className="text-xs text-slate-500">Done</div>
+              </div>
+              <div className="bg-white/5 rounded-xl px-3 py-2.5 text-center">
+                <div className="text-lg font-bold text-indigo-400">{stats.in_progress}</div>
+                <div className="text-xs text-slate-500">Active</div>
+              </div>
+              <div className="bg-white/5 rounded-xl px-3 py-2.5 text-center">
+                <div className="text-lg font-bold text-orange-400">{stats.escalated}</div>
+                <div className="text-xs text-slate-500">Escalated</div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Project list */}
+        {/* Projects */}
         <div className="px-3 py-4 flex-1 overflow-y-auto">
-          <div className="flex items-center justify-between mb-2 px-2">
-            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Projects</p>
-            <button
-              onClick={() => setNewProjOpen(true)}
-              className="text-slate-400 hover:text-indigo-400 text-xl font-bold leading-none transition-colors"
-              title="New project"
-            >+</button>
+          <div className="flex items-center justify-between mb-2 px-1">
+            <p className="text-xs font-semibold text-slate-600 uppercase tracking-widest">Projects</p>
+            <button onClick={() => setNewProjOpen(true)} className="w-5 h-5 rounded-md bg-white/5 hover:bg-indigo-500/20 hover:text-indigo-400 text-slate-400 flex items-center justify-center text-sm font-bold transition-colors" title="New project">+</button>
           </div>
-          {projects.length === 0 && (
-            <p className="text-xs text-slate-500 px-2">No projects yet.</p>
-          )}
+          {projects.length === 0 && <p className="text-xs text-slate-600 px-1">No projects yet.</p>}
           {projects.map((p) => (
             <button key={p.id}
               onClick={() => { setSelectedProject(p.id); setSelectedTask(null); setView("tasks"); }}
-              className={`w-full text-left px-3 py-2.5 rounded-lg text-sm mb-0.5 transition-colors ${
+              className={`w-full text-left px-3 py-2.5 rounded-xl text-sm mb-0.5 transition-all ${
                 selectedProject === p.id
-                  ? "bg-indigo-600 text-white font-medium"
-                  : "text-slate-300 hover:bg-slate-800"
+                  ? "bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 font-medium"
+                  : "text-slate-400 hover:bg-white/5 hover:text-slate-200 border border-transparent"
               }`}
             >
               <span className="truncate block">{p.brand_name || p.name}</span>
-              {p.require_approval ? <span className="text-xs text-yellow-400 opacity-80">● approval on</span> : null}
+              {p.require_approval ? <span className="text-xs text-yellow-500/70 font-normal">● approval on</span> : null}
             </button>
           ))}
         </div>
 
         {/* Bottom nav */}
-        <div className="px-3 py-3 border-t border-slate-800 space-y-1">
+        <div className="px-3 py-3 border-t border-white/5 space-y-0.5">
           <NavBtn active={view === "stats"} onClick={() => setView("stats")}>Usage stats</NavBtn>
           <NavBtn active={view === "settings"} onClick={() => setView("settings")}>Settings</NavBtn>
+          <button
+            onClick={onLogout}
+            className="w-full text-left px-3 py-2 rounded-lg text-sm text-slate-500 hover:text-red-400 hover:bg-red-500/10 transition-all flex items-center gap-2"
+          >
+            <svg className="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" /></svg>
+            Logout
+          </button>
         </div>
       </div>
 
       {/* ── Main content ── */}
       <div className="flex-1 flex flex-col overflow-hidden relative">
+
+        {/* Persistent top bar — hamburger + client link */}
+        <div className="flex items-center border-b border-white/5 bg-[#0a0c12] px-3 py-2 shrink-0 gap-2">
+          <button
+            onClick={() => setSidebarOpen(!sidebarOpen)}
+            className="w-7 h-7 rounded-lg hover:bg-white/10 text-slate-500 hover:text-white flex flex-col items-center justify-center gap-[3px] transition-colors shrink-0"
+            title="Toggle sidebar"
+          >
+            <span className="w-3.5 h-px bg-current rounded-full block"></span>
+            <span className="w-3.5 h-px bg-current rounded-full block"></span>
+            <span className="w-3.5 h-px bg-current rounded-full block"></span>
+          </button>
+          <TopLinkBar project={projects.find((p) => p.id === selectedProject)} />
+        </div>
 
         {/* New project modal */}
         {newProjOpen && (
@@ -756,7 +773,7 @@ function DashboardScreen({
             if (!nearLimit) return null;
             return (
               <div className={`px-5 py-3 flex items-center justify-between text-sm ${
-                atLimit ? "bg-red-50 border-b border-red-200 text-red-800" : "bg-amber-50 border-b border-amber-200 text-amber-800"
+                atLimit ? "bg-red-500/10 border-b border-red-500/30 text-red-400" : "bg-amber-500/10 border-b border-amber-500/30 text-amber-400"
               }`}>
                 <span>
                   {atLimit
@@ -814,20 +831,18 @@ function DashboardScreen({
               </div>
             ) : (
               <div className="flex flex-col flex-1 overflow-hidden">
-                {/* Submission link bar */}
-                <SubmissionLinkBar project={projects.find((p) => p.id === selectedProject)} />
 
                 {/* Filter bar */}
-                <div className="bg-white border-b border-slate-200 px-5 py-3 flex items-center gap-2 flex-wrap">
+                <div className="bg-[#0d0f18] border-b border-white/5 px-4 py-2.5 flex items-center gap-1 flex-wrap">
                   {["", "pending", "awaiting_approval", "in_progress", "done", "failed", "escalated"].map((s) => (
                     <button key={s || "all"}
                       onClick={() => setStatusFilter(s)}
-                      className={`text-xs px-3 py-1.5 rounded-full font-medium transition-colors ${
+                      className={`text-xs px-3 py-1.5 rounded-lg font-medium transition-all ${
                         statusFilter === s
-                          ? "bg-indigo-500 text-white"
-                          : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                          ? "bg-indigo-500 text-white shadow-sm shadow-indigo-500/30"
+                          : "text-slate-400 hover:text-white bg-white/5 hover:bg-white/10"
                       }`}>
-                      {s || "All"}
+                      {s ? s.replace(/_/g, " ") : "All"}
                     </button>
                   ))}
                 </div>
@@ -835,39 +850,40 @@ function DashboardScreen({
                 {/* Task list + detail */}
                 <div className="flex flex-1 overflow-hidden">
                   {/* Task cards */}
-                  <div className="flex-1 overflow-y-auto p-5 bg-slate-50">
-                    {error && <p className="text-red-500 text-sm mb-4">{error}</p>}
+                  <div className="flex-1 overflow-y-auto p-5 bg-[#0f1117]">
+                    {error && <p className="text-red-400 text-sm mb-4">{error}</p>}
                     {tasks.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center h-full text-slate-400 text-center py-20">
-                        <p className="text-sm mb-1">No tasks yet.</p>
-                        <p className="text-xs">Share the submission link with your client to get started.</p>
+                      <div className="flex flex-col items-center justify-center h-full text-center py-20">
+                        <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-4 text-2xl">📭</div>
+                        <p className="text-sm text-slate-400 mb-1">No tasks yet.</p>
+                        <p className="text-xs text-slate-600">Share the submission link with your client to get started.</p>
                       </div>
                     ) : (
-                      <div className="space-y-3 max-w-2xl">
+                      <div className="space-y-2 max-w-2xl">
                         {tasks.map((t) => (
                           <button key={t.id} onClick={() => loadTask(t.id)}
-                            className={`w-full text-left bg-white rounded-xl shadow-sm px-5 py-4 border transition-all hover:shadow-md ${
+                            className={`w-full text-left rounded-xl px-5 py-4 border transition-all ${
                               selectedTask?.id === t.id
-                                ? "border-indigo-300 ring-1 ring-indigo-200"
-                                : "border-slate-200"
+                                ? "bg-indigo-500/10 border-indigo-500/30"
+                                : "bg-[#141720] border-white/5 hover:border-white/10 hover:bg-[#1a1d2e]"
                             }`}>
-                            <div className="flex items-start justify-between gap-3 mb-1.5">
-                              <span className="text-sm font-semibold text-slate-900 leading-snug line-clamp-1">{t.title}</span>
+                            <div className="flex items-start justify-between gap-3 mb-2">
+                              <span className="text-sm font-medium text-slate-200 leading-snug line-clamp-1">{t.title}</span>
                               <div className="flex items-center gap-1.5 shrink-0">
-                                {t.priority === "high" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">high</span>}
-                                {t.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500">low</span>}
-                                <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[t.status] || "bg-slate-100 text-slate-600"}`}>
+                                {t.priority === "high" && <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-red-500/20 text-red-400 border border-red-500/20">high</span>}
+                                {t.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-white/5 text-slate-500">low</span>}
+                                <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${STATUS_COLORS[t.status] || "bg-white/5 text-slate-400"}`}>
                                   {t.status.replace(/_/g, " ")}
                                 </span>
                               </div>
                             </div>
-                            <div className="flex items-center gap-3 text-xs text-slate-400">
-                              {t.submitter_name && <span>{t.submitter_name}</span>}
+                            <div className="flex items-center gap-2 text-xs text-slate-600">
+                              {t.submitter_name && <span className="text-slate-500">{t.submitter_name}</span>}
                               {t.custom_field_values && (() => {
                                 try {
                                   const vals = JSON.parse(t.custom_field_values);
                                   return Object.entries(vals).map(([k, v]) => (
-                                    <span key={k} className="bg-slate-100 text-slate-500 px-1.5 py-0.5 rounded text-xs">{String(v)}</span>
+                                    <span key={k} className="bg-white/5 text-slate-500 px-1.5 py-0.5 rounded text-xs border border-white/5">{String(v)}</span>
                                   ));
                                 } catch { return null; }
                               })()}
@@ -881,12 +897,12 @@ function DashboardScreen({
 
                   {/* Task detail panel — slides in from right */}
                   {selectedTask && (
-                    <div className="fixed right-0 top-0 h-full w-[480px] bg-white shadow-xl border-l border-slate-200 overflow-y-auto z-40 flex flex-col">
-                      <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100 shrink-0">
-                        <h2 className="text-sm font-semibold text-slate-700">Task detail</h2>
+                    <div className="fixed right-0 top-0 h-full w-[480px] bg-[#0d0f18] shadow-2xl border-l border-white/5 overflow-y-auto z-40 flex flex-col">
+                      <div className="flex items-center justify-between px-6 py-4 border-b border-white/5 shrink-0">
+                        <h2 className="text-sm font-semibold text-slate-400">Task detail</h2>
                         <button
                           onClick={() => setSelectedTask(null)}
-                          className="text-slate-400 hover:text-slate-600 text-xl leading-none transition-colors"
+                          className="w-7 h-7 rounded-lg bg-white/5 hover:bg-white/10 text-slate-400 hover:text-white flex items-center justify-center text-sm transition-colors"
                         >×</button>
                       </div>
                       <div className="flex-1 p-6 overflow-y-auto">
@@ -921,7 +937,7 @@ function DashboardScreen({
                   ? "bg-red-50 border-red-200 text-red-900"
                   : toast.type === "approval"
                   ? "bg-amber-50 border-amber-200 text-amber-900"
-                  : "bg-white border-slate-200 text-slate-900"
+                  : "bg-[#1a1d2e] border-[#2a2d3e] text-white"
               }`}
             >
               <span className="text-lg shrink-0">
@@ -939,6 +955,29 @@ function DashboardScreen({
   );
 }
 
+// ── Top link bar (hamburger row) ─────────────────────────────────────────────
+
+function TopLinkBar({ project }: { project?: Project }) {
+  const [copied, setCopied] = useState(false);
+  if (!project) return <div className="flex-1" />;
+  const url = `${window.location.origin}/submit/${project.token}`;
+  function copy() {
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+  return (
+    <div className="flex items-center gap-2 flex-1 min-w-0">
+      <span className="text-xs font-medium text-slate-500 shrink-0">Client link:</span>
+      <code className="flex-1 text-xs text-slate-400 truncate min-w-0">{url}</code>
+      <button onClick={copy} className="shrink-0 text-xs bg-white/5 hover:bg-white/10 text-slate-300 border border-white/10 px-2.5 py-1 rounded-lg transition-colors">
+        {copied ? "Copied!" : "Copy"}
+      </button>
+      <a href={url} target="_blank" rel="noreferrer" className="shrink-0 text-xs text-slate-500 hover:text-slate-300 transition-colors">Open ↗</a>
+    </div>
+  );
+}
+
 // ── Submission link bar ───────────────────────────────────────────────────────
 
 function SubmissionLinkBar({ project }: { project?: Project }) {
@@ -951,15 +990,15 @@ function SubmissionLinkBar({ project }: { project?: Project }) {
     setTimeout(() => setCopied(false), 2000);
   }
   return (
-    <div className="bg-indigo-50 border-b border-indigo-100 px-5 py-2.5 flex items-center gap-3">
-      <span className="text-xs font-semibold text-indigo-700 shrink-0">Client link:</span>
-      <code className="flex-1 text-xs text-indigo-800 truncate">{url}</code>
+    <div className="bg-indigo-500/5 border-b border-indigo-500/10 px-5 py-2.5 flex items-center gap-3">
+      <span className="text-xs font-semibold text-indigo-400 shrink-0">Client link:</span>
+      <code className="flex-1 text-xs text-slate-400 truncate">{url}</code>
       <button onClick={copy}
-        className="shrink-0 text-xs bg-indigo-500 hover:bg-indigo-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+        className="shrink-0 text-xs bg-indigo-500/20 hover:bg-indigo-500/30 text-indigo-300 border border-indigo-500/20 px-3 py-1.5 rounded-lg transition-colors">
         {copied ? "Copied!" : "Copy"}
       </button>
       <a href={url} target="_blank" rel="noreferrer"
-        className="shrink-0 text-xs text-indigo-600 hover:underline">Open ↗</a>
+        className="shrink-0 text-xs text-slate-500 hover:text-slate-300 transition-colors">Open ↗</a>
     </div>
   );
 }
@@ -1022,13 +1061,13 @@ function NewProjectModal({
       onClick={onClose}
     >
       <div
-        className="bg-white rounded-2xl shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto"
+        className="bg-[#1a1d2e] rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="h-1.5 bg-gradient-to-r from-indigo-500 to-indigo-400 rounded-t-2xl" />
-        <div className="p-6 border-b border-slate-100 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-slate-900">{created ? "Project created!" : "New project"}</h2>
-          <button onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none transition-colors">×</button>
+        <div className="p-6 border-b border-[#2a2d3e] flex items-center justify-between">
+          <h2 className="text-lg font-bold text-white">{created ? "Project created!" : "New project"}</h2>
+          <button onClick={onClose} className="text-slate-400 hover:text-slate-400 text-xl leading-none transition-colors">×</button>
         </div>
 
         <div className="p-6">
@@ -1037,30 +1076,30 @@ function NewProjectModal({
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Project name <span className="text-red-500">*</span></label>
                 <input type="text" value={name} onChange={(e) => setName(e.target.value)} autoFocus
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                  className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                   placeholder="e.g. form-gen-mbl" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Description</label>
                 <input type="text" value={desc} onChange={(e) => setDesc(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                  className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                   placeholder="Optional" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Client-facing name <span className="text-slate-400 font-normal normal-case">(white label)</span></label>
                 <input type="text" value={brandName} onChange={(e) => setBrandName(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                  className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                   placeholder="What clients see — leave blank to use project name" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">Notification email</label>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+                  className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
                   placeholder="PM email for task alerts" />
               </div>
-              <div className="flex items-center justify-between py-3 border-t border-slate-100">
+              <div className="flex items-center justify-between py-3 border-t border-[#2a2d3e]">
                 <div>
-                  <p className="text-sm font-medium text-slate-700">Require PM approval</p>
+                  <p className="text-sm font-medium text-slate-300">Require PM approval</p>
                   <p className="text-xs text-slate-400">Claude plans first, you approve before code runs</p>
                 </div>
                 <div onClick={() => setApproval(!approval)}
@@ -1068,9 +1107,9 @@ function NewProjectModal({
                   <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${approval ? "translate-x-5" : "translate-x-1"}`} />
                 </div>
               </div>
-              <div className="flex items-center gap-3 py-3 border-t border-slate-100">
+              <div className="flex items-center gap-3 py-3 border-t border-[#2a2d3e]">
                 <div className="flex-1">
-                  <p className="text-sm font-medium text-slate-700">Brand color</p>
+                  <p className="text-sm font-medium text-slate-300">Brand color</p>
                 </div>
                 <input type="color" value={color} onChange={(e) => setColor(e.target.value)}
                   className="h-9 w-14 rounded cursor-pointer border border-slate-300" />
@@ -1083,7 +1122,7 @@ function NewProjectModal({
             </div>
           ) : (
             <div className="space-y-5">
-              <p className="text-slate-600 text-sm">Share this link with your client. That's all they need.</p>
+              <p className="text-slate-400 text-sm">Share this link with your client. That's all they need.</p>
               <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
                 <p className="text-xs font-semibold text-indigo-700 mb-2">Submission link</p>
                 <div className="flex items-center gap-2">
@@ -1096,7 +1135,7 @@ function NewProjectModal({
               </div>
               <div className="flex gap-3">
                 <a href={submitUrl} target="_blank" rel="noreferrer"
-                  className="flex-1 text-center border border-slate-300 hover:bg-slate-50 text-slate-700 text-sm font-medium py-2.5 rounded-xl transition-colors">
+                  className="flex-1 text-center border border-slate-300 hover:bg-[#0f1117] text-slate-300 text-sm font-medium py-2.5 rounded-xl transition-colors">
                   Preview form ↗
                 </a>
                 <button onClick={() => onCreated(created)}
@@ -1154,11 +1193,11 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
     <div className="space-y-4">
       <div>
         <div className="flex items-start justify-between gap-3 mb-2">
-          <h1 className="text-lg font-bold text-slate-900 leading-snug">{task.title}</h1>
+          <h1 className="text-lg font-bold text-white leading-snug">{task.title}</h1>
           <div className="flex items-center gap-1.5 shrink-0">
             {task.priority === "high" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">high</span>}
-            {task.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-slate-100 text-slate-500">low</span>}
-            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[task.status] || "bg-slate-100 text-slate-600"}`}>
+            {task.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#252838] text-slate-500">low</span>}
+            <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[task.status] || "bg-[#252838] text-slate-400"}`}>
               {(task.status || "").replace(/_/g, " ")}
             </span>
           </div>
@@ -1170,12 +1209,12 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
       {task.status === "awaiting_approval" && (
         <div className="flex gap-2">
           <button onClick={onApprove} className="flex-1 bg-green-600 hover:bg-green-700 text-white text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">Approve</button>
-          <button onClick={onReject} className="flex-1 bg-red-100 hover:bg-red-200 text-red-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">Reject</button>
+          <button onClick={onReject} className="flex-1 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/20 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">Reject</button>
         </div>
       )}
 
       {["done", "failed", "escalated"].includes(task.status) && (
-        <button onClick={onReopen} className="w-full bg-amber-50 hover:bg-amber-100 text-amber-700 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors border border-amber-200">
+        <button onClick={onReopen} className="w-full bg-amber-500/10 hover:bg-amber-500/20 text-amber-400 border border-amber-500/20 text-sm font-medium px-4 py-2.5 rounded-xl transition-colors">
           Re-open task
         </button>
       )}
@@ -1186,32 +1225,32 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
             {Object.entries(customFields).map(([k, v]) => (
               <div key={k}>
                 <p className="text-xs text-slate-400 mb-0.5">{k}</p>
-                <p className="text-sm font-medium text-slate-700">{String(v)}</p>
+                <p className="text-sm font-medium text-slate-300">{String(v)}</p>
               </div>
             ))}
           </div>
         </Card>
       )}
 
-      <Card title="Description"><p className="text-slate-700 text-sm whitespace-pre-wrap">{task.description}</p></Card>
+      <Card title="Description"><p className="text-slate-300 text-sm whitespace-pre-wrap">{task.description}</p></Card>
       {task.file_name && (
         <Card title="Attached file">
-          <p className="text-slate-600 text-sm mb-2">📎 {task.file_name}</p>
+          <p className="text-slate-400 text-sm mb-2">📎 {task.file_name}</p>
           {/\.(png|jpe?g|gif|webp)$/i.test(task.file_name) && (
             <img
               src={`/api/tasks/${task.id}/file`}
               alt={task.file_name}
-              className="rounded-lg w-full border border-slate-200"
+              className="rounded-lg w-full border border-[#2a2d3e]"
               onError={e => (e.currentTarget.style.display = "none")}
             />
           )}
         </Card>
       )}
-      {task.proposed_plan && <Card title="Claude's proposed plan"><p className="text-sm text-amber-900 whitespace-pre-wrap bg-amber-50 rounded-lg p-3">{task.proposed_plan}</p></Card>}
-      {task.rejected_reason && <Card title="Rejection reason"><p className="text-red-700 text-sm">{task.rejected_reason}</p></Card>}
+      {task.proposed_plan && <Card title="Claude's proposed plan"><p className="text-sm text-amber-300 whitespace-pre-wrap bg-amber-500/10 border border-amber-500/20 rounded-lg p-3">{task.proposed_plan}</p></Card>}
+      {task.rejected_reason && <Card title="Rejection reason"><p className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-lg p-3">{task.rejected_reason}</p></Card>}
       {task.summary_technical && (
         <Card title="Technical summary">
-          <p className="text-slate-700 text-sm font-mono whitespace-pre-wrap">{task.summary_technical}</p>
+          <p className="text-slate-300 text-sm font-mono whitespace-pre-wrap">{task.summary_technical}</p>
           {task.pr_link && (
             <a href={task.pr_link} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 mt-2 text-indigo-600 hover:underline text-sm font-medium">
               View PR →
@@ -1219,10 +1258,10 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
           )}
         </Card>
       )}
-      {task.summary_plain && <Card title="Client summary"><p className="text-slate-700 text-sm">{task.summary_plain}</p></Card>}
+      {task.summary_plain && <Card title="Client summary"><p className="text-slate-300 text-sm">{task.summary_plain}</p></Card>}
       {task.screenshot_base64 && (
         <Card title="Screenshot">
-          <img src={`data:image/png;base64,${task.screenshot_base64}`} alt="Fix screenshot" className="rounded-lg w-full border border-slate-200" />
+          <img src={`data:image/png;base64,${task.screenshot_base64}`} alt="Fix screenshot" className="rounded-lg w-full border border-[#2a2d3e]" />
         </Card>
       )}
       {task.escalation_reason && <Card title="Escalation reason"><p className="text-orange-700 text-sm">{task.escalation_reason}</p></Card>}
@@ -1232,12 +1271,12 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
         <div className="space-y-3 mb-3">
           {comments.length === 0 && <p className="text-xs text-slate-400">No comments yet.</p>}
           {comments.map(c => (
-            <div key={c.id} className="bg-slate-50 rounded-lg p-3">
+            <div key={c.id} className="bg-[#0f1117] rounded-lg p-3">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-semibold text-slate-700">{c.author}</span>
+                <span className="text-xs font-semibold text-slate-300">{c.author}</span>
                 <span className="text-xs text-slate-400">{new Date(c.created_at * 1000).toLocaleString()}</span>
               </div>
-              <p className="text-sm text-slate-700 whitespace-pre-wrap">{c.body}</p>
+              <p className="text-sm text-slate-300 whitespace-pre-wrap">{c.body}</p>
             </div>
           ))}
         </div>
@@ -1245,14 +1284,14 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
           <input
             value={commentAuthor}
             onChange={e => setCommentAuthor(e.target.value)}
-            className="border border-slate-200 rounded-lg px-2 py-1.5 text-xs w-20 text-slate-700"
+            className="bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs w-20 text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50"
             placeholder="Name"
           />
           <input
             value={commentText}
             onChange={e => setCommentText(e.target.value)}
             onKeyDown={e => e.key === "Enter" && !e.shiftKey && submitComment()}
-            className="flex-1 border border-slate-200 rounded-lg px-3 py-1.5 text-sm text-slate-700"
+            className="flex-1 bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-slate-300 placeholder:text-slate-600 focus:outline-none focus:border-indigo-500/50"
             placeholder="Add a comment..."
           />
           <button
@@ -1271,7 +1310,7 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
             {task.audit.map((e) => (
               <div key={e.id} className="flex gap-3 text-xs">
                 <span className="text-slate-400 shrink-0">{new Date(e.created_at * 1000).toLocaleTimeString()}</span>
-                <span className="font-medium text-slate-600">{(e.action || "").replace(/_/g, " ")}</span>
+                <span className="font-medium text-slate-400">{(e.action || "").replace(/_/g, " ")}</span>
                 {e.actor && <span className="text-slate-400">by {e.actor}</span>}
               </div>
             ))}
@@ -1293,7 +1332,7 @@ function StatsView({ stats, projects }: { stats: Stats | null; projects: Project
   if (!stats) return <div className="text-slate-400">Loading...</div>;
   return (
     <div className="max-w-3xl">
-      <h2 className="text-xl font-bold text-slate-900 mb-6">Usage dashboard</h2>
+      <h2 className="text-xl font-bold text-white mb-6">Usage dashboard</h2>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-8">
         <StatCard label="Total tasks" value={stats.total_tasks} />
         <StatCard label="Completed" value={stats.done} color="text-green-600" />
@@ -1302,12 +1341,12 @@ function StatsView({ stats, projects }: { stats: Stats | null; projects: Project
         <StatCard label="Escalated" value={stats.escalated} color="text-orange-500" />
         <StatCard label="Projects" value={stats.projects} />
       </div>
-      <h3 className="font-semibold text-slate-700 mb-3">Projects</h3>
+      <h3 className="font-semibold text-slate-300 mb-3">Projects</h3>
       <div className="space-y-2">
         {projects.map((p) => (
-          <div key={p.id} className="bg-white border border-slate-200 rounded-xl px-5 py-4 flex items-center justify-between shadow-sm">
+          <div key={p.id} className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-5 py-4 flex items-center justify-between shadow-sm">
             <div>
-              <p className="font-semibold text-slate-900 text-sm">{p.brand_name || p.name}</p>
+              <p className="font-semibold text-white text-sm">{p.brand_name || p.name}</p>
               {p.notify_email && <p className="text-xs text-slate-400 mt-0.5">{p.notify_email}</p>}
             </div>
             {p.require_approval ? <span className="bg-yellow-100 text-yellow-700 text-xs px-2.5 py-1 rounded-full font-medium">Approval on</span> : null}
@@ -1415,24 +1454,24 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
 
   return (
     <div className="max-w-xl">
-      <h2 className="text-xl font-bold text-slate-900 mb-6">Settings — {project.name}</h2>
+      <h2 className="text-xl font-bold text-white mb-6">Settings — {project.name}</h2>
       <div className="space-y-6">
 
         {/* Submission link */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+        <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl p-5 shadow-sm">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Submission link</p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 break-all text-slate-700">{submitUrl}</code>
+            <code className="flex-1 text-xs bg-[#0f1117] border border-[#2a2d3e] rounded-lg px-3 py-2 break-all text-slate-300">{submitUrl}</code>
             <button onClick={() => navigator.clipboard.writeText(submitUrl)}
               className="shrink-0 bg-indigo-500 hover:bg-indigo-600 text-white text-xs px-3 py-2 rounded-lg transition-colors">Copy</button>
           </div>
         </div>
 
         {/* Workspace ID */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+        <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl p-5 shadow-sm">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-3">Workspace ID</p>
           <div className="flex items-center gap-2">
-            <code className="flex-1 text-xs bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 break-all text-slate-700">{workspaceId}</code>
+            <code className="flex-1 text-xs bg-[#0f1117] border border-[#2a2d3e] rounded-lg px-3 py-2 break-all text-slate-300">{workspaceId}</code>
             <button onClick={() => navigator.clipboard.writeText(workspaceId)}
               className="shrink-0 bg-slate-600 hover:bg-slate-700 text-white text-xs px-3 py-2 rounded-lg transition-colors">Copy</button>
           </div>
@@ -1443,7 +1482,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
           <p className="text-xs font-semibold text-indigo-600 uppercase tracking-wider mb-1">Workspace Token</p>
           <p className="text-xs text-indigo-500 mb-3">Add this to your <code className="bg-indigo-100 px-1 rounded">.mcp.json</code> as <code className="bg-indigo-100 px-1 rounded">AGENTINBOX_TOKEN</code> to connect Claude Code.</p>
           <div className="flex items-center gap-2 mb-3">
-            <code className="flex-1 text-xs bg-white border border-indigo-200 rounded-lg px-3 py-2 break-all text-slate-700">
+            <code className="flex-1 text-xs bg-[#1a1d2e] border border-indigo-200 rounded-lg px-3 py-2 break-all text-slate-300">
               {wsToken ?? "Loading..."}
             </code>
             <button onClick={copyToken}
@@ -1488,18 +1527,18 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
         </div>
 
         {/* Project settings */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm space-y-5">
+        <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl p-5 shadow-sm space-y-5">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Project settings</p>
 
           <Field label="Notification email" hint="Receives emails on task completion, escalation, approval requests">
             <input type="email" value={notifyEmail} onChange={(e) => setNotifyEmail(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+              className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
               placeholder="pm@agency.com" />
           </Field>
 
           <Field label="Client-facing name" hint="What clients see on the submission form">
             <input type="text" value={brandName} onChange={(e) => setBrandName(e.target.value)}
-              className="w-full bg-white border border-slate-200 rounded-xl px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
+              className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent shadow-sm"
               placeholder="Leave blank to use project name" />
           </Field>
 
@@ -1517,22 +1556,22 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
                 className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${requireApproval ? "bg-indigo-500" : "bg-slate-300"}`}>
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${requireApproval ? "translate-x-5" : "translate-x-1"}`} />
               </div>
-              <span className="text-sm text-slate-700">{requireApproval ? "Required" : "Disabled"}</span>
+              <span className="text-sm text-slate-300">{requireApproval ? "Required" : "Disabled"}</span>
             </label>
           </Field>
         </div>
 
         {/* Custom fields */}
-        <div className="bg-white border border-slate-200 rounded-xl p-5 shadow-sm">
+        <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl p-5 shadow-sm">
           <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Custom fields</p>
           <p className="text-xs text-slate-400 mb-4">Add dropdowns or text fields to the submission form. Claude receives these as structured metadata to route tasks accurately.</p>
 
           {customFields.length > 0 && (
             <div className="space-y-2 mb-4">
               {customFields.map((f, i) => (
-                <div key={i} className="flex items-center justify-between bg-slate-50 border border-slate-200 rounded-xl px-4 py-3">
+                <div key={i} className="flex items-center justify-between bg-[#0f1117] border border-[#2a2d3e] rounded-xl px-4 py-3">
                   <div>
-                    <span className="text-sm font-medium text-slate-800">{f.name}</span>
+                    <span className="text-sm font-medium text-slate-100">{f.name}</span>
                     <span className="ml-2 text-xs text-slate-400">{f.type}</span>
                     {f.required && <span className="ml-1 text-xs text-red-400">required</span>}
                     {f.options && f.options.length > 0 && (
@@ -1545,7 +1584,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
             </div>
           )}
 
-          <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
+          <div className="bg-[#0f1117] border border-[#2a2d3e] rounded-xl p-4 space-y-3">
             <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider">Add field</p>
             <div className="flex gap-2">
               <input
@@ -1553,12 +1592,12 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
                 value={newFieldName}
                 onChange={(e) => setNewFieldName(e.target.value)}
                 placeholder="Field name (e.g. Module)"
-                className="flex-1 bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="flex-1 bg-[#1a1d2e] border border-[#2a2d3e] rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
               <select
                 value={newFieldType}
                 onChange={(e) => setNewFieldType(e.target.value as "dropdown" | "text")}
-                className="bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-lg px-3 py-2 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option value="dropdown">Dropdown</option>
                 <option value="text">Text</option>
@@ -1570,11 +1609,11 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
                 value={newFieldOptions}
                 onChange={(e) => setNewFieldOptions(e.target.value)}
                 placeholder="Options, comma-separated (e.g. personal-info, account-info)"
-                className="w-full bg-white border border-slate-200 rounded-lg px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-lg px-3 py-2 text-sm text-white placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             )}
             <div className="flex items-center justify-between">
-              <label className="flex items-center gap-2 text-xs text-slate-600 cursor-pointer">
+              <label className="flex items-center gap-2 text-xs text-slate-400 cursor-pointer">
                 <input type="checkbox" checked={newFieldRequired} onChange={(e) => setNewFieldRequired(e.target.checked)} className="rounded" />
                 Required
               </label>
@@ -1605,18 +1644,18 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<string, string> = {
-  pending:           "bg-slate-100 text-slate-600",
-  awaiting_approval: "bg-yellow-100 text-yellow-700",
-  in_progress:       "bg-indigo-100 text-indigo-700",
-  done:              "bg-green-100 text-green-700",
-  failed:            "bg-red-100 text-red-700",
-  blocked:           "bg-yellow-100 text-yellow-700",
-  escalated:         "bg-orange-100 text-orange-700",
+  pending:           "bg-slate-700/50 text-slate-400",
+  awaiting_approval: "bg-yellow-500/20 text-yellow-400",
+  in_progress:       "bg-indigo-500/20 text-indigo-400",
+  done:              "bg-green-500/20 text-green-400",
+  failed:            "bg-red-500/20 text-red-400",
+  blocked:           "bg-yellow-500/20 text-yellow-400",
+  escalated:         "bg-orange-500/20 text-orange-400",
 };
 
-function StatCard({ label, value, color = "text-slate-900" }: { label: string; value: number; color?: string }) {
+function StatCard({ label, value, color = "text-white" }: { label: string; value: number; color?: string }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-5 text-center shadow-sm">
+    <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl p-5 text-center shadow-sm">
       <div className={`text-3xl font-bold mb-1 ${color}`}>{value}</div>
       <div className="text-xs text-slate-500">{label}</div>
     </div>
@@ -1634,8 +1673,8 @@ function StatMini({ label, value, color = "text-slate-300" }: { label: string; v
 
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="bg-white border border-slate-200 rounded-xl p-4 shadow-sm">
-      <p className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">{title}</p>
+    <div className="bg-white/3 border border-white/5 rounded-xl p-4">
+      <p className="text-xs font-semibold text-slate-500 uppercase tracking-widest mb-3">{title}</p>
       {children}
     </div>
   );
@@ -1644,8 +1683,8 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1.5">{label}</label>
-      {hint && <p className="text-xs text-slate-400 mb-2">{hint}</p>}
+      <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">{label}</label>
+      {hint && <p className="text-xs text-slate-600 mb-2">{hint}</p>}
       {children}
     </div>
   );
@@ -1654,10 +1693,10 @@ function Field({ label, hint, children }: { label: string; hint?: string; childr
 function NavBtn({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
     <button onClick={onClick}
-      className={`w-full text-left px-3 py-2.5 rounded-lg text-sm transition-colors ${
+      className={`w-full text-left px-3 py-2 rounded-lg text-sm transition-all ${
         active
-          ? "bg-slate-700 text-white font-medium"
-          : "text-slate-400 hover:bg-slate-800 hover:text-slate-200"
+          ? "bg-white/10 text-white font-medium"
+          : "text-slate-500 hover:text-slate-300 hover:bg-white/5"
       }`}>
       {children}
     </button>

@@ -97,7 +97,7 @@ exports.taskQueries = {
         return exports.taskQueries.getTask(id);
     },
     rejectTask(id, reason) {
-        db_1.db.prepare("UPDATE tasks SET status = 'failed', rejected_at = ?, rejected_reason = ?, updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), reason, (0, db_1.nowUnix)(), id);
+        db_1.db.prepare("UPDATE tasks SET status = 'pending', rejected_at = ?, rejected_reason = ?, updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), reason, (0, db_1.nowUnix)(), id);
         return exports.taskQueries.getTask(id);
     },
     completeTask(id, summaryTechnical, summaryPlain, prLink, screenshotBase64) {

@@ -24,7 +24,7 @@ const stdio_js_1 = require("@modelcontextprotocol/sdk/server/stdio.js");
 const types_js_1 = require("@modelcontextprotocol/sdk/types.js");
 const socket_io_client_1 = require("socket.io-client");
 const TOKEN = process.env.AGENTINBOX_TOKEN;
-const SERVER_URL = process.env.AGENTINBOX_URL || "https://agentinbox-k2vf.onrender.com";
+const SERVER_URL = process.env.AGENTINBOX_URL || "https://useagentinbox.com";
 const API_BASE = `${SERVER_URL}/api`;
 if (!TOKEN) {
     process.stderr.write("[agentinbox-mcp] ERROR: AGENTINBOX_TOKEN env var is required\n");
@@ -134,6 +134,26 @@ async function proposePlan(id, plan) {
         throw new Error(`propose_plan failed: ${res.status}`);
     return res.json();
 }
+async function askDeveloper(id, question) {
+    const res = await fetch(`${SERVER_URL}/api/agent/tasks/${id}/ask`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-workspace-token": TOKEN },
+        body: JSON.stringify({ question }),
+    });
+    if (!res.ok)
+        throw new Error(`ask_developer failed: ${res.status}`);
+    return res.json();
+}
+async function notifyDeveloper(id, message) {
+    const res = await fetch(`${SERVER_URL}/api/agent/tasks/${id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-workspace-token": TOKEN },
+        body: JSON.stringify({ reply: message }),
+    });
+    if (!res.ok)
+        throw new Error(`notify_developer failed: ${res.status}`);
+    return res.json();
+}
 // ── MCP Server ────────────────────────────────────────────────────────────────
 const server = new index_js_1.Server({ name: "agentinbox", version: "0.1.0" }, { capabilities: { tools: {} } });
 server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
@@ -211,6 +231,30 @@ server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
                 required: ["id", "plan"],
             },
         },
+        {
+            name: "ask_developer",
+            description: "Ask the developer a question via Telegram when you need clarification. Claude polls get_task(id) every 30s — when developer_reply is set, continue. If no reply after 5 min, proceed with best judgment and log your decision.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "Task ID" },
+                    question: { type: "string", description: "The question to ask the developer" },
+                },
+                required: ["id", "question"],
+            },
+        },
+        {
+            name: "notify_developer",
+            description: "Send a one-way notification to the developer via Telegram (no reply needed)",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    id: { type: "string", description: "Task ID" },
+                    message: { type: "string", description: "The message to send" },
+                },
+                required: ["id", "message"],
+            },
+        },
     ],
 }));
 server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
@@ -238,6 +282,12 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
                 break;
             case "propose_plan":
                 result = await proposePlan(args.id, args.plan);
+                break;
+            case "ask_developer":
+                result = await askDeveloper(args.id, args.question);
+                break;
+            case "notify_developer":
+                result = await notifyDeveloper(args.id, args.message);
                 break;
             default: throw new Error(`Unknown tool: ${name}`);
         }
