@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
+import { AgentBackground } from "../components/AgentBackground";
 
 export function Signup() {
   const navigate = useNavigate();
@@ -33,11 +34,7 @@ export function Signup() {
 
   return (
     <div className="min-h-screen bg-[#06080f] flex items-center justify-center px-4">
-      {/* Radial glow */}
-      <div className="fixed inset-0 pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full"
-          style={{ background: "radial-gradient(circle, rgba(99,102,241,0.1) 0%, transparent 70%)" }} />
-      </div>
+      <AgentBackground />
 
       <div className="relative w-full max-w-sm">
         {/* Logo */}
