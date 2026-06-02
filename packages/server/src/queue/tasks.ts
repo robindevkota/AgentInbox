@@ -37,6 +37,8 @@ export interface Task {
   slack_ts: string | null;
   custom_field_values: string | null;
   submitter_notified_at: number | null;
+  developer_reply: string | null;
+  telegram_message_id: number | null;
   created_at: number;
   updated_at: number;
 }
@@ -272,7 +274,7 @@ export const taskQueries = {
 
   rejectTask(id: string, reason: string): Task | undefined {
     db.prepare(
-      "UPDATE tasks SET status = 'failed', rejected_at = ?, rejected_reason = ?, updated_at = ? WHERE id = ?"
+      "UPDATE tasks SET status = 'pending', rejected_at = ?, rejected_reason = ?, updated_at = ? WHERE id = ?"
     ).run(nowUnix(), reason, nowUnix(), id);
     return taskQueries.getTask(id);
   },

@@ -8,6 +8,7 @@ import { handleMcpRequest } from "./mcp/server";
 import { createSlackApp } from "./slack/bot";
 import { seedFromEnv } from "./queue/db";
 import { initSocketServer } from "./socket/manager";
+import { startTelegramPolling } from "./telegram/bot";
 
 import fs from "fs";
 const UI_DIST = fs.existsSync(path.join(__dirname, "../ui-dist"))
@@ -41,6 +42,9 @@ export function createApp(): { app: Express; server: http.Server } {
 
   // WebSocket server for agentinbox-mcp clients
   initSocketServer(server);
+
+  // Telegram polling (no-op if env vars not set)
+  startTelegramPolling();
 
   // Serve UI static files
   app.use(express.static(UI_DIST));

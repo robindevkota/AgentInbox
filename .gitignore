@@ -1,4 +1,5 @@
 node_modules/
+CLAUDE.local.md
 **/projects.json
 packages/server/data/
 packages/ui/dist/

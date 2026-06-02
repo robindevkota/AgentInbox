@@ -139,6 +139,26 @@ async function proposePlan(id: string, plan: string): Promise<any> {
   return res.json();
 }
 
+async function askDeveloper(id: string, question: string): Promise<any> {
+  const res = await fetch(`${SERVER_URL}/api/agent/tasks/${id}/ask`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-workspace-token": TOKEN! },
+    body: JSON.stringify({ question }),
+  });
+  if (!res.ok) throw new Error(`ask_developer failed: ${res.status}`);
+  return res.json();
+}
+
+async function notifyDeveloper(id: string, message: string): Promise<any> {
+  const res = await fetch(`${SERVER_URL}/api/agent/tasks/${id}/reply`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-workspace-token": TOKEN! },
+    body: JSON.stringify({ reply: message }),
+  });
+  if (!res.ok) throw new Error(`notify_developer failed: ${res.status}`);
+  return res.json();
+}
+
 // ── MCP Server ────────────────────────────────────────────────────────────────
 
 const server = new Server(
@@ -221,6 +241,30 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["id", "plan"],
       },
     },
+    {
+      name: "ask_developer",
+      description: "Ask the developer a question via Telegram when you need clarification. Claude polls get_task(id) every 30s — when developer_reply is set, continue. If no reply after 5 min, proceed with best judgment and log your decision.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Task ID" },
+          question: { type: "string", description: "The question to ask the developer" },
+        },
+        required: ["id", "question"],
+      },
+    },
+    {
+      name: "notify_developer",
+      description: "Send a one-way notification to the developer via Telegram (no reply needed)",
+      inputSchema: {
+        type: "object",
+        properties: {
+          id: { type: "string", description: "Task ID" },
+          message: { type: "string", description: "The message to send" },
+        },
+        required: ["id", "message"],
+      },
+    },
   ],
 }));
 
@@ -236,6 +280,8 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "complete_task":      result = await completeTask(args!.id as string, args!.summary_technical as string, args!.summary_plain as string, args!.screenshot_base64 as string | undefined); break;
       case "escalate_task":      result = await escalateTask(args!.id as string, args!.reason as string); break;
       case "propose_plan":       result = await proposePlan(args!.id as string, args!.plan as string); break;
+      case "ask_developer":      result = await askDeveloper(args!.id as string, args!.question as string); break;
+      case "notify_developer":   result = await notifyDeveloper(args!.id as string, args!.message as string); break;
       default: throw new Error(`Unknown tool: ${name}`);
     }
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };

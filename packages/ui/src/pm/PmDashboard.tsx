@@ -1398,7 +1398,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
 
   async function save() {
     await fetch(`/api/projects/${project!.id}`, {
-      method: "PATCH", headers: authHeaders,
+      method: "PATCH", headers: { ...authHeaders, "Content-Type": "application/json" },
       body: JSON.stringify({
         notify_email: notifyEmail || undefined,
         brand_name: brandName || undefined,
