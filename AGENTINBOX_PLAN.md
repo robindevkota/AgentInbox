@@ -77,13 +77,26 @@ Pricing: per project (repo connected), not per seat or agent.
 
 ---
 
-## How to Run Locally
+## How to Run (Confirmed Working)
 
-```
-Terminal: cd packages/server && node dist/cli.js start
+**Daily setup — one command, works all day:**
+```powershell
+while($true) { 'start the autonomous task loop' | & 'C:\Users\user\.local\bin\claude.exe' --dangerously-skip-permissions; Start-Sleep 60 }
 ```
 
-That's it. Claude is triggered automatically when a task arrives.
+Run this once in VS Code terminal. Claude checks for tasks every 60 seconds automatically.
+Keep terminal open — close it to stop.
+
+**What happens after:**
+```
+Bug submitted on useagentinbox.com
+  → Telegram: 🐛 New bug notification
+  → Claude picks up within 60 seconds (no input needed)
+  → Claude fixes, completes
+  → Telegram: ✅ Fixed
+```
+
+**Server:** Already on Render — always on, no local server needed.
 
 **Production flow (Render deployed):**
 ```

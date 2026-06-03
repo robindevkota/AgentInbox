@@ -2,6 +2,23 @@
 
 ---
 
+## ✅ Full zero-touch flow — CONFIRMED WORKING
+
+**Tested and confirmed June 3, 2026:**
+```
+1. Run once in VS Code terminal:
+   while($true) { 'start the autonomous task loop' | & 'C:\Users\user\.local\bin\claude.exe' --dangerously-skip-permissions; Start-Sleep 60 }
+
+2. Submit bug on useagentinbox.com
+3. Telegram: 🐛 notification arrives
+4. Within 60s: Claude processes automatically
+5. Telegram: ✅ Fixed — no input needed
+```
+
+**Next:** Add Ctrl+Shift+B keybinding so even step 1 is one keypress.
+
+---
+
 ## ✅ Event-driven Claude trigger — DONE (replaces Task Scheduler + polling)
 
 **Problem solved:** Idle polling wastes Claude Pro tokens. If only 5 tasks/day arrive, Claude was polling every 30s all day burning tokens doing nothing.
