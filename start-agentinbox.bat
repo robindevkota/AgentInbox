@@ -1,4 +1,7 @@
 @echo off
-REM Start Claude Code in AgentInbox — auto-starts task loop from CLAUDE.md
-REM Minimized window, runs in background
-start /min cmd /k "cd /d C:\Users\user\Desktop\Projects\AgentInbox && C:\Users\user\.local\bin\claude.exe -c --dangerously-skip-permissions"
+cd /d C:\Users\user\Desktop\Projects\AgentInbox
+
+:loop
+echo start the autonomous task loop | "C:\Users\user\.local\bin\claude.exe" --dangerously-skip-permissions
+timeout /t 60 /nobreak >nul
+goto loop
