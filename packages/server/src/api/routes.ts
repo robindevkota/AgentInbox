@@ -17,6 +17,7 @@ import {
   notifyApprovalNeeded,
   askDeveloper,
 } from "../telegram/bot";
+import { triggerClaude } from "../trigger/claude";
 
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
@@ -265,6 +266,9 @@ export function createRouter(): Router {
 
         // Telegram notification
         notifyTaskSubmitted(task.id, task.title, project.name).catch(() => {});
+
+        // Trigger Claude to wake up and process the task (event-driven, no idle polling)
+        if (process.env.TRIGGER_CLAUDE === "true") triggerClaude();
 
         res.status(201).json({
           id: task.id,

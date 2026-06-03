@@ -81,10 +81,24 @@ Pricing: per project (repo connected), not per seat or agent.
 
 ```
 Terminal: cd packages/server && node dist/cli.js start
-VS Code Claude Code: Read CLAUDE.local.md and start the task loop — run forever, never stop between tasks
 ```
 
+That's it. Claude is triggered automatically when a task arrives.
+
+**Event-driven architecture (no idle polling):**
+```
+Task submitted
+  → Server fires trigger-claude.ps1
+  → PowerShell opens Claude Code
+  → Claude processes all pending tasks
+  → Claude exits when queue is empty
+  → Zero token waste between tasks
+```
+
+Env var: `TRIGGER_CLAUDE=true` in packages/server/.env enables the trigger.
 MCP: registered in user scope (~/.claude.json) via start-mcp.js
+
+**Old loop mode (manual):** Still works — type the loop prompt in Claude Code for continuous polling.
 
 ---
 
@@ -103,21 +117,19 @@ MCP: registered in user scope (~/.claude.json) via start-mcp.js
 
 ## Not Built Yet (priority order)
 
-1. Windows Task Scheduler — auto-start on PC boot (1 hour) — do tomorrow
-2. Stripe billing — zero revenue without it (2 days) — do after Task Scheduler
+1. Stripe billing — zero revenue without it (2 days)
+2. Slack webhook — sticky feature, PMs love it (1 day)
 3. Slack webhook — sticky feature, PMs love it (1 day)
 4. SLA/stats dashboard — renewal justification (2 hours)
 5. PDF weekly report — PM sends to client (1 day)
 
 ---
 
-## Daily Workflow (until Task Scheduler done)
+## Daily Workflow
 
 1. Open VS Code in AgentInbox folder
 2. cd packages/server && node dist/cli.js start
-3. Claude Code panel → type:
-   Read CLAUDE.local.md and start the task loop — run forever, never stop between tasks
-4. Everything works automatically
+3. Done — Claude wakes up automatically when tasks arrive, no polling
 
 ---
 

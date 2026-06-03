@@ -50,6 +50,7 @@ const mailer_1 = require("../email/mailer");
 const notify_1 = require("../webhook/notify");
 const manager_1 = require("../socket/manager");
 const bot_1 = require("../telegram/bot");
+const claude_1 = require("../trigger/claude");
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
 const upload = (0, multer_1.default)({
@@ -274,6 +275,9 @@ function createRouter() {
             (0, notify_1.fireWebhook)(taskPayload).catch(() => { });
             // Telegram notification
             (0, bot_1.notifyTaskSubmitted)(task.id, task.title, project.name).catch(() => { });
+            // Trigger Claude to wake up and process the task (event-driven, no idle polling)
+            if (process.env.TRIGGER_CLAUDE === "true")
+                (0, claude_1.triggerClaude)();
             res.status(201).json({
                 id: task.id,
                 status: task.status,

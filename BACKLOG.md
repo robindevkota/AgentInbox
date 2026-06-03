@@ -2,6 +2,36 @@
 
 ---
 
+## ✅ Event-driven Claude trigger — DONE (replaces Task Scheduler + polling)
+
+**Problem solved:** Idle polling wastes Claude Pro tokens. If only 5 tasks/day arrive, Claude was polling every 30s all day burning tokens doing nothing.
+
+**Solution built:**
+```
+Task submitted
+  → Server fires trigger-claude.ps1 (TRIGGER_CLAUDE=true in .env)
+  → PowerShell opens Claude Code
+  → Claude processes all pending tasks
+  → Claude exits when queue is empty
+  → Zero token waste, zero idle polling
+```
+
+**Files added:**
+- `trigger-claude.ps1` — PowerShell script that wakes Claude
+- `packages/server/src/trigger/claude.ts` — server-side trigger
+- `TRIGGER_CLAUDE=true` env var in packages/server/.env
+
+**Daily workflow now:**
+```
+1. Open VS Code
+2. cd packages/server && node dist/cli.js start
+3. Done — Claude auto-wakes on task submission, exits when done
+```
+
+---
+
+## ✅ Playground Page — DONE
+
 ## 🟣 In Progress — Playground Page
 
 ### /playground — Two-tab live demo (Animation + Chat)
