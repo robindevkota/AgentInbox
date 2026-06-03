@@ -85,20 +85,35 @@ Terminal: cd packages/server && node dist/cli.js start
 
 That's it. Claude is triggered automatically when a task arrives.
 
-**Event-driven architecture (no idle polling):**
+**Production flow (Render deployed):**
 ```
-Task submitted
-  → Server fires trigger-claude.ps1
-  → PowerShell opens Claude Code
-  → Claude processes all pending tasks
-  → Claude exits when queue is empty
-  → Zero token waste between tasks
+Task submitted to Render server
+  → WebSocket fires task.created to Claude Code
+  → Claude picks it up instantly (no polling needed)
+  → Claude processes, completes, goes back to waiting
 ```
 
-Env var: `TRIGGER_CLAUDE=true` in packages/server/.env enables the trigger.
-MCP: registered in user scope (~/.claude.json) via start-mcp.js
+**MCP config (start-mcp.js):**
+- Token: wt_DP4-DtzO4y2sKm2j3u50-g5xLj9T_sFx (Render workspace token)
+- URL: https://useagentinbox.com
+- Registered in user scope (~/.claude.json)
 
-**Old loop mode (manual):** Still works — type the loop prompt in Claude Code for continuous polling.
+**Auto-start (in progress):**
+- `start-agentinbox.bat` — runs `claude -c` to resume last session
+- Added to Windows startup folder
+- `claude -c` resumes most recent conversation (loop was already running)
+- Still being tested — may need alternative approach
+
+**Current daily workflow:**
+1. Open VS Code in AgentInbox folder
+2. Type: `claude`
+3. Type: `Read CLAUDE.local.md and start the loop`
+4. Works all day automatically
+
+**Customer setup (one time):**
+1. Download setup file from useagentinbox.com
+2. Run it — adds .mcp.json + CLAUDE.md to their project
+3. Every day: open VS Code → type claude → type loop prompt once
 
 ---
 
