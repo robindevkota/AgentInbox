@@ -53,6 +53,29 @@ Run once per stack type (4-5 runs total). No manual VS Code setup. No fake accou
 
 ---
 
+### 2. Messy codebase stress test (after simulation passes)
+**Goal:** Confirm Claude handles real-world messy projects before production. Simulation uses clean fake projects — real codebases are never clean.
+
+**Test projects to create manually:**
+
+| Test | Structure | What it validates |
+|---|---|---|
+| Monorepo | packages/frontend + packages/backend + packages/shared | Claude figures out multi-package structure, writes rules for each |
+| Legacy mess | src/old-stuff, src/new-stuff, utils-v1, utils-v2, random scripts | Claude makes sense of chaotic folder structure |
+| No docs | Raw code, no README, no comments | Claude writes useful rules with zero context |
+| Mixed stack | React + Laravel + Python scripts in one repo | Claude handles multiple languages |
+| Huge codebase | 500+ files | Claude scans without hitting context limits |
+
+**What you're testing:** does the setup prompt produce accurate CLAUDE.local.md and rules for each? Does Claude fix tasks correctly given those rules?
+
+**If Claude fails** — fix is in the setup prompt, not the architecture. Pipe stays the same.
+
+**Pass criteria:** Claude writes accurate rules and completes test tasks correctly on all 5 messy structures.
+
+**After both tests pass → 100% confident → production ready.**
+
+---
+
 ## 🟡 After testing passes
 
 ### 2. Stripe billing
