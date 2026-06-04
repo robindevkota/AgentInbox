@@ -145,6 +145,9 @@ const migrations: Record<string, string> = {
   "workspaces.workspace_token_idx": "CREATE UNIQUE INDEX IF NOT EXISTS idx_workspaces_workspace_token ON workspaces(workspace_token) WHERE workspace_token IS NOT NULL",
   "tasks.developer_reply": "ALTER TABLE tasks ADD COLUMN developer_reply TEXT",
   "tasks.telegram_message_id": "ALTER TABLE tasks ADD COLUMN telegram_message_id INTEGER",
+  "workspaces.telegram_bot_token": "ALTER TABLE workspaces ADD COLUMN telegram_bot_token TEXT",
+  "workspaces.telegram_chat_id": "ALTER TABLE workspaces ADD COLUMN telegram_chat_id TEXT",
+  "workspaces.telegram_project_id": "ALTER TABLE workspaces ADD COLUMN telegram_project_id TEXT",
 };
 for (const [key, sql] of Object.entries(migrations)) {
   const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);

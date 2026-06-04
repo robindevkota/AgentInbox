@@ -463,4 +463,28 @@ export const taskQueries = {
       .get(workspaceId) as { workspace_token: string | null } | null;
     return row?.workspace_token ?? null;
   },
+
+  // ── Telegram per-workspace config ─────────────────────────────────────────
+
+  getTelegramConfig(workspaceId: string): { bot_token: string | null; chat_id: string | null; project_id: string | null } {
+    const row = db
+      .prepare("SELECT telegram_bot_token, telegram_chat_id, telegram_project_id FROM workspaces WHERE id = ?")
+      .get(workspaceId) as { telegram_bot_token: string | null; telegram_chat_id: string | null; telegram_project_id: string | null } | null;
+    return {
+      bot_token: row?.telegram_bot_token ?? null,
+      chat_id: row?.telegram_chat_id ?? null,
+      project_id: row?.telegram_project_id ?? null,
+    };
+  },
+
+  setTelegramConfig(workspaceId: string, botToken: string | null, chatId: string | null, projectId: string | null): void {
+    db.prepare("UPDATE workspaces SET telegram_bot_token = ?, telegram_chat_id = ?, telegram_project_id = ? WHERE id = ?")
+      .run(botToken, chatId, projectId, workspaceId);
+  },
+
+  getAllWorkspacesWithTelegram(): { id: string; telegram_bot_token: string; telegram_chat_id: string; telegram_project_id: string }[] {
+    return db
+      .prepare("SELECT id, telegram_bot_token, telegram_chat_id, telegram_project_id FROM workspaces WHERE telegram_bot_token IS NOT NULL AND telegram_chat_id IS NOT NULL")
+      .all() as { id: string; telegram_bot_token: string; telegram_chat_id: string; telegram_project_id: string }[];
+  },
 };

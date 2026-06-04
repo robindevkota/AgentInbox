@@ -1,4 +1,6 @@
+export declare function sendTelegramToWorkspace(workspaceId: string, text: string, replyToMessageId?: number): Promise<number | null>;
 export declare function sendTelegram(text: string, replyToMessageId?: number): Promise<number | null>;
+export declare function refreshPollerForWorkspace(workspaceId: string): void;
 export declare function startTelegramPolling(): void;
 export declare function stopTelegramPolling(): void;
 export declare function notifyTaskSubmitted(taskId: string, title: string, projectName: string): Promise<void>;

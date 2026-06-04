@@ -1377,14 +1377,36 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
   const [wsToken, setWsToken]         = useState<string | null>(null);
   const [wsTokenCopied, setWsTokenCopied] = useState(false);
   const [wsTokenRotating, setWsTokenRotating] = useState(false);
+  const [tgBotToken, setTgBotToken]   = useState("");
+  const [tgChatId, setTgChatId]       = useState("");
+  const [tgProjectId, setTgProjectId] = useState("");
+  const [tgSaved, setTgSaved]         = useState(false);
 
   useEffect(() => {
     fetch(`/api/workspaces/${workspaceId}/token`, { headers: authHeaders })
       .then((r) => r.json())
       .then((d) => setWsToken(d.token))
       .catch(() => {});
+    fetch(`/api/workspaces/${workspaceId}/telegram`, { headers: authHeaders })
+      .then((r) => r.json())
+      .then((d) => {
+        setTgBotToken(d.bot_token || "");
+        setTgChatId(d.chat_id || "");
+        setTgProjectId(d.project_id || "");
+      })
+      .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId]);
+
+  async function saveTelegram() {
+    await fetch(`/api/workspaces/${workspaceId}/telegram`, {
+      method: "PATCH",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ bot_token: tgBotToken || null, chat_id: tgChatId || null, project_id: tgProjectId || null }),
+    });
+    setTgSaved(true);
+    setTimeout(() => setTgSaved(false), 2500);
+  }
 
   async function rotateToken() {
     if (!window.confirm("Rotate workspace token? Your current .mcp.json will stop working until you update it.")) return;
@@ -1532,6 +1554,41 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
               ↓ Download setup file
             </a>
           </div>
+        </div>
+
+        {/* Telegram */}
+        <div className="bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl p-5 shadow-sm space-y-4">
+          <div>
+            <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-1">Telegram</p>
+            <p className="text-xs text-slate-400">Message your bot from your phone to trigger Claude. Get notified on every task event. Approve or reject plans via reply.</p>
+          </div>
+
+          <Field label="Bot token" hint="From @BotFather — create a bot and copy the token">
+            <input type="text" value={tgBotToken} onChange={(e) => setTgBotToken(e.target.value)}
+              className="w-full bg-[#0f1117] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="1234567890:ABCdef..." />
+          </Field>
+
+          <Field label="Your chat ID" hint="Message @userinfobot on Telegram to get your chat ID">
+            <input type="text" value={tgChatId} onChange={(e) => setTgChatId(e.target.value)}
+              className="w-full bg-[#0f1117] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+              placeholder="6121077387" />
+          </Field>
+
+          <Field label="Default project for Telegram tasks" hint="Tasks you create via Telegram message go to this project">
+            <select value={tgProjectId} onChange={(e) => setTgProjectId(e.target.value)}
+              className="w-full bg-[#0f1117] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-slate-300 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+              <option value="">— select a project —</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </Field>
+
+          <button onClick={saveTelegram}
+            className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors">
+            {tgSaved ? "Saved ✓" : "Save Telegram"}
+          </button>
         </div>
 
         {/* Project settings */}

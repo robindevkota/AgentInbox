@@ -220,5 +220,25 @@ exports.taskQueries = {
             .get(workspaceId);
         return row?.workspace_token ?? null;
     },
+    // ── Telegram per-workspace config ─────────────────────────────────────────
+    getTelegramConfig(workspaceId) {
+        const row = db_1.db
+            .prepare("SELECT telegram_bot_token, telegram_chat_id, telegram_project_id FROM workspaces WHERE id = ?")
+            .get(workspaceId);
+        return {
+            bot_token: row?.telegram_bot_token ?? null,
+            chat_id: row?.telegram_chat_id ?? null,
+            project_id: row?.telegram_project_id ?? null,
+        };
+    },
+    setTelegramConfig(workspaceId, botToken, chatId, projectId) {
+        db_1.db.prepare("UPDATE workspaces SET telegram_bot_token = ?, telegram_chat_id = ?, telegram_project_id = ? WHERE id = ?")
+            .run(botToken, chatId, projectId, workspaceId);
+    },
+    getAllWorkspacesWithTelegram() {
+        return db_1.db
+            .prepare("SELECT id, telegram_bot_token, telegram_chat_id, telegram_project_id FROM workspaces WHERE telegram_bot_token IS NOT NULL AND telegram_chat_id IS NOT NULL")
+            .all();
+    },
 };
 //# sourceMappingURL=tasks.js.map

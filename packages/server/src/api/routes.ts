@@ -670,6 +670,22 @@ export function createRouter(): Router {
     res.json({ token, mcp_config: buildMcpConfig(token) });
   });
 
+  // GET Telegram config for workspace
+  router.get("/workspaces/:workspaceId/telegram", requireAuth, (req: Request, res: Response) => {
+    const cfg = taskQueries.getTelegramConfig(req.params.workspaceId);
+    res.json(cfg);
+  });
+
+  // PATCH Telegram config for workspace
+  router.patch("/workspaces/:workspaceId/telegram", requireAuth, (req: Request, res: Response) => {
+    const { bot_token, chat_id, project_id } = req.body;
+    taskQueries.setTelegramConfig(req.params.workspaceId, bot_token || null, chat_id || null, project_id || null);
+    // Restart poller with new config
+    const { refreshPollerForWorkspace } = require("../telegram/bot");
+    refreshPollerForWorkspace(req.params.workspaceId);
+    res.json({ ok: true });
+  });
+
   // GET /setup/download — public endpoint, optional ?token=wt_... for pre-filled version
   router.get("/setup/download", (req: Request, res: Response) => {
     // Try to resolve workspace token — from query param or JWT header

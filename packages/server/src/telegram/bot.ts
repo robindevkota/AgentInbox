@@ -3,25 +3,49 @@ import { taskQueries } from "../queue/tasks";
 import { emitTaskCreated } from "../socket/manager";
 import { triggerClaude } from "../trigger/claude";
 
-function getToken() { return process.env.TELEGRAM_BOT_TOKEN; }
-function getChatId() { return process.env.TELEGRAM_CHAT_ID; }
-function getApi() { const t = getToken(); return t ? `https://api.telegram.org/bot${t}` : null; }
+// ── Per-workspace Telegram polling ────────────────────────────────────────────
+// Each workspace has its own bot token, chat ID, and project ID.
+// Global env vars (TELEGRAM_BOT_TOKEN etc.) are used as fallback for the
+// server owner's workspace only.
 
-let lastUpdateId = 0;
-let pollInterval: ReturnType<typeof setInterval> | null = null;
+interface WorkspaceTelegram {
+  workspaceId: string;
+  botToken: string;
+  chatId: string;
+  projectId: string | null;
+  lastUpdateId: number;
+}
 
+const activePollers = new Map<string, ReturnType<typeof setInterval>>();
+const pollerState = new Map<string, WorkspaceTelegram>();
+
+function apiUrl(botToken: string) {
+  return `https://api.telegram.org/bot${botToken}`;
+}
+
+// ── Send a message ────────────────────────────────────────────────────────────
+
+export async function sendTelegramToWorkspace(workspaceId: string, text: string, replyToMessageId?: number): Promise<number | null> {
+  const cfg = taskQueries.getTelegramConfig(workspaceId);
+  const botToken = cfg.bot_token || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = cfg.chat_id || process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return null;
+  return _send(botToken, chatId, text, replyToMessageId);
+}
+
+// Legacy: send using env vars (server owner only)
 export async function sendTelegram(text: string, replyToMessageId?: number): Promise<number | null> {
-  const API = getApi();
-  const CHAT_ID = getChatId();
-  if (!API || !CHAT_ID) return null;
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return null;
+  return _send(botToken, chatId, text, replyToMessageId);
+}
+
+async function _send(botToken: string, chatId: string, text: string, replyToMessageId?: number): Promise<number | null> {
   try {
-    const body: Record<string, any> = {
-      chat_id: CHAT_ID,
-      text,
-      parse_mode: "HTML",
-    };
+    const body: Record<string, any> = { chat_id: chatId, text, parse_mode: "HTML" };
     if (replyToMessageId) body.reply_to_message_id = replyToMessageId;
-    const res = await fetch(`${API}/sendMessage`, {
+    const res = await fetch(`${apiUrl(botToken)}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
@@ -34,85 +58,74 @@ export async function sendTelegram(text: string, replyToMessageId?: number): Pro
   }
 }
 
-async function fetchUpdates(): Promise<void> {
-  const API = getApi();
-  const CHAT_ID = getChatId();
-  if (!API || !CHAT_ID) return;
+// ── Poll updates for one workspace ───────────────────────────────────────────
+
+async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
   try {
-    const res = await fetch(`${API}/getUpdates?offset=${lastUpdateId + 1}&timeout=3`);
+    const res = await fetch(`${apiUrl(ws.botToken)}/getUpdates?offset=${ws.lastUpdateId + 1}&timeout=3`);
     if (!res.ok) return;
     const data = await res.json() as { ok: boolean; result: any[] };
     if (!data.ok || !data.result.length) return;
 
     for (const update of data.result) {
-      lastUpdateId = update.update_id;
+      ws.lastUpdateId = update.update_id;
       const msg = update.message;
-      if (!msg || String(msg.chat.id) !== String(CHAT_ID)) continue;
+      if (!msg || String(msg.chat.id) !== String(ws.chatId)) continue;
 
       const text: string = (msg.text || "").trim();
       const replyToId: number | undefined = msg.reply_to_message?.message_id;
 
       // New message (not a reply) — create a task from it
       if (!replyToId) {
-        const projectId = process.env.TELEGRAM_PROJECT_ID;
-        if (!projectId) continue;
+        if (!ws.projectId) {
+          await _send(ws.botToken, ws.chatId, "⚠️ No project configured for Telegram tasks. Set one in your PM dashboard → Settings → Telegram.", msg.message_id);
+          continue;
+        }
 
-        const project = taskQueries.getProjectById(projectId);
+        const project = taskQueries.getProjectById(ws.projectId);
         if (!project) continue;
 
         const task = taskQueries.createTask({
-          project_id: projectId,
+          project_id: ws.projectId,
           title: text.length > 80 ? text.slice(0, 77) + "..." : text,
           description: text,
           priority: "medium",
           submitter_name: "Developer (Telegram)",
         });
 
-        const msgId = await sendTelegram(
-          `⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`,
-          msg.message_id
-        );
+        const msgId = await _send(ws.botToken, ws.chatId, `⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`, msg.message_id);
         if (msgId) {
           db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, task.id);
         }
 
-        const workspace = taskQueries.getWorkspace(project.workspace_id);
-        if (workspace) {
-          emitTaskCreated(workspace.id, { task_id: task.id, title: task.title, project_id: projectId });
-        }
-
+        emitTaskCreated(ws.workspaceId, { task_id: task.id, title: task.title, project_id: ws.projectId });
         if (process.env.TRIGGER_CLAUDE === "true") triggerClaude();
         continue;
       }
 
-      // Find task by telegram_message_id
-      const task = db
-        .prepare("SELECT * FROM tasks WHERE telegram_message_id = ?")
-        .get(replyToId) as any;
+      // Reply to a bot message — find the task by telegram_message_id
+      const task = db.prepare("SELECT * FROM tasks WHERE telegram_message_id = ?").get(replyToId) as any;
       if (!task) continue;
 
       const lower = text.toLowerCase();
 
-      // Handle approval replies
       if (task.status === "awaiting_approval") {
         if (lower === "approve" || lower === "yes") {
           taskQueries.approveTask(task.id, "Developer (Telegram)");
           taskQueries.audit({ task_id: task.id, action: "task_approved", actor: "Developer (Telegram)" });
-          await sendTelegram(`✅ Approved! Claude is now executing the plan for: <b>${task.title}</b>`, replyToId);
+          await _send(ws.botToken, ws.chatId, `✅ Approved! Claude is executing the plan for: <b>${task.title}</b>`, replyToId);
         } else if (lower.startsWith("reject")) {
           const reason = text.slice(6).replace(/^[:\s]+/, "").trim() || "Rejected via Telegram";
           taskQueries.rejectTask(task.id, reason);
           taskQueries.audit({ task_id: task.id, action: "task_rejected", actor: "Developer (Telegram)", detail: reason });
-          await sendTelegram(`❌ Rejected. Claude has been notified: "${reason}"`, replyToId);
+          await _send(ws.botToken, ws.chatId, `❌ Rejected. Claude has been notified: "${reason}"`, replyToId);
         }
         continue;
       }
 
-      // Handle developer_reply for ask_developer questions
       if (task.status === "in_progress" || task.status === "pending") {
-        db.prepare("UPDATE tasks SET developer_reply = ?, updated_at = ? WHERE id = ?")
-          .run(text, nowUnix(), task.id);
-        await sendTelegram(`👍 Got it! Claude will continue with: "${text}"`, replyToId);
+        db.prepare("UPDATE tasks SET developer_reply = ?, updated_at = ? WHERE id = ?").run(text, nowUnix(), task.id);
+        await _send(ws.botToken, ws.chatId, `👍 Got it! Claude will continue with: "${text}"`, replyToId);
       }
     }
   } catch {
@@ -120,52 +133,120 @@ async function fetchUpdates(): Promise<void> {
   }
 }
 
-export function startTelegramPolling(): void {
-  if (!getToken() || !getChatId()) {
-    console.log("[telegram] TELEGRAM_BOT_TOKEN or TELEGRAM_CHAT_ID not set — Telegram disabled");
-    return;
+// ── Start/stop polling per workspace ─────────────────────────────────────────
+
+function startPollerForWorkspace(workspaceId: string, botToken: string, chatId: string, projectId: string | null): void {
+  if (activePollers.has(workspaceId)) return;
+  const ws: WorkspaceTelegram = { workspaceId, botToken, chatId, projectId, lastUpdateId: 0 };
+  pollerState.set(workspaceId, ws);
+  const interval = setInterval(() => fetchUpdatesForWorkspace(ws), 3000);
+  activePollers.set(workspaceId, interval);
+  console.log(`[telegram] Started poller for workspace ${workspaceId}`);
+}
+
+function stopPollerForWorkspace(workspaceId: string): void {
+  const interval = activePollers.get(workspaceId);
+  if (interval) {
+    clearInterval(interval);
+    activePollers.delete(workspaceId);
+    pollerState.delete(workspaceId);
   }
-  if (pollInterval) return;
-  pollInterval = setInterval(fetchUpdates, 3000);
-  console.log("[telegram] Polling started");
+}
+
+export function refreshPollerForWorkspace(workspaceId: string): void {
+  stopPollerForWorkspace(workspaceId);
+  const cfg = taskQueries.getTelegramConfig(workspaceId);
+  if (cfg.bot_token && cfg.chat_id) {
+    startPollerForWorkspace(workspaceId, cfg.bot_token, cfg.chat_id, cfg.project_id);
+  }
+}
+
+// ── Bootstrap — start pollers for all configured workspaces ──────────────────
+
+export function startTelegramPolling(): void {
+  // Start per-workspace pollers from DB config
+  const workspaces = taskQueries.getAllWorkspacesWithTelegram();
+  for (const ws of workspaces) {
+    startPollerForWorkspace(ws.id, ws.telegram_bot_token, ws.telegram_chat_id, ws.telegram_project_id || null);
+  }
+
+  // Fallback: env vars for server owner's workspace (backward compat)
+  const envToken = process.env.TELEGRAM_BOT_TOKEN;
+  const envChatId = process.env.TELEGRAM_CHAT_ID;
+  const envProjectId = process.env.TELEGRAM_PROJECT_ID || null;
+  const envWsId = process.env.SEED_WORKSPACE_ID || "robin-workspace-001";
+  if (envToken && envChatId && !activePollers.has(envWsId)) {
+    startPollerForWorkspace(envWsId, envToken, envChatId, envProjectId);
+  }
+
+  if (activePollers.size === 0) {
+    console.log("[telegram] No Telegram config found — Telegram disabled");
+  }
 }
 
 export function stopTelegramPolling(): void {
-  if (pollInterval) {
-    clearInterval(pollInterval);
-    pollInterval = null;
+  for (const workspaceId of activePollers.keys()) {
+    stopPollerForWorkspace(workspaceId);
   }
 }
 
-// ── Notification helpers ────────────────────────────────────────────────────
+// ── Notification helpers ──────────────────────────────────────────────────────
+
+async function getWorkspaceIdForTask(taskId: string): Promise<string | null> {
+  const row = db.prepare(`
+    SELECT p.workspace_id FROM tasks t
+    JOIN projects p ON t.project_id = p.id
+    WHERE t.id = ?
+  `).get(taskId) as { workspace_id: string } | null;
+  return row?.workspace_id ?? null;
+}
 
 export async function notifyTaskSubmitted(taskId: string, title: string, projectName: string): Promise<void> {
-  const msgId = await sendTelegram(`🐛 <b>New bug:</b> ${title}\n<i>Project: ${projectName}</i>\n\nClaude is on it.`);
-  if (msgId) {
-    db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, taskId);
-  }
+  const wsId = await getWorkspaceIdForTask(taskId);
+  const cfg = wsId ? taskQueries.getTelegramConfig(wsId) : null;
+  const botToken = cfg?.bot_token || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+  const msgId = await _send(botToken, chatId, `🐛 <b>New bug:</b> ${title}\n<i>Project: ${projectName}</i>\n\nClaude is on it.`);
+  if (msgId) db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, taskId);
 }
 
 export async function notifyTaskDone(taskId: string, title: string): Promise<void> {
-  await sendTelegram(`✅ <b>Fixed:</b> ${title}\n\nProof posted to dashboard.`);
+  const wsId = await getWorkspaceIdForTask(taskId);
+  const cfg = wsId ? taskQueries.getTelegramConfig(wsId) : null;
+  const botToken = cfg?.bot_token || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+  await _send(botToken, chatId, `✅ <b>Fixed:</b> ${title}\n\nProof posted to dashboard.`);
 }
 
 export async function notifyTaskEscalated(taskId: string, title: string, reason: string): Promise<void> {
-  await sendTelegram(`🚨 <b>Escalated:</b> ${title}\n\n<i>${reason}</i>\n\nNeeds your attention.`);
+  const wsId = await getWorkspaceIdForTask(taskId);
+  const cfg = wsId ? taskQueries.getTelegramConfig(wsId) : null;
+  const botToken = cfg?.bot_token || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+  await _send(botToken, chatId, `🚨 <b>Escalated:</b> ${title}\n\n<i>${reason}</i>\n\nNeeds your attention.`);
 }
 
 export async function notifyApprovalNeeded(taskId: string, title: string, plan: string): Promise<void> {
-  const text = `⏳ <b>Approval needed:</b> ${title}\n\n<b>Claude's plan:</b>\n${plan}\n\n👆 <b>Long press this message → Reply</b>\nType <b>approve</b> or <b>reject: your reason</b>`;
-  const msgId = await sendTelegram(text);
-  if (msgId) {
-    db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, taskId);
-  }
+  const wsId = await getWorkspaceIdForTask(taskId);
+  const cfg = wsId ? taskQueries.getTelegramConfig(wsId) : null;
+  const botToken = cfg?.bot_token || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+  const text = `⏳ <b>Approval needed:</b> ${title}\n\n<b>Claude's plan:</b>\n${plan}\n\n👆 <b>Reply:</b> <b>approve</b> or <b>reject: your reason</b>`;
+  const msgId = await _send(botToken, chatId, text);
+  if (msgId) db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, taskId);
 }
 
 export async function askDeveloper(taskId: string, title: string, question: string): Promise<void> {
-  const text = `❓ <b>Claude needs your input:</b>\n<i>${title}</i>\n\n${question}\n\n👆 <b>Long press this message → Reply</b> with your answer.\nClaude continues in 5 min if no reply.`;
-  const msgId = await sendTelegram(text);
-  if (msgId) {
-    db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, taskId);
-  }
+  const wsId = await getWorkspaceIdForTask(taskId);
+  const cfg = wsId ? taskQueries.getTelegramConfig(wsId) : null;
+  const botToken = cfg?.bot_token || process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+  const text = `❓ <b>Claude needs input:</b>\n<i>${title}</i>\n\n${question}\n\n👆 <b>Reply</b> with your answer. Claude continues in 5 min if no reply.`;
+  const msgId = await _send(botToken, chatId, text);
+  if (msgId) db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, taskId);
 }

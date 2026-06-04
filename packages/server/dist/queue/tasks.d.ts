@@ -149,5 +149,17 @@ export declare const taskQueries: {
     } | null;
     rotateWorkspaceToken(workspaceId: string): string;
     getWorkspaceToken(workspaceId: string): string | null;
+    getTelegramConfig(workspaceId: string): {
+        bot_token: string | null;
+        chat_id: string | null;
+        project_id: string | null;
+    };
+    setTelegramConfig(workspaceId: string, botToken: string | null, chatId: string | null, projectId: string | null): void;
+    getAllWorkspacesWithTelegram(): {
+        id: string;
+        telegram_bot_token: string;
+        telegram_chat_id: string;
+        telegram_project_id: string;
+    }[];
 };
 //# sourceMappingURL=tasks.d.ts.map
