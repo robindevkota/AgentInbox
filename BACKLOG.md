@@ -22,24 +22,34 @@
 
 ## 🔴 Now — Pre-launch testing
 
-### 1. New developer simulation test
-**Goal:** Verify the full setup flow works exactly as documented before inviting real users.
+### 1. Simulation test — automated, not manual
+**Goal:** Verify the full pipe works across different stacks before inviting real users.
 
-**Simulate a brand new developer:**
-- [ ] Create a fresh test account on useagentinbox.com
-- [ ] Create a new project
-- [ ] Download the setup file
-- [ ] Open a test codebase (can be a simple hello world repo)
-- [ ] Paste the setup prompt into Claude Code
-- [ ] Verify Claude writes .mcp.json, .vscode/tasks.json, CLAUDE.local.md, CLAUDE.md, .claude/rules/
-- [ ] Close and reopen VS Code — verify Claude starts automatically
-- [ ] Submit a test task from the submission form
-- [ ] Verify Claude wakes, processes, completes with screenshot
-- [ ] Check PM dashboard shows task done with proof
-- [ ] Configure Telegram via Settings UI — verify notifications arrive
-- [ ] Send a Telegram message → verify Claude wakes and creates task
+**Approach — one script, not 20 manual setups:**
 
-**Pass criteria:** zero manual steps after paste. Everything works as SETUP.md describes.
+Build a simulation script that acts as the "new developer" automatically:
+- Creates a temp folder with realistic project structure (React / Laravel / Node / Python)
+- Writes .mcp.json, .vscode/tasks.json, CLAUDE.local.md into it
+- Submits a test task via API
+- Runs claude --print "process pending tasks" in that folder
+- Waits for task to complete
+- Checks PM dashboard shows done with screenshot
+- Reports pass/fail
+
+Run once per stack type (4-5 runs total). No manual VS Code setup. No fake accounts.
+
+**What this validates:**
+- [ ] Pipe works end-to-end (submit → wake → complete → proof)
+- [ ] Claude writes accurate rules for different stacks
+- [ ] Wake-on-task fires reliably
+- [ ] PM dashboard shows correct results per project
+- [ ] Telegram notifications arrive on completion
+
+**Token structure confirmed:**
+- Workspace token `wt_...` — one per developer, goes in .mcp.json, accesses all projects
+- Project token — one per project, goes in submission link URL, shared with clients only
+
+**Pass criteria:** all 4-5 stack simulations complete with screenshot proof in PM dashboard. Zero manual steps.
 
 ---
 
