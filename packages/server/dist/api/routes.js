@@ -653,22 +653,11 @@ function createRouter() {
                     wsToken = t;
             }
         }
-        const setupMd = `# AgentInbox — Setup Guide
+        const setupMd = `Set up AgentInbox in this project. Token: ${wsToken}
 
-Full setup from zero to autonomous Claude agent in ~10 minutes.
-
-**You do not install the server.** AgentInbox is hosted at \`useagentinbox.com\`. The only thing you install is \`agentinbox-mcp\` — fetched automatically via \`npx\` when Claude Code starts.
-
----
-
-## Paste this prompt into Claude Code — it sets everything up automatically
-
-\`\`\`
-I want to set up AgentInbox in this project. My workspace token is: ${wsToken}
-
-Set up AgentInbox for my project by doing the following:
-1. Scan my project — understand my stack, key files, folder structure
-2. Create .mcp.json in the project root with this content:
+Do not ask questions. Do the following:
+1. Scan the codebase — understand the stack, key files, folder structure
+2. Create .mcp.json:
    {
      "mcpServers": {
        "agentinbox": {
@@ -678,75 +667,35 @@ Set up AgentInbox for my project by doing the following:
        }
      }
    }
-3. Create CLAUDE.local.md with AgentInbox task processing rules filled in for my actual stack
-4. Add CLAUDE.local.md and .mcp.json to .gitignore
-5. Create .claude/rules/ files based on my codebase — one file per domain area
-6. Update CLAUDE.md with a rule index pointing to those files
-7. Tell me my submission link so I can share it with my client/QA team
+3. Create .vscode/tasks.json (create .vscode/ if it doesn't exist):
+   {
+     "version": "2.0.0",
+     "tasks": [{
+       "label": "AgentInbox",
+       "type": "shell",
+       "command": "claude --dangerously-skip-permissions",
+       "runOptions": { "runOn": "folderOpen" },
+       "presentation": { "reveal": "always", "panel": "dedicated" },
+       "problemMatcher": []
+     }]
+   }
+4. Create CLAUDE.local.md — AgentInbox task processing rules tailored to this stack
+5. Add CLAUDE.local.md and .mcp.json to .gitignore
+6. Create .claude/rules/ — one file per domain area based on the codebase
+7. Update CLAUDE.md — rule index pointing to those files
+8. Tell me the submission link to share with my client/QA team
 
-Do not ask questions — scan the codebase and make sensible decisions.
-\`\`\`
-
-That's it. Claude will scan your codebase and configure everything automatically.
-
----
-
-## What Claude sets up for you
-
-- \`.mcp.json\` — connects Claude Code to AgentInbox via WebSocket (your token is already filled in above)
-- \`CLAUDE.local.md\` — tells Claude how to process tasks autonomously in your codebase
-- \`.claude/rules/\` — domain knowledge files so Claude understands your project
-- \`CLAUDE.md\` — rule index so Claude loads only what's relevant per task
-- Both sensitive files added to \`.gitignore\` automatically
-
----
-
-## Your workspace token
-
-\`\`\`
-${wsToken}
-\`\`\`
-
-Keep this private — it gives access to all tasks in your workspace.
-
----
-
-## PM Dashboard
-
-https://useagentinbox.com/pm
-
----
-
-## MCP tools available to Claude
-
-| Tool | What it does |
-|---|---|
-| \`get_pending_tasks()\` | Get all unstarted tasks |
-| \`get_task(id)\` | Full task detail + file content |
-| \`update_task_status(id, status)\` | Set in_progress, blocked, failed |
-| \`complete_task(id, technical, plain, screenshot?)\` | Mark done with proof |
-| \`get_file(task_id)\` | Get uploaded PDF/image/doc content |
-| \`escalate_task(id, reason)\` | Flag for human review |
-| \`propose_plan(id, plan)\` | PM approves before Claude runs code |
-
----
+## What this sets up
+- Tasks arrive via WebSocket — Claude wakes instantly, no polling, no idle tokens
+- VS Code auto-starts Claude when the project opens (no terminal command needed)
+- Claude processes all pending tasks then exits — wakes again on next task
 
 ## Troubleshooting
-
-**MCP not connecting**
-- Check AGENTINBOX_TOKEN is set correctly in .mcp.json
-- Verify the token starts with wt_
-- Run \`claude mcp list\` to confirm agentinbox is registered
-
-**Claude not processing tasks**
-- Type: "check my agent inbox and process any pending tasks"
-- Make sure CLAUDE.local.md is in the project root
-
-**Screenshot missing**
-- Add to CLAUDE.local.md: "screenshot_base64 is required, never omit it"
-`;
-        res.setHeader("Content-Disposition", "attachment; filename=\"agentinbox-setup.md\"");
-        res.setHeader("Content-Type", "text/markdown; charset=utf-8");
+**MCP not connecting:** check AGENTINBOX_TOKEN in .mcp.json starts with wt_
+**Claude not waking:** ensure VS Code is open — agentinbox-mcp must be running
+**claude not in PATH:** add "CLAUDE_PATH": "/full/path/to/claude" to .mcp.json env`;
+        res.setHeader("Content-Disposition", "attachment; filename=\"agentinbox-setup.txt\"");
+        res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.send(setupMd);
     });
     // ── Agent routes (workspace token auth, used by agentinbox-mcp) ────────────

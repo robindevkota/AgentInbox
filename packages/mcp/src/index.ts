@@ -16,6 +16,9 @@
  * Every time Claude Code opens, this process starts, connects to the
  * AgentInbox server via WebSocket, and exposes all task tools to Claude.
  * No ngrok. No router. No extra terminals.
+ *
+ * When a task arrives via WebSocket, this process spawns Claude headlessly
+ * to process the task — no polling, no persistent loop, no open terminal needed.
  */
 
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -25,10 +28,46 @@ import {
   ListToolsRequestSchema,
 } from "@modelcontextprotocol/sdk/types.js";
 import { io as SocketClient, Socket } from "socket.io-client";
+import { spawn } from "child_process";
 
 const TOKEN = process.env.AGENTINBOX_TOKEN;
 const SERVER_URL = process.env.AGENTINBOX_URL || "https://useagentinbox.com";
 const API_BASE = `${SERVER_URL}/api`;
+const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
+const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || process.cwd();
+
+// ── Claude wake-on-task ───────────────────────────────────────────────────────
+// Spawns Claude headlessly when a task arrives. Debounced — if Claude is already
+// running for this project, the new task will be picked up by the active session.
+
+let claudeRunning = false;
+
+function spawnClaude(): void {
+  if (claudeRunning) {
+    process.stderr.write("[agentinbox-mcp] Claude already running — task will be picked up by active session\n");
+    return;
+  }
+
+  claudeRunning = true;
+  process.stderr.write(`[agentinbox-mcp] Waking Claude in ${PROJECT_CWD}\n`);
+
+  const proc = spawn(
+    CLAUDE_PATH,
+    ["--dangerously-skip-permissions", "--print", "check agent inbox and process all pending tasks"],
+    { cwd: PROJECT_CWD, stdio: "inherit", detached: false }
+  );
+
+  proc.on("error", (err) => {
+    process.stderr.write(`[agentinbox-mcp] Failed to spawn Claude: ${err.message}\n`);
+    process.stderr.write(`[agentinbox-mcp] Set CLAUDE_PATH env var if claude is not in PATH\n`);
+    claudeRunning = false;
+  });
+
+  proc.on("close", (code) => {
+    process.stderr.write(`[agentinbox-mcp] Claude exited (code ${code})\n`);
+    claudeRunning = false;
+  });
+}
 
 if (!TOKEN) {
   process.stderr.write("[agentinbox-mcp] ERROR: AGENTINBOX_TOKEN env var is required\n");
@@ -311,8 +350,7 @@ function connectSocket(): Socket {
 
   socket.on("task.created", (payload: any) => {
     process.stderr.write(`[agentinbox-mcp] New task: "${payload.title}" (${payload.task_id})\n`);
-    // The MCP tools are now available for Claude to call — Claude will poll
-    // get_pending_tasks when it sees this notification via the MCP log stream
+    spawnClaude();
   });
 
   socket.on("connect_error", (err: Error) => {
