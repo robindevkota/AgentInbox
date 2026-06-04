@@ -70,9 +70,26 @@ Run once per stack type (4-5 runs total). No manual VS Code setup. No fake accou
 
 **If Claude fails** — fix is in the setup prompt, not the architecture. Pipe stays the same.
 
-**Pass criteria:** Claude writes accurate rules and completes test tasks correctly on all 5 messy structures.
+**Real tasks to test (not fake):**
 
-**After both tests pass → 100% confident → production ready.**
+| Difficulty | Task |
+|---|---|
+| Simple | "Button text says 'Sbumit' — fix the typo" |
+| Simple | "Change the page title from Hello to Hello World" |
+| Logic bug | "Login fails when email has uppercase letters" |
+| UI feature | "Add a loading spinner to the form submit button" |
+| API feature | "Add a /health endpoint that returns 200 OK" |
+| Refactor | "Move auth logic from index.js into its own auth.js file" |
+
+Start simple (typos, small bugs) → move to logic bugs → then features. Each submitted via the form with developer away from desk.
+
+**Pass criteria:**
+- Claude fixes the bug correctly without developer intervention
+- Fix is in the right file, right line
+- Screenshot proof posted to PM dashboard
+- Developer reviews result — would they accept this in a real project?
+
+**After both Test 1 + Test 2 pass → 100% confident → production ready.**
 
 ---
 
