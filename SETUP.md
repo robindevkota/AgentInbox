@@ -59,6 +59,35 @@ No terminal commands. No polling. No idle tokens.
 
 ---
 
+## Telegram (optional — control Claude from your phone)
+
+Once Telegram is configured, you have two ways to create tasks:
+
+**From the website** — clients/QA submit via the submission form as normal.
+
+**From your phone** — message the bot directly:
+```
+You: "fix the login button alignment on mobile"
+Bot: "⚡ Task created — Claude is on it"
+...
+Bot: "✅ Fixed — Login.tsx line 42"
+```
+
+You can also control Claude mid-task by replying to bot messages:
+- Approval needed → reply `approve` or `reject: your reason`
+- Claude asks a question → reply with your answer
+
+Your PC just needs VS Code open. You run your codebase from your phone.
+
+**Setup:** add to your server env vars:
+```
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...        # your chat ID
+TELEGRAM_PROJECT_ID=...     # which project Telegram tasks go into
+```
+
+---
+
 ## Troubleshooting
 
 **MCP not connecting**

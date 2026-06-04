@@ -1,5 +1,7 @@
 import { db, nowUnix } from "../queue/db";
 import { taskQueries } from "../queue/tasks";
+import { emitTaskCreated } from "../socket/manager";
+import { triggerClaude } from "../trigger/claude";
 
 function getToken() { return process.env.TELEGRAM_BOT_TOKEN; }
 function getChatId() { return process.env.TELEGRAM_CHAT_ID; }
@@ -50,7 +52,38 @@ async function fetchUpdates(): Promise<void> {
       const text: string = (msg.text || "").trim();
       const replyToId: number | undefined = msg.reply_to_message?.message_id;
 
-      if (!replyToId) continue;
+      // New message (not a reply) — create a task from it
+      if (!replyToId) {
+        const projectId = process.env.TELEGRAM_PROJECT_ID;
+        if (!projectId) continue;
+
+        const project = taskQueries.getProjectById(projectId);
+        if (!project) continue;
+
+        const task = taskQueries.createTask({
+          project_id: projectId,
+          title: text.length > 80 ? text.slice(0, 77) + "..." : text,
+          description: text,
+          priority: "medium",
+          submitter_name: "Developer (Telegram)",
+        });
+
+        const msgId = await sendTelegram(
+          `⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`,
+          msg.message_id
+        );
+        if (msgId) {
+          db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, task.id);
+        }
+
+        const workspace = taskQueries.getWorkspace(project.workspace_id);
+        if (workspace) {
+          emitTaskCreated(workspace.id, { task_id: task.id, title: task.title, project_id: projectId });
+        }
+
+        if (process.env.TRIGGER_CLAUDE === "true") triggerClaude();
+        continue;
+      }
 
       // Find task by telegram_message_id
       const task = db

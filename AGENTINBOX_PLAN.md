@@ -85,7 +85,7 @@ task.created WebSocket push
 - Submission form — file upload, custom fields, constellation animation
 - Auth — JWT login/signup, workspace management
 - Approval gate — per-project, Claude proposes plan before touching code
-- Telegram — bidirectional notifications, approve/reject via reply
+- Telegram — two task sources (website + Telegram message), bidirectional control (approve/reject/answer questions via reply)
 - Playground — animation + chat live demos
 
 ---
@@ -108,6 +108,32 @@ cd packages/server && node dist/cli.js start
 - MBL project token: 898NSXnUt9stlGsOCtJM0jPaNSVGb7Mz
 - Render: https://useagentinbox.com
 - npm: agentinbox-mcp@0.1.2
+
+---
+
+## Telegram — Full Detail
+
+### Two task sources
+```
+Source 1: Website submission form
+  → task created → Telegram: "🐛 New bug" → Claude wakes
+
+Source 2: You message the Telegram bot (non-reply message)
+  → task created from your message → Telegram: "⚡ Task created" → Claude wakes
+```
+
+Only messages from TELEGRAM_CHAT_ID are accepted — no one else can trigger tasks.
+
+### Bidirectional control (reply to a bot message)
+- Approval needed → Claude sends plan → you reply "approve" or "reject: reason"
+- Claude asks a question → you reply → Claude reads developer_reply and continues
+
+### Required env vars
+```
+TELEGRAM_BOT_TOKEN=...
+TELEGRAM_CHAT_ID=...         # your chat ID — security boundary
+TELEGRAM_PROJECT_ID=...      # which project Telegram tasks go into
+```
 
 ---
 

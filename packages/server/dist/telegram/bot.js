@@ -10,6 +10,8 @@ exports.notifyApprovalNeeded = notifyApprovalNeeded;
 exports.askDeveloper = askDeveloper;
 const db_1 = require("../queue/db");
 const tasks_1 = require("../queue/tasks");
+const manager_1 = require("../socket/manager");
+const claude_1 = require("../trigger/claude");
 function getToken() { return process.env.TELEGRAM_BOT_TOKEN; }
 function getChatId() { return process.env.TELEGRAM_CHAT_ID; }
 function getApi() { const t = getToken(); return t ? `https://api.telegram.org/bot${t}` : null; }
@@ -61,8 +63,33 @@ async function fetchUpdates() {
                 continue;
             const text = (msg.text || "").trim();
             const replyToId = msg.reply_to_message?.message_id;
-            if (!replyToId)
+            // New message (not a reply) — create a task from it
+            if (!replyToId) {
+                const projectId = process.env.TELEGRAM_PROJECT_ID;
+                if (!projectId)
+                    continue;
+                const project = tasks_1.taskQueries.getProjectById(projectId);
+                if (!project)
+                    continue;
+                const task = tasks_1.taskQueries.createTask({
+                    project_id: projectId,
+                    title: text.length > 80 ? text.slice(0, 77) + "..." : text,
+                    description: text,
+                    priority: "medium",
+                    submitter_name: "Developer (Telegram)",
+                });
+                const msgId = await sendTelegram(`⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`, msg.message_id);
+                if (msgId) {
+                    db_1.db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, task.id);
+                }
+                const workspace = tasks_1.taskQueries.getWorkspace(project.workspace_id);
+                if (workspace) {
+                    (0, manager_1.emitTaskCreated)(workspace.id, { task_id: task.id, title: task.title, project_id: projectId });
+                }
+                if (process.env.TRIGGER_CLAUDE === "true")
+                    (0, claude_1.triggerClaude)();
                 continue;
+            }
             // Find task by telegram_message_id
             const task = db_1.db
                 .prepare("SELECT * FROM tasks WHERE telegram_message_id = ?")
