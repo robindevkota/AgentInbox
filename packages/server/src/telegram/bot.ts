@@ -3,6 +3,57 @@ import { taskQueries } from "../queue/tasks";
 import { emitTaskCreated } from "../socket/manager";
 import { triggerClaude } from "../trigger/claude";
 
+// ── Message intent classifier ─────────────────────────────────────────────────
+// Uses Claude API to decide if a Telegram message is a task or normal chat.
+
+interface MessageIntent {
+  type: "task" | "chat";
+  title?: string;   // short task title if type=task
+  reply?: string;   // reply text if type=chat
+}
+
+async function classifyMessage(text: string): Promise<MessageIntent> {
+  const apiKey = process.env.ANTHROPIC_API_KEY;
+  if (!apiKey) {
+    // No API key — default to creating a task (safe fallback)
+    return { type: "task", title: text.length > 80 ? text.slice(0, 77) + "..." : text };
+  }
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-api-key": apiKey,
+        "anthropic-version": "2023-06-01",
+      },
+      body: JSON.stringify({
+        model: "claude-haiku-4-5-20251001",
+        max_tokens: 100,
+        messages: [{
+          role: "user",
+          content: `Classify this Telegram message from a developer to their AI assistant bot.
+
+Message: "${text}"
+
+Reply with JSON only, no explanation:
+- If it's a task (bug report, feature request, code change, anything actionable): {"type":"task","title":"short title max 80 chars"}
+- If it's casual chat, greeting, status check, or question: {"type":"chat","reply":"your friendly 1-sentence reply"}`
+        }],
+      }),
+    });
+
+    if (!res.ok) return { type: "task", title: text.slice(0, 80) };
+    const data = await res.json() as any;
+    const content = data.content?.[0]?.text?.trim() || "";
+    const parsed = JSON.parse(content);
+    return parsed as MessageIntent;
+  } catch {
+    // On any error — default to task
+    return { type: "task", title: text.length > 80 ? text.slice(0, 77) + "..." : text };
+  }
+}
+
 // ── Per-workspace Telegram polling ────────────────────────────────────────────
 // Each workspace has its own bot token, chat ID, and project ID.
 // Global env vars (TELEGRAM_BOT_TOKEN etc.) are used as fallback for the
@@ -75,8 +126,17 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
       const text: string = (msg.text || "").trim();
       const replyToId: number | undefined = msg.reply_to_message?.message_id;
 
-      // New message (not a reply) — create a task from it
+      // New message (not a reply) — classify then act
       if (!replyToId) {
+        const intent = await classifyMessage(text);
+
+        // Normal conversation — just reply, no task
+        if (intent.type === "chat") {
+          await _send(ws.botToken, ws.chatId, intent.reply!, msg.message_id);
+          continue;
+        }
+
+        // Task (bug / feature / anything actionable)
         if (!ws.projectId) {
           await _send(ws.botToken, ws.chatId, "⚠️ No project configured for Telegram tasks. Set one in your PM dashboard → Settings → Telegram.", msg.message_id);
           continue;
@@ -87,7 +147,7 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
 
         const task = taskQueries.createTask({
           project_id: ws.projectId,
-          title: text.length > 80 ? text.slice(0, 77) + "..." : text,
+          title: intent.title || (text.length > 80 ? text.slice(0, 77) + "..." : text),
           description: text,
           priority: "medium",
           submitter_name: "Developer (Telegram)",
