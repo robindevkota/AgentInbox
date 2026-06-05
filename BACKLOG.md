@@ -4,9 +4,9 @@
 
 ## ✅ Done
 
-- Wake-on-task via agentinbox-mcp v0.1.2 — no polling, zero idle tokens
-- VS Code auto-start via .vscode/tasks.json (runOn: folderOpen)
-- One-paste setup — Claude configures everything from downloaded prompt
+- Wake-on-task via standalone agentinbox-worker.js — no polling, zero idle tokens, no VS Code needed
+- Worker runs silently on PC boot via agentinbox-start.vbs (Windows) / agentinbox-start.sh (Mac)
+- Setup prompt writes worker.js + startup scripts automatically (one paste into Claude)
 - PM dashboard — task list, detail panel, approval controls
 - Submission form — file upload, custom fields
 - Approval gate — per project, Claude proposes before touching code
@@ -14,9 +14,10 @@
 - Telegram as task source — message bot from phone → Claude wakes
 - Bidirectional Telegram — approve/reject/answer mid-task via reply
 - Playground — animation + chat live demos (best conversion tool)
-- agentinbox-mcp published on npm (v0.1.2)
+- agentinbox-mcp published on npm (v0.1.5) — MCP tools for Claude during task processing
 - Auth — JWT login/signup, workspace management
 - Per-workspace billing columns (plan, task_count_this_month)
+- End-to-end pipe verified on MBL project (real task, real Telegram ✅)
 
 ---
 
@@ -29,11 +30,13 @@
 
 Build a simulation script that acts as the "new developer" automatically:
 - Creates a temp folder with realistic project structure (React / Laravel / Node / Python)
-- Writes .mcp.json, .vscode/tasks.json, CLAUDE.local.md into it
-- Submits a test task via API
-- Runs claude --print "process pending tasks" in that folder
+- Writes agentinbox-worker.js, agentinbox-start.bat, installs socket.io-client into it
+- Submits a test task via API to that project's token
+- Runs `node agentinbox-worker.js` in that folder (simulating PC startup)
+- Waits for task.created WebSocket event → worker spawns `claude --print "check pending tasks..."`
 - Waits for task to complete
-- Checks PM dashboard shows done with screenshot
+- Checks PM dashboard shows done
+- Checks Telegram notification arrived
 - Reports pass/fail
 
 Run once per stack type (4-5 runs total). No manual VS Code setup. No fake accounts.
@@ -41,15 +44,15 @@ Run once per stack type (4-5 runs total). No manual VS Code setup. No fake accou
 **What this validates:**
 - [ ] Pipe works end-to-end (submit → wake → complete → proof)
 - [ ] Claude writes accurate rules for different stacks
-- [ ] Wake-on-task fires reliably
+- [ ] Wake-on-task fires reliably via worker (not .mcp.json)
 - [ ] PM dashboard shows correct results per project
 - [ ] Telegram notifications arrive on completion
 
-**Token structure confirmed:**
-- Workspace token `wt_...` — one per developer, goes in .mcp.json, accesses all projects
+**Token structure:**
+- Workspace token `wt_...` — one per developer, goes in worker.js env, accesses all projects
 - Project token — one per project, goes in submission link URL, shared with clients only
 
-**Pass criteria:** all 4-5 stack simulations complete with screenshot proof in PM dashboard. Zero manual steps.
+**Pass criteria:** all 4-5 stack simulations complete with proof in PM dashboard. Zero manual steps.
 
 ---
 
