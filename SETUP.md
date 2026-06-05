@@ -16,10 +16,12 @@ claude
 ```
 
 **3. Paste the downloaded prompt**
-Claude scans your codebase and configures everything automatically.
+Claude scans your codebase and writes two files automatically:
+- `agentinbox-worker.js` — the background worker
+- `start-worker.vbs` — the silent Windows startup script
 
-**4. Click "Allow automatic tasks" in VS Code**
-VS Code asks once. Click Allow. Never asked again.
+**4. Claude adds the startup script to Windows**
+Once added, you never touch it again.
 
 ---
 
@@ -27,43 +29,74 @@ VS Code asks once. Click Allow. Never asked again.
 
 From now on:
 ```
-Open VS Code
-  → Claude starts automatically
-  → tasks arrive → Claude wakes, fixes, exits
-  → you see results in the PM dashboard
+PC turns on
+  → worker starts silently in background (no window, no terminal)
+  → task arrives → Claude wakes, fixes, exits
+  → Telegram: ✅ Fixed
+  → proof on PM dashboard
 ```
+
+**VS Code does not need to be open. You don't need to be at your desk.**
 
 No terminal commands. No polling. No idle tokens.
 
 ---
 
-## What Claude sets up (you never touch these)
+## How it works
+
+```
+Client submits bug via submission form
+  → AgentInbox server (Render) stores task
+  → WebSocket push: task.created
+  → agentinbox-worker.js receives it instantly
+  → spawns: claude --dangerously-skip-permissions --print "check pending tasks..."
+  → Claude fixes it, calls complete_task, exits
+  → Telegram ✅ + proof on PM dashboard
+  → worker resets, listens for next task
+```
+
+---
+
+## What gets created during setup
 
 | File | Purpose |
 |---|---|
-| `.mcp.json` | Connects Claude to AgentInbox via WebSocket |
-| `.vscode/tasks.json` | Starts Claude when VS Code opens |
+| `agentinbox-worker.js` | Persistent WebSocket listener — spawns Claude on task arrival |
+| `start-worker.vbs` | Silent Windows startup script — runs worker on PC boot |
 | `CLAUDE.local.md` | Task processing rules for your stack |
 | `.claude/rules/` | Domain knowledge files for your codebase |
-| `CLAUDE.md` | Rule index — Claude loads only what's relevant |
 
-`.mcp.json` and `CLAUDE.local.md` are added to `.gitignore` automatically.
+`CLAUDE.local.md` and `agentinbox-worker.js` are added to `.gitignore` automatically.
 
 ---
 
 ## Prerequisites
 
 - [Claude Code](https://claude.ai/code) installed (Claude Pro or API key)
-- Node.js 18+ 
-- VS Code
+- Node.js 18+
+- Windows (VBS startup script) — Mac/Linux support coming
+
+---
+
+## Verify it's working
+
+Check the log file anytime:
+```
+your-project\worker.log
+```
+Should show:
+```
+[worker] Connected to AgentInbox
+[worker] Workspace: Your Workspace
+```
 
 ---
 
 ## Telegram (optional — control Claude from your phone)
 
-Once Telegram is configured, you have two ways to create tasks:
+Once Telegram is configured via PM dashboard → Settings → Telegram:
 
-**From the website** — clients/QA submit via the submission form as normal.
+**From the website** — clients/QA submit via submission form as normal.
 
 **From your phone** — message the bot directly:
 ```
@@ -73,32 +106,22 @@ Bot: "⚡ Task created — Claude is on it"
 Bot: "✅ Fixed — Login.tsx line 42"
 ```
 
-You can also control Claude mid-task by replying to bot messages:
+Control Claude mid-task by replying to bot messages:
 - Approval needed → reply `approve` or `reject: your reason`
 - Claude asks a question → reply with your answer
-
-Your PC just needs VS Code open. You run your codebase from your phone.
-
-**Setup:** add to your server env vars:
-```
-TELEGRAM_BOT_TOKEN=...
-TELEGRAM_CHAT_ID=...        # your chat ID
-TELEGRAM_PROJECT_ID=...     # which project Telegram tasks go into
-```
 
 ---
 
 ## Troubleshooting
 
-**MCP not connecting**
-- Check `.mcp.json` exists in your project root
-- Token must start with `wt_`
-- Run `claude mcp list` to confirm agentinbox is registered
+**Worker not connecting**
+- Check `worker.log` for error messages
+- Verify your workspace token starts with `wt_`
+- Make sure Node.js is installed: `node --version`
 
 **Claude not waking on tasks**
-- VS Code must be open — agentinbox-mcp only runs when Claude Code is active
-- Check MCP logs for `[agentinbox-mcp] Connected`
-- If `claude` is not in PATH, add `"CLAUDE_PATH": "/full/path/to/claude"` to the env in `.mcp.json`
+- Check `worker.log` for `[worker] Waking Claude`
+- If `claude` is not in PATH, edit `agentinbox-worker.js` and set the full path in `findClaude()`
 
 **Tasks not appearing**
 - Check PM dashboard — task may already be `in_progress`
