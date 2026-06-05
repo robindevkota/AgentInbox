@@ -78,6 +78,36 @@ Client submits bug via submission form
 
 ---
 
+## Run on a cloud VM (24/7 — no PC needed)
+
+If you run the worker on a cloud VM, tasks get fixed around the clock — even when your PC is off.
+
+**Setup on any Linux VM (AWS, DigitalOcean, Hetzner, etc.):**
+```bash
+# Install Node.js and Claude Code
+npm install -g @anthropic-ai/claude-code
+
+# Clone your project
+git clone your-repo
+cd your-project
+npm install socket.io-client
+
+# Run the worker permanently
+AGENTINBOX_TOKEN=wt_xxx CLAUDE_PROJECT_PATH=/path/to/project node agentinbox-worker.js
+```
+
+Use `pm2` or `screen` to keep it running after you disconnect:
+```bash
+npm install -g pm2
+AGENTINBOX_TOKEN=wt_xxx CLAUDE_PROJECT_PATH=/path/to/project pm2 start agentinbox-worker.js --name agentinbox
+pm2 save && pm2 startup
+```
+
+**Cost:** ~$6/month (DigitalOcean basic droplet) + your existing Claude Pro ($20/month)
+**Result:** bugs fixed at 3am, weekends, holidays — zero human involvement, ever
+
+---
+
 ## Verify it's working
 
 Check the log file anytime:
