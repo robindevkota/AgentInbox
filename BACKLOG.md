@@ -163,7 +163,15 @@ Removes the "what do I write in CLAUDE.local.md?" friction.
 
 ## 🔵 Future — 10+ paying customers
 
-### 11. Third-party integrations
+### 11. Standalone agentinbox-worker binary
+Current worker requires Node.js + socket.io-client in every project — friction for non-Node stacks (Laravel, Python, etc.).
+Publish a single binary (`agentinbox-worker --token wt_xxx --project /path/to/project`) via:
+- Windows: `.exe` download or `winget install agentinbox`
+- Mac: `brew install agentinbox`
+No Node, no npm, no project file. Works on any stack. Auto-starts on boot via the installer.
+**Effort:** 3-4 days (Go or Rust binary + packaging)
+
+### 12. Third-party integrations
 GitLab, Jira, Linear MCPs already exist — document as supported pattern.
 Build native integration only if 3+ customers request same platform.
 
