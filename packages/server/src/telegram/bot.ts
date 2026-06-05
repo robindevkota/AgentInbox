@@ -12,46 +12,44 @@ interface MessageIntent {
   reply?: string;   // reply text if type=chat
 }
 
-async function classifyMessage(text: string): Promise<MessageIntent> {
-  const apiKey = process.env.ANTHROPIC_API_KEY;
-  if (!apiKey) {
-    // No API key — default to creating a task (safe fallback)
-    return { type: "task", title: text.length > 80 ? text.slice(0, 77) + "..." : text };
+function classifyMessage(text: string): MessageIntent {
+  const t = text.trim().toLowerCase();
+
+  // Greetings and casual chat
+  const chatPatterns = [
+    /^(hey|hi|hello|howdy|sup|yo|hiya)[\s!?.]*$/,
+    /^how are you/,
+    /^what'?s up/,
+    /^good (morning|afternoon|evening|night)/,
+    /^(thanks|thank you|thx|cheers|ok|okay|cool|great|nice|awesome|got it|sounds good)/,
+    /^(bye|goodbye|see you|cya|later)/,
+    /^who are you/,
+    /^what can you do/,
+    /^help$/,
+  ];
+
+  for (const pattern of chatPatterns) {
+    if (pattern.test(t)) {
+      const replies: Record<string, string> = {
+        greeting: "Hey! Send me a bug or task and I'll get Claude on it. 🤖",
+        howAreyou: "All good — connected and ready to fix bugs! What do you need?",
+        thanks: "Anytime! Send me the next one when ready. 🚀",
+        bye: "Talk soon! I'll be here when the next bug arrives. 👋",
+        help: "Send me any bug, feature request, or task — Claude will fix it automatically. Just describe what needs doing!",
+      };
+
+      if (/^(hey|hi|hello|howdy|sup|yo|hiya)/.test(t)) return { type: "chat", reply: replies.greeting };
+      if (/how are you|what'?s up/.test(t)) return { type: "chat", reply: replies.howAreyou };
+      if (/thanks|thank you|thx|cheers|ok|okay|cool|great|nice|awesome|got it|sounds good/.test(t)) return { type: "chat", reply: replies.thanks };
+      if (/bye|goodbye|see you|cya|later/.test(t)) return { type: "chat", reply: replies.bye };
+      if (/help/.test(t)) return { type: "chat", reply: replies.help };
+      return { type: "chat", reply: "Got it! Send me a task whenever you're ready. 🤖" };
+    }
   }
 
-  try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-api-key": apiKey,
-        "anthropic-version": "2023-06-01",
-      },
-      body: JSON.stringify({
-        model: "claude-haiku-4-5-20251001",
-        max_tokens: 100,
-        messages: [{
-          role: "user",
-          content: `Classify this Telegram message from a developer to their AI assistant bot.
-
-Message: "${text}"
-
-Reply with JSON only, no explanation:
-- If it's a task (bug report, feature request, code change, anything actionable): {"type":"task","title":"short title max 80 chars"}
-- If it's casual chat, greeting, status check, or question: {"type":"chat","reply":"your friendly 1-sentence reply"}`
-        }],
-      }),
-    });
-
-    if (!res.ok) return { type: "task", title: text.slice(0, 80) };
-    const data = await res.json() as any;
-    const content = data.content?.[0]?.text?.trim() || "";
-    const parsed = JSON.parse(content);
-    return parsed as MessageIntent;
-  } catch {
-    // On any error — default to task
-    return { type: "task", title: text.length > 80 ? text.slice(0, 77) + "..." : text };
-  }
+  // Everything else is a task — bug, feature, question about code, etc.
+  const title = text.length > 80 ? text.slice(0, 77) + "..." : text;
+  return { type: "task", title };
 }
 
 // ── Per-workspace Telegram polling ────────────────────────────────────────────
