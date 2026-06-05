@@ -53,7 +53,7 @@ function spawnClaude(): void {
 
   const proc = spawn(
     CLAUDE_PATH,
-    ["--dangerously-skip-permissions", "--print", "check agent inbox and process all pending tasks"],
+    ["--dangerously-skip-permissions"],
     { cwd: PROJECT_CWD, stdio: "inherit", detached: false }
   );
 

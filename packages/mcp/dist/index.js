@@ -43,7 +43,7 @@ function spawnClaude() {
     }
     claudeRunning = true;
     process.stderr.write(`[agentinbox-mcp] Waking Claude in ${PROJECT_CWD}\n`);
-    const proc = (0, child_process_1.spawn)(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "check agent inbox and process all pending tasks"], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
+    const proc = (0, child_process_1.spawn)(CLAUDE_PATH, ["--dangerously-skip-permissions"], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
     proc.on("error", (err) => {
         process.stderr.write(`[agentinbox-mcp] Failed to spawn Claude: ${err.message}\n`);
         process.stderr.write(`[agentinbox-mcp] Set CLAUDE_PATH env var if claude is not in PATH\n`);
