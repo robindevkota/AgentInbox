@@ -1,4 +1,4 @@
-# AgentInbox — Current State (June 5, 2026)
+# AgentInbox — Current State (June 6, 2026)
 
 ## What AgentInbox Is
 
@@ -8,19 +8,22 @@ Client submits a bug → AgentInbox queues it → Developer's Claude wakes, fixe
 
 ```
 Client/QA/PM
-  → submits via submission form (no account needed)
+  → submits via submission form (no account needed)  OR  messages Telegram bot
 AgentInbox server (hosted on Render)
   → stores task, pushes task.created via WebSocket
 agentinbox-worker.js (running silently on developer's PC — no VS Code needed)
   → receives push instantly — no polling
   → spawns: claude --dangerously-skip-permissions --print "check agent inbox..."
 Claude (woken on demand)
-  → drains ALL pending tasks, fixes them, exits
+  → reads .mcp.json, connects to AgentInbox MCP tools
+  → drains ALL pending tasks, fixes them
+  → optionally starts app + takes Playwright screenshot as proof
+  → calls complete_task, exits
   → worker resets, goes back to listening
 PM dashboard
-  → sees task done with proof in real time
+  → sees task done with proof + screenshot in real time
 Telegram
-  → 🐛 on submit, ✅ on complete
+  → ⚡ on submit, ✅ on complete
 ```
 
 **Zero polling. Zero idle tokens. VS Code does not need to be open.**
@@ -29,9 +32,10 @@ Telegram
 
 ## Developer Experience
 
-### One-time setup (two actions)
-1. Download setup file from PM dashboard → paste prompt into Claude Code
-2. Claude writes worker + startup script automatically
+### One-time setup (one paste)
+1. Download setup file from PM dashboard → Settings → ↓ Download setup file
+2. Paste prompt into Claude Code in your project root
+3. Claude writes all files + adds startup script to OS — you never touch it again
 
 ### Daily flow (zero actions)
 ```
@@ -48,66 +52,93 @@ Developer doesn't need to open VS Code, open a terminal, or type anything.
 ```
 task.created WebSocket push
   → agentinbox-worker.js receives it (always-on background process)
-  → spawnClaude() — in-memory debounce (skips if already running)
+  → checks .agentinbox-running lockfile — skips if Claude already running
+  → writes lockfile, spawns Claude headlessly
   → claude --dangerously-skip-permissions --print "check pending tasks..."
   → Claude drains queue, exits
-  → worker resets, listens for next task
+  → lockfile deleted, worker resets, listens for next task
 ```
 
 ### Why a standalone worker (not .mcp.json)
 The MCP approach ties the WebSocket listener to an interactive Claude session.
-When the developer is chatting with Claude, `spawnClaude()` is blocked.
-The standalone worker runs independently — no conflict with interactive sessions.
+When the developer is chatting with Claude, task processing would block.
+The standalone worker runs in a completely separate process — no conflict ever.
+
+### Lockfile pattern
+`.agentinbox-running` file written on Claude spawn, deleted on exit.
+Prevents two Claude instances running simultaneously on the same project.
+Works across processes — unlike in-memory flags.
 
 ### Token cost
 - **Idle:** zero — worker is a tiny Node process (~5MB RAM), Claude not running
 - **Active:** only when processing real tasks, proportional to work done
 
-### Windows auto-start
-`start-worker.vbs` in the Windows Startup folder — runs silently on PC boot, no window.
+### Auto-start
+- **Windows:** `agentinbox-start.vbs` in Windows Startup folder — runs `agentinbox-start.bat` silently on PC boot
+- **Mac:** launchd plist at `~/Library/LaunchAgents/com.agentinbox.worker.plist`
 
 ---
 
 ## What's Built
 
 ### agentinbox-worker.js (per-project, written during setup)
-- Persistent WebSocket connection to AgentInbox server
-- `spawnClaude()` with in-memory debounce
+- Persistent WebSocket connection to AgentInbox server (path: `/agent-socket`)
+- Lockfile-based debounce (`.agentinbox-running`) — safe across processes
 - Spawns `claude --dangerously-skip-permissions --print "<task prompt>"`
-- Logs to `worker.log` in project root
-- `start-worker.vbs` adds it to Windows startup silently
+- Logs to `agentinbox.log` in project root
+- Token + project path passed via env vars in startup bat/sh — not hardcoded
+
+### .mcp.json (per-project, written during setup)
+- Connects Claude to agentinbox-mcp tools when it wakes
+- Required for get_pending_tasks, complete_task, etc. to work
 
 ### agentinbox-mcp (v0.1.5 — published on npm)
-- Still used for MCP tools inside Claude sessions (get_pending_tasks, complete_task, etc.)
-- WebSocket wake logic also present but secondary to standalone worker
 - 9 MCP tools: get_pending_tasks, get_task, get_file, update_task_status, complete_task, escalate_task, propose_plan, ask_developer, notify_developer
+- complete_task accepts screenshot_base64 for proof attachment
 
 ### Setup endpoint (GET /api/setup/download)
-- Returns a plain text prompt pre-filled with the developer's workspace token
-- Developer pastes it into Claude Code — Claude configures everything
-- No manual file editing, no npm install, no terminal commands
+- Returns a plain text prompt pre-filled with the developer's workspace token + submit link
+- 11 steps: scan codebase → install socket.io-client → worker.js → .mcp.json → startup scripts → OS startup → CLAUDE.local.md → rules/ → .gitignore → start worker → report back
+- Verification section written to CLAUDE.local.md when require_verification is enabled
 
 ### Core Infrastructure
 - Express + Socket.io server (SQLite locally, Turso on Render)
-- PM dashboard — task list, detail panel, approval controls
-- Submission form — file upload, custom fields, constellation animation
+- PM dashboard — task list, detail panel, approval controls, screenshot card
+- Submission form — file upload, custom fields, priority, constellation animation
 - Auth — JWT login/signup, workspace management
-- Approval gate — per-project, Claude proposes plan before touching code
+- Approval gate — per-project toggle, Claude proposes plan before touching code
+- Screenshot verification — per-project toggle, Claude starts app + Playwright after fix
 - Telegram per-workspace — each developer connects their own bot via PM dashboard UI
 - Two Telegram task sources: website form + direct bot message
-- Bidirectional Telegram: approve/reject/answer questions via reply
-- Playground — animation + chat live demos
+- Bidirectional Telegram: approve/reject/answer questions via reply, ✅ on completion
+- Playground — animation + chat live demos (conversion tool)
+
+---
+
+## Testing Status — PASSED (Jun 5–6, 2026)
+
+| Test | Coverage | Result |
+|---|---|---|
+| Simulation — 4 stacks | React, Node, Python, Laravel | ✅ 4/4 |
+| Messy codebase — 5 scenarios | Monorepo, legacy, no docs, mixed, 345 files | ✅ 5/5 |
+| Complex multi-file bugs — 5 scenarios | Hidden bugs across 3-4 files, no hints | ✅ 5/5 |
+| Manual — new developer onboarding | Fresh signup → setup → submit → fix → screenshot | ✅ |
+| Manual — Telegram bidirectional | Message bot → fix → ✅ back on Telegram | ✅ |
+
+**100% production ready. First customers can onboard today.**
 
 ---
 
 ## How to Run
 
-**Production:** https://useagentinbox.com (Render, always on)
+**Production:** https://useagentinbox.com (Render, auto-deploys from main)
 
 **Local dev:**
 ```powershell
 cd packages/server && node dist/cli.js start
 ```
+
+Server runs on port 3001. UI served from `ui-dist/`.
 
 ---
 
@@ -116,7 +147,7 @@ cd packages/server && node dist/cli.js start
 - Login: robin.devkota@amniltech.com / Super@123
 - Workspace token (Render): wt_cAyY3qI_a3TsfKAO8Z4idI9Nl7muGxva
 - MBL project submission token (Render): RqUi3neoyyq-94nCD-heC8Yv6acZX00w
-- MBL worker script: d:\mbl-account-opening\agentinbox-worker.js
+- MBL worker: d:\mbl-account-opening\agentinbox-worker.js
 - npm: agentinbox-mcp@0.1.5
 
 ---
@@ -133,20 +164,23 @@ Source 2: You message the Telegram bot (non-reply message)
 ```
 
 Only messages from the configured chat ID are accepted — no one else can trigger tasks.
+One bot per workspace — by design. Sharing a bot across workspaces causes both workers to race.
 
 ### Bidirectional control (reply to a bot message)
 - Approval needed → Claude sends plan → you reply "approve" or "reject: reason"
 - Claude asks a question → you reply → Claude reads developer_reply and continues
+- Task complete → Telegram: "✅ Fixed — Proof posted to dashboard"
 
 ### Configure via PM dashboard
-PM dashboard → Settings → Telegram → enter bot token, chat ID, project
+PM dashboard → Settings → Telegram → enter bot token, chat ID, default project
 
 ---
 
 ## Not Built Yet (priority order)
 
-1. Stripe billing — zero revenue without it (2 days)
-2. Setup prompt auto-generates worker + VBS for the developer's project
-3. Slack webhook — sticky feature, PMs love it (1 day)
-4. SLA/stats dashboard — renewal justification (2 hours)
-5. PDF weekly report — PM sends to client (1 day)
+1. **Stripe billing** — zero revenue without it (2 days)
+2. **Show HN / launch post** — after Stripe is live
+3. **Slack webhook** — sticky feature, PMs love it (1 day)
+4. **Email notifications** — fallback when Telegram not configured (4 hours)
+5. **SLA/stats dashboard** — renewal justification (2 hours)
+6. **PDF weekly report** — PM sends to client, subscription becomes unkillable (1 day)
