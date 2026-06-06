@@ -265,7 +265,7 @@ export function createRouter(): Router {
         fireWebhook(taskPayload).catch(() => {});
 
         // Telegram notification
-        notifyTaskSubmitted(task.id, task.title, project.name).catch(() => {});
+        notifyTaskSubmitted(task.id, task.title, project.name, task.description).catch(() => {});
 
         // Trigger Claude to wake up and process the task (event-driven, no idle polling)
         if (process.env.TRIGGER_CLAUDE === "true") triggerClaude();
@@ -574,6 +574,10 @@ export function createRouter(): Router {
       action: "task_approved",
       actor: approvedBy,
     });
+    const project = db.prepare("SELECT workspace_id FROM projects WHERE id = ?").get(task.project_id) as { workspace_id: string } | undefined;
+    if (project) {
+      emitTaskCreated(project.workspace_id, { task_id: task.id, title: task.title, type: "task.approved" });
+    }
     res.json(updated);
   });
 

@@ -274,7 +274,7 @@ function createRouter() {
             // Also fire webhook as fallback (ngrok/router still supported)
             (0, notify_1.fireWebhook)(taskPayload).catch(() => { });
             // Telegram notification
-            (0, bot_1.notifyTaskSubmitted)(task.id, task.title, project.name).catch(() => { });
+            (0, bot_1.notifyTaskSubmitted)(task.id, task.title, project.name, task.description).catch(() => { });
             // Trigger Claude to wake up and process the task (event-driven, no idle polling)
             if (process.env.TRIGGER_CLAUDE === "true")
                 (0, claude_1.triggerClaude)();
@@ -546,6 +546,10 @@ function createRouter() {
             action: "task_approved",
             actor: approvedBy,
         });
+        const project = db_1.db.prepare("SELECT workspace_id FROM projects WHERE id = ?").get(task.project_id);
+        if (project) {
+            (0, manager_1.emitTaskCreated)(project.workspace_id, { task_id: task.id, title: task.title, type: "task.approved" });
+        }
         res.json(updated);
     });
     router.post("/tasks/:id/reject", tokens_1.requireAuth, (req, res) => {
@@ -694,6 +698,8 @@ Run in the project root:
   npm install socket.io-client --save
 
 If package.json does not exist, run npm init -y first.
+If you use pnpm: pnpm add socket.io-client --ignore-workspace-root-check
+If you use yarn: yarn add socket.io-client
 
 ## Step 3 — Write agentinbox-worker.js in the project root
 Write this file exactly (replace PROJECT_PATH with the actual absolute path of this project root):

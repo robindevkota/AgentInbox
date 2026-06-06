@@ -259,13 +259,17 @@ async function getWorkspaceIdForTask(taskId: string): Promise<string | null> {
   return row?.workspace_id ?? null;
 }
 
-export async function notifyTaskSubmitted(taskId: string, title: string, projectName: string): Promise<void> {
+export async function notifyTaskSubmitted(taskId: string, title: string, projectName: string, description?: string): Promise<void> {
   const wsId = await getWorkspaceIdForTask(taskId);
   const cfg = wsId ? taskQueries.getTelegramConfig(wsId) : null;
   const botToken = cfg?.bot_token || process.env.TELEGRAM_BOT_TOKEN;
   const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
   if (!botToken || !chatId) return;
-  const msgId = await _send(botToken, chatId, `🐛 <b>New bug:</b> ${title}\n<i>Project: ${projectName}</i>\n\nClaude is on it.`);
+  const prefix = description?.match(/^\[(BUG|FEATURE|OTHER)\]/i)?.[1]?.toUpperCase();
+  const label = prefix === "FEATURE" ? "✨ <b>New feature:</b>"
+              : prefix === "OTHER"   ? "💬 <b>New request:</b>"
+              :                        "🐛 <b>New bug:</b>";
+  const msgId = await _send(botToken, chatId, `${label} ${title}\n<i>Project: ${projectName}</i>\n\nClaude is on it.`);
   if (msgId) db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, taskId);
 }
 

@@ -112,7 +112,7 @@ export function SubmitPage() {
     form.append("priority", priority);
     if (nameRef.current!.value) form.append("submitter_name", nameRef.current!.value.trim());
     if (emailRef.current!.value) form.append("submitter_email", emailRef.current!.value.trim());
-    if (fileRef.current!.files?.[0]) form.append("file", fileRef.current!.files[0]);
+    if (fileRef.current?.files?.[0]) form.append("file", fileRef.current.files[0]);
     if (Object.keys(customFieldValues).length > 0) {
       form.append("custom_field_values", JSON.stringify(customFieldValues));
     }
