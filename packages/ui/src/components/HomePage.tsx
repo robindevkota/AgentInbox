@@ -647,10 +647,6 @@ export function HomePage() {
           </div>
           <div className="flex items-center gap-3">
             <a href="/login" className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
-            <button onClick={downloadSetup}
-              className="border border-indigo-500/50 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 text-sm font-semibold px-4 py-2 rounded-lg transition-colors cursor-pointer">
-              ↓ Setup guide
-            </button>
             <a href="/signup" className="bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               style={{ boxShadow: "0 0 20px rgba(99,102,241,0.4)" }}>
               Get started free →
@@ -690,19 +686,14 @@ export function HomePage() {
             Submit tasks from a form, Telegram, or CI pipeline.<br />
             Your Claude fixes them on your machine — your codebase, your rules, your tools.
           </p>
-          <p className="text-slate-500 text-sm mb-8">No extra API cost. No VS Code open. No handoffs.</p>
+          <p className="text-slate-300 text-sm mb-8">No extra API cost. No VS Code open. No handoffs.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="/signup"
               className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-8 py-4 rounded-xl text-base transition-all"
               style={{ boxShadow: "0 0 40px rgba(99,102,241,0.45)" }}>
               Start free — one paste setup →
             </a>
-            <button onClick={downloadSetup}
-              className="inline-flex items-center gap-2 border border-indigo-500/40 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 font-semibold px-8 py-4 rounded-xl transition-colors text-base cursor-pointer">
-              ↓ Download setup guide
-            </button>
           </div>
-          <p className="text-slate-600 text-xs mt-3">Sign up to get a setup file with your token pre-filled</p>
         </div>
 
         {/* ── Use cases — right after animation ── */}
@@ -710,7 +701,7 @@ export function HomePage() {
           <div className="text-center mb-10">
             <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest mb-3">Use cases</p>
             <h2 className="text-3xl font-extrabold mb-3">Not just a bug pipeline.</h2>
-            <p className="text-slate-500 text-sm max-w-xl mx-auto">AgentInbox is a task pipe between anyone and your Claude. What Claude does with the task is up to you.</p>
+            <p className="text-slate-300 text-sm max-w-xl mx-auto">AgentInbox is a task pipe between anyone and your Claude. What Claude does with the task is up to you.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
@@ -852,7 +843,7 @@ export function HomePage() {
         <div className="w-full max-w-5xl mb-16 text-center">
           <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest mb-3">Who it's for</p>
           <h2 className="text-3xl font-extrabold mb-3">Built for developers who ship alone.</h2>
-          <p className="text-slate-500 text-sm mb-10">No QA team. No DevOps. Just you, your Claude, and a pipe that handles everything else.</p>
+          <p className="text-slate-300 text-sm mb-10">No QA team. No DevOps. Just you, your Claude, and a pipe that handles everything else.</p>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {[
               {
@@ -900,7 +891,7 @@ export function HomePage() {
         {/* ── PM Workflow section ── */}
         <div className="w-full max-w-5xl mb-16">
           <h2 className="text-center text-3xl font-bold mb-2">Built for PMs and managers too</h2>
-          <p className="text-center text-slate-500 text-sm mb-10">Not just a developer tool — the PM controls everything from one dashboard.</p>
+          <p className="text-center text-slate-300 text-sm mb-10">Not just a developer tool — the PM controls everything from one dashboard.</p>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {/* Left — PM steps */}
@@ -1094,7 +1085,7 @@ export function HomePage() {
         {/* Features */}
         <div className="w-full max-w-6xl mb-20">
           <h2 className="text-center text-3xl font-bold mb-2">Everything included</h2>
-          <p className="text-center text-slate-500 text-sm mb-10">One pipe. Full loop. No extra billing.</p>
+          <p className="text-center text-slate-300 text-sm mb-10">One pipe. Full loop. No extra billing.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
               { icon: "📥", title: "Submission form",       desc: "Shareable link — no account needed. Attach screenshots, PDFs, Word docs. Custom fields for Environment, Module, Priority.", accent: "bg-indigo-500/10" },
@@ -1120,7 +1111,7 @@ export function HomePage() {
         {/* Pricing */}
         <div className="w-full max-w-4xl mb-24">
           <h2 className="text-center text-3xl font-bold mb-2">Simple pricing</h2>
-          <p className="text-center text-slate-500 text-sm mb-10">Priced by projects — not by AI usage or seats.</p>
+          <p className="text-center text-slate-300 text-sm mb-10">Priced by projects — not by AI usage or seats.</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {[
               { name: "Free",    price: "$0",     projects: "1 project",    tasks: "50 tasks/mo",      highlight: false },
