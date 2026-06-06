@@ -731,6 +731,8 @@ Run in the project root:
   npm install socket.io-client --save
 
 If package.json does not exist, run npm init -y first.
+If you use pnpm: pnpm add socket.io-client --ignore-workspace-root-check
+If you use yarn: yarn add socket.io-client
 
 ## Step 3 — Write agentinbox-worker.js in the project root
 Write this file exactly (replace PROJECT_PATH with the actual absolute path of this project root):

@@ -77,6 +77,50 @@ Claude traced full call chains with no hints. Plain-English summaries good enoug
 
 ---
 
+### 4. Manual end-to-end test — Real developer onboarding flow (Jun 6, 2026)
+
+Full simulation of a new developer signing up and using AgentInbox for the first time.
+Stack: Python/Flask. Project: `d:\test-flask-app\` with bugs hidden across 6 files.
+
+#### Developer onboarding (UI flow)
+| Step | Result |
+|---|---|
+| Fresh signup (testdev.flask.001@gmail.com) | ✅ |
+| Create project "Flask Bug Tracker" | ✅ |
+| Add custom fields: Severity (dropdown, required), Module (dropdown, required) | ✅ |
+| Configure Telegram bot + default project | ✅ |
+| Enable Screenshot verification toggle | ✅ |
+| Download setup file → token pre-filled, all 11 steps correct | ✅ |
+| Worker installed + connected (`[worker] Connected to AgentInbox`) | ✅ |
+
+#### Bug submission via UI form
+| Step | Result |
+|---|---|
+| Submit form: title, description, priority, custom fields filled | ✅ |
+| Task appears in PM dashboard with correct custom fields (critical, auth) | ✅ |
+| Worker receives `task.created` → spawns Claude instantly | ✅ |
+| Claude traces bugs across 4 files (auth.py, models/user.py, payments.py, utils/payments.py) | ✅ |
+| Both bugs fixed: email case-sensitivity + double tax | ✅ |
+| Flask app started → Playwright screenshot taken → attached to task | ✅ |
+| PM dashboard shows: done + technical summary + plain summary + screenshot card | ✅ |
+
+#### Bug submission via Telegram (bidirectional)
+| Step | Result |
+|---|---|
+| Message sent to Telegram bot | ✅ |
+| Bot replies "⚡ Task created — Claude is on it" instantly | ✅ |
+| Task appears in PM dashboard as `Developer (Telegram)` source | ✅ |
+| Claude fixes bugs, attaches screenshot proof | ✅ |
+| Telegram receives "✅ Fixed — Proof posted to dashboard" | ✅ |
+
+**Note:** One Telegram bot shared across two workspaces caused both workers to race (MBL + Flask). Real developers use one bot per workspace — no conflict. Expected behavior.
+
+**Setup file accuracy:** All 11 steps verified correct. pnpm/yarn install alternatives added.
+
+**Verdict: Full developer journey works end-to-end. Ready to onboard real customers.**
+
+---
+
 ## 🟡 After testing passes
 
 ### 2. Stripe billing

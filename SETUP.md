@@ -1,13 +1,13 @@
 # AgentInbox — Setup Guide
 
-Two actions. Done forever.
+One paste into Claude. Done forever.
 
 ---
 
 ## One-time setup
 
 **1. Download your setup file**
-PM dashboard → Settings → Download Setup
+PM dashboard → Settings → ↓ Download setup file
 
 **2. Open Claude Code in your project**
 ```bash
@@ -16,12 +16,16 @@ claude
 ```
 
 **3. Paste the downloaded prompt**
-Claude scans your codebase and writes two files automatically:
+Claude scans your codebase and writes these files automatically:
 - `agentinbox-worker.js` — the background worker
-- `start-worker.vbs` — the silent Windows startup script
+- `.mcp.json` — connects Claude to AgentInbox tools
+- `agentinbox-start.bat` + `agentinbox-start.vbs` — silent Windows startup
+- `agentinbox-start.sh` — Mac/Linux startup
+- `CLAUDE.local.md` — task processing rules for your stack
+- `.claude/rules/` — codebase domain knowledge
 
-**4. Claude adds the startup script to Windows**
-Once added, you never touch it again.
+**4. Claude adds the startup script to your OS startup folder**
+Once added, the worker starts silently on every PC boot. You never touch it again.
 
 ---
 
@@ -45,12 +49,13 @@ No terminal commands. No polling. No idle tokens.
 ## How it works
 
 ```
-Client submits bug via submission form
-  → AgentInbox server (Render) stores task
+Client submits bug via submission form  (or you message your Telegram bot)
+  → AgentInbox server stores task
   → WebSocket push: task.created
   → agentinbox-worker.js receives it instantly
   → spawns: claude --dangerously-skip-permissions --print "check pending tasks..."
-  → Claude fixes it, calls complete_task, exits
+  → Claude reads .mcp.json, connects to AgentInbox tools
+  → fixes it, calls complete_task (with screenshot if verification is on), exits
   → Telegram ✅ + proof on PM dashboard
   → worker resets, listens for next task
 ```
@@ -62,11 +67,14 @@ Client submits bug via submission form
 | File | Purpose |
 |---|---|
 | `agentinbox-worker.js` | Persistent WebSocket listener — spawns Claude on task arrival |
-| `start-worker.vbs` | Silent Windows startup script — runs worker on PC boot |
-| `CLAUDE.local.md` | Task processing rules for your stack |
-| `.claude/rules/` | Domain knowledge files for your codebase |
+| `.mcp.json` | Gives Claude the AgentInbox tools (get_pending_tasks, complete_task, etc.) |
+| `agentinbox-start.bat` | Windows: starts worker with env vars |
+| `agentinbox-start.vbs` | Windows: runs .bat silently on PC boot |
+| `agentinbox-start.sh` | Mac/Linux: starts worker on boot |
+| `CLAUDE.local.md` | Task processing instructions for your stack |
+| `.claude/rules/` | Domain knowledge files so Claude understands your codebase |
 
-`CLAUDE.local.md` and `agentinbox-worker.js` are added to `.gitignore` automatically.
+All these files are added to `.gitignore` automatically — nothing sensitive is committed.
 
 ---
 
@@ -74,7 +82,7 @@ Client submits bug via submission form
 
 - [Claude Code](https://claude.ai/code) installed (Claude Pro or API key)
 - Node.js 18+
-- Windows (VBS startup script) — Mac/Linux support coming
+- Windows, Mac, or Linux
 
 ---
 
@@ -112,10 +120,11 @@ pm2 save && pm2 startup
 
 Check the log file anytime:
 ```
-your-project\worker.log
+your-project\agentinbox.log
 ```
 Should show:
 ```
+[worker] Starting...
 [worker] Connected to AgentInbox
 [worker] Workspace: Your Workspace
 ```
@@ -142,16 +151,35 @@ Control Claude mid-task by replying to bot messages:
 
 ---
 
+## Screenshot verification (optional)
+
+Enable **Screenshot verification** in PM dashboard → Settings → Project settings.
+
+When enabled, after every fix Claude:
+1. Starts your app locally
+2. Opens Playwright and navigates to the relevant page
+3. Takes a screenshot as proof
+4. Attaches it to the task — visible in PM dashboard
+
+Best for bug-fixing projects. Not needed for chat/support/analysis projects.
+
+---
+
 ## Troubleshooting
 
 **Worker not connecting**
-- Check `worker.log` for error messages
+- Check `agentinbox.log` for error messages
 - Verify your workspace token starts with `wt_`
 - Make sure Node.js is installed: `node --version`
+- Make sure `.mcp.json` is in the project root
 
 **Claude not waking on tasks**
-- Check `worker.log` for `[worker] Waking Claude`
+- Check `agentinbox.log` for `[worker] Waking Claude`
 - If `claude` is not in PATH, edit `agentinbox-worker.js` and set the full path in `findClaude()`
+
+**get_pending_tasks not found**
+- Make sure `.mcp.json` is in the project root (not a parent folder)
+- Run `node agentinbox-worker.js` manually and check for errors
 
 **Tasks not appearing**
 - Check PM dashboard — task may already be `in_progress`
