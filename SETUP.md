@@ -131,6 +131,29 @@ Should show:
 
 ---
 
+## Submission form — task types
+
+The submission form has three task types:
+- **🐛 Bug** — something broken
+- **✨ Feature** — something new to build
+- **💬 Other** — anything else
+
+The type is shown on Telegram when the task arrives (🐛 New bug / ✨ New feature / 💬 New request) so you know what's coming before Claude picks it up.
+
+---
+
+## Approval gate (optional)
+
+Enable **Require approval** in PM dashboard → Settings → Project settings.
+
+When enabled:
+1. Task arrives → Claude reads it and proposes a plan
+2. Plan posted to PM dashboard + sent to Telegram
+3. You approve (PM dashboard button, or reply `approve` to the Telegram message)
+4. Claude immediately wakes and implements — no delay, no polling
+
+---
+
 ## Telegram (optional — control Claude from your phone)
 
 Once Telegram is configured via PM dashboard → Settings → Telegram:
@@ -148,6 +171,8 @@ Bot: "✅ Fixed — Login.tsx line 42"
 Control Claude mid-task by replying to bot messages:
 - Approval needed → reply `approve` or `reject: your reason`
 - Claude asks a question → reply with your answer
+
+**Note:** only *replies* to bot messages are treated as control commands. New messages to the bot always create a new task.
 
 ---
 
