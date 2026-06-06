@@ -1046,14 +1046,20 @@ export function HomePage() {
             style={{ background: "linear-gradient(135deg,rgba(99,102,241,0.08),rgba(139,92,246,0.05))", boxShadow: "0 0 60px rgba(99,102,241,0.1)" }}>
             <div className="p-8 sm:p-10 grid grid-cols-1 sm:grid-cols-2 gap-8 items-center">
               <div>
-                <div className="inline-flex items-center gap-2 bg-indigo-500/20 rounded-full px-3 py-1 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-4">🔧 8-line setup</div>
-                <h2 className="text-3xl font-extrabold mb-3">Claude configures<br />itself for your project.</h2>
-                <p className="text-slate-400 text-sm leading-relaxed mb-4">
-                  Add 8 lines to <code className="text-indigo-400 bg-indigo-500/10 px-1.5 py-0.5 rounded">.mcp.json</code>. Open Claude Code. Done.<br /><br />
-                  Or paste one prompt — Claude scans your codebase and writes all rule files and agent config automatically.
+                <div className="inline-flex items-center gap-2 bg-indigo-500/20 rounded-full px-3 py-1 text-indigo-400 text-xs font-bold uppercase tracking-wider mb-4">⚡ One paste setup</div>
+                <h2 className="text-3xl font-extrabold mb-3">Claude sets itself<br />up for your project.</h2>
+                <p className="text-slate-300 text-sm leading-relaxed mb-4">
+                  Sign up, download your setup file, paste it into Claude Code in your project root. Claude scans your codebase, writes all config files, and adds itself to your OS startup. Done forever.
                 </p>
+                <ul className="space-y-2 mb-6">
+                  {["Worker runs silently on PC boot — no terminal", "Tasks arrive → Claude wakes → fixes → exits", "Telegram ✅ when done"].map(item => (
+                    <li key={item} className="flex items-center gap-2 text-slate-300 text-sm">
+                      <span className="text-emerald-400">✓</span> {item}
+                    </li>
+                  ))}
+                </ul>
                 <a href="/signup" className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-bold px-5 py-2.5 rounded-xl transition-colors">
-                  Get your token →
+                  Get started free →
                 </a>
               </div>
               <div className="rounded-xl overflow-hidden border border-slate-700/60 bg-[#0d1117] font-mono">
@@ -1061,21 +1067,19 @@ export function HomePage() {
                   <div className="w-3 h-3 rounded-full bg-red-500/70" />
                   <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
                   <div className="w-3 h-3 rounded-full bg-green-500/70" />
-                  <span className="text-slate-500 text-xs ml-2">.mcp.json</span>
+                  <span className="text-slate-400 text-xs ml-2">Claude Code — your project root</span>
                 </div>
-                <pre className="p-5 text-xs leading-relaxed overflow-x-auto text-slate-300"><code>{`{
-  "mcpServers": {
-    "agentinbox": {
-      "command": "npx",
-      "args": ["-y", "agentinbox-mcp"],
-      "env": {
-        "AGENTINBOX_TOKEN": "wt_..."
-      }
-    }
-  }
-}`}</code></pre>
+                <pre className="p-5 text-xs leading-relaxed overflow-x-auto"><code>{`> paste agentinbox-setup.md into Claude
+
+`}<span className="text-slate-500">{`✔ Scanned 312 files
+✔ Wrote agentinbox-worker.js
+✔ Wrote .mcp.json
+✔ Wrote CLAUDE.local.md
+✔ Added to Windows Startup`}</span>{`
+
+`}<span className="text-emerald-400">{`Worker started. Listening for tasks.`}</span></code></pre>
                 <div className="px-5 py-3 border-t border-slate-700/60 bg-slate-800/40 text-xs text-emerald-400">
-                  ✓ Claude Code auto-connects on startup
+                  ✓ Never touch this again — runs on every boot
                 </div>
               </div>
             </div>
