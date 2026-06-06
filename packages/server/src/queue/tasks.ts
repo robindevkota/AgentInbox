@@ -65,6 +65,7 @@ export interface Project {
   description: string | null;
   token: string;
   require_approval: number;
+  require_verification: number;
   allowed_emails: string | null;
   brand_name: string | null;
   brand_color: string | null;
@@ -102,6 +103,7 @@ export const taskQueries = {
     description?: string,
     options?: {
       require_approval?: boolean;
+      require_verification?: boolean;
       allowed_emails?: string;
       notify_email?: string;
       brand_name?: string;
@@ -113,8 +115,8 @@ export const taskQueries = {
     const id = nanoid();
     const token = nanoid(32);
     db.prepare(`
-      INSERT INTO projects (id, workspace_id, name, description, token, require_approval, allowed_emails, notify_email, brand_name, brand_color, slack_channel, custom_fields)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO projects (id, workspace_id, name, description, token, require_approval, require_verification, allowed_emails, notify_email, brand_name, brand_color, slack_channel, custom_fields)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       workspaceId,
@@ -122,6 +124,7 @@ export const taskQueries = {
       description ?? null,
       token,
       options?.require_approval ? 1 : 0,
+      options?.require_verification ? 1 : 0,
       options?.allowed_emails ?? null,
       options?.notify_email ?? null,
       options?.brand_name ?? null,
@@ -138,6 +141,7 @@ export const taskQueries = {
       name: string;
       description: string;
       require_approval: boolean;
+      require_verification: boolean;
       allowed_emails: string;
       notify_email: string;
       brand_name: string;

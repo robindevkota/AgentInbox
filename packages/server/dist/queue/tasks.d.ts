@@ -51,6 +51,7 @@ export interface Project {
     description: string | null;
     token: string;
     require_approval: number;
+    require_verification: number;
     allowed_emails: string | null;
     brand_name: string | null;
     brand_color: string | null;
@@ -70,6 +71,7 @@ export declare const taskQueries: {
     getWorkspace(id: string): Workspace | undefined;
     createProject(workspaceId: string, name: string, description?: string, options?: {
         require_approval?: boolean;
+        require_verification?: boolean;
         allowed_emails?: string;
         notify_email?: string;
         brand_name?: string;
@@ -81,6 +83,7 @@ export declare const taskQueries: {
         name: string;
         description: string;
         require_approval: boolean;
+        require_verification: boolean;
         allowed_emails: string;
         notify_email: string;
         brand_name: string;

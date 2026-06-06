@@ -18,9 +18,9 @@ exports.taskQueries = {
         const id = (0, nanoid_1.nanoid)();
         const token = (0, nanoid_1.nanoid)(32);
         db_1.db.prepare(`
-      INSERT INTO projects (id, workspace_id, name, description, token, require_approval, allowed_emails, notify_email, brand_name, brand_color, slack_channel, custom_fields)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, workspaceId, name, description ?? null, token, options?.require_approval ? 1 : 0, options?.allowed_emails ?? null, options?.notify_email ?? null, options?.brand_name ?? null, options?.brand_color ?? null, options?.slack_channel ?? null, options?.custom_fields ?? null);
+      INSERT INTO projects (id, workspace_id, name, description, token, require_approval, require_verification, allowed_emails, notify_email, brand_name, brand_color, slack_channel, custom_fields)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, workspaceId, name, description ?? null, token, options?.require_approval ? 1 : 0, options?.require_verification ? 1 : 0, options?.allowed_emails ?? null, options?.notify_email ?? null, options?.brand_name ?? null, options?.brand_color ?? null, options?.slack_channel ?? null, options?.custom_fields ?? null);
         return db_1.db.prepare("SELECT * FROM projects WHERE id = ?").get(id);
     },
     updateProject(id, updates) {

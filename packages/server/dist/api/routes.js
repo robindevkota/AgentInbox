@@ -448,6 +448,7 @@ function createRouter() {
                 name: zod_1.z.string().min(1),
                 description: zod_1.z.string().optional(),
                 require_approval: zod_1.z.boolean().optional(),
+                require_verification: zod_1.z.boolean().optional(),
                 allowed_emails: zod_1.z.string().optional(),
                 notify_email: zod_1.z.string().email().optional(),
                 brand_name: zod_1.z.string().optional(),
@@ -481,6 +482,7 @@ function createRouter() {
                 name: zod_1.z.string().optional(),
                 description: zod_1.z.string().optional(),
                 require_approval: zod_1.z.boolean().optional(),
+                require_verification: zod_1.z.boolean().optional(),
                 allowed_emails: zod_1.z.string().optional(),
                 notify_email: zod_1.z.string().email().optional(),
                 brand_name: zod_1.z.string().optional(),
@@ -667,14 +669,17 @@ function createRouter() {
                     wsToken = t;
             }
         }
-        // Resolve project submit token if JWT provided
+        // Resolve project submit token + require_verification if JWT provided
         let projectSubmitToken = null;
+        let requireVerification = false;
         if (jwt) {
             const payload = (0, users_1.verifyToken)(jwt);
             if (payload) {
-                const projects = db_1.db.prepare("SELECT token FROM projects WHERE workspace_id = ? ORDER BY created_at ASC LIMIT 1").get(payload.workspaceId);
-                if (projects)
-                    projectSubmitToken = projects.token;
+                const proj = db_1.db.prepare("SELECT token, require_verification FROM projects WHERE workspace_id = ? ORDER BY created_at ASC LIMIT 1").get(payload.workspaceId);
+                if (proj) {
+                    projectSubmitToken = proj.token;
+                    requireVerification = proj.require_verification === 1;
+                }
             }
         }
         const setupMd = `Set up AgentInbox in this project. Workspace token: ${wsToken}
@@ -823,31 +828,30 @@ Based on your codebase scan, write CLAUDE.local.md with:
 - How to run the project locally
 - Where the main entry points are
 - Any important conventions or gotchas
-
-Also include a Verification section:
+${requireVerification ? `
+Also include a Verification section — find the values from package.json scripts, .env.example, README, or seed files:
 
 \`\`\`
 ## Verification
-- Start command: <how to start the app, e.g. npm run dev>
+- Start command: <e.g. npm run dev>
 - URL: <e.g. http://localhost:3000>
-- Login: <test credentials if login is required, e.g. admin@test.com / password123>
-- Stop command: <how to stop the app after verification>
+- Login: <test credentials if login required, e.g. admin@test.com / password123>
+- Stop command: <e.g. kill the process>
 \`\`\`
 
-Fill this in based on what you find in the codebase (package.json scripts, .env.example, README, seed files).
-If you cannot determine the credentials, write "ASK_DEVELOPER" and leave a comment.
-
+If you cannot determine credentials, write "ASK_DEVELOPER" as a placeholder.
+` : ""}
 ## Step 8 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
-
+${requireVerification ? `
 Also create .claude/rules/verification.md with this content:
 
 \`\`\`
 # Verification rule
 
 After every fix, before calling complete_task:
-1. Read CLAUDE.local.md to get the start command, URL, and login credentials
-2. Start the app
+1. Read the Verification section in CLAUDE.local.md
+2. Start the app using the start command
 3. Use Playwright MCP to open the relevant page
 4. Navigate to where the fix is visible
 5. If login is required, log in using the credentials from CLAUDE.local.md
@@ -857,13 +861,13 @@ After every fix, before calling complete_task:
 
 If the app cannot be started (missing deps, missing env vars):
 - Note the reason in summary_technical
-- Call complete_task without a screenshot
-- Do NOT block on this — ship the fix, note the verification gap
+- Call complete_task without a screenshot — do NOT block the fix
 
-If the task description includes an attached screenshot or file from the submitter:
+If the submitter attached a screenshot or file:
 - Use it to understand what the bug looks like
 - After fixing, verify the same area no longer shows the problem
 \`\`\`
+` : ""}
 
 ## Step 9 — Update .gitignore
 Add these lines:
@@ -874,8 +878,7 @@ agentinbox-start.bat
 agentinbox-start.vbs
 agentinbox-start.sh
 agentinbox.log
-.agentinbox-running
-.claude/rules/verification.md
+.agentinbox-running${requireVerification ? "\n.claude/rules/verification.md" : ""}
 \`\`\`
 
 ## Step 10 — Start the worker now
@@ -927,8 +930,8 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     });
     router.get("/agent/tasks/pending", requireWorkspaceToken, (req, res) => {
         const ws = req.agentWorkspace;
-        const projects = db_1.db.prepare("SELECT id, require_approval FROM projects WHERE workspace_id = ?").all(ws.id);
-        const tasks = projects.flatMap((p) => tasks_1.taskQueries.listTasks(p.id, "pending").map((t) => ({ ...t, require_approval: p.require_approval === 1 })));
+        const projects = db_1.db.prepare("SELECT id, require_approval, require_verification FROM projects WHERE workspace_id = ?").all(ws.id);
+        const tasks = projects.flatMap((p) => tasks_1.taskQueries.listTasks(p.id, "pending").map((t) => ({ ...t, require_approval: p.require_approval === 1, require_verification: p.require_verification === 1 })));
         res.json(tasks);
     });
     router.get("/agent/tasks/:id", requireWorkspaceToken, (req, res) => {
@@ -938,7 +941,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
             return;
         }
         const project = tasks_1.taskQueries.getProjectById(task.project_id);
-        res.json({ ...task, require_approval: project?.require_approval === 1 });
+        res.json({ ...task, require_approval: project?.require_approval === 1, require_verification: project?.require_verification === 1 });
     });
     router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
