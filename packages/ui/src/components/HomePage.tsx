@@ -662,10 +662,13 @@ export function HomePage() {
         <div className="mt-10 mb-6 flex flex-col sm:flex-row items-center gap-3">
           <div className="flex items-center gap-2 bg-indigo-500/15 border border-indigo-500/30 rounded-full px-5 py-2 text-indigo-300 text-sm font-semibold"
             style={{ boxShadow: "0 0 24px rgba(99,102,241,0.2)" }}>
-            ⚡ Works with Claude Pro — zero Anthropic API cost
+            ⚡ Uses Claude Pro — zero extra API cost
           </div>
           <div className="flex items-center gap-2 bg-violet-500/15 border border-violet-500/30 rounded-full px-5 py-2 text-violet-300 text-sm font-semibold">
-            🔧 8-line setup — Claude configures itself
+            📱 Telegram bot — submit, approve & get ✅ from your phone
+          </div>
+          <div className="flex items-center gap-2 bg-emerald-500/15 border border-emerald-500/30 rounded-full px-5 py-2 text-emerald-300 text-sm font-semibold">
+            🖥️ Runs on your machine — your codebase, your tools
           </div>
         </div>
 
@@ -677,21 +680,22 @@ export function HomePage() {
         {/* Hero text */}
         <div className="text-center max-w-4xl mb-8">
           <h1 className="text-6xl sm:text-7xl font-extrabold tracking-tight mb-5 leading-[1.05]">
-            No more ticket<br />
+            Your Claude.<br />
             <span className="text-transparent bg-clip-text"
               style={{ backgroundImage: "linear-gradient(135deg, #818cf8 0%, #6366f1 40%, #a78bfa 100%)" }}>
-              back-and-forth.
+              Working while you sleep.
             </span>
           </h1>
           <p className="text-slate-300 text-xl leading-relaxed mb-3 max-w-2xl mx-auto">
-            Anyone submits a task — your Claude Code session picks it up,<br />fixes it, and posts screenshot proof back.
+            Submit tasks from a form, Telegram, or CI pipeline.<br />
+            Your Claude fixes them on your machine — your codebase, your rules, your tools.
           </p>
-          <p className="text-slate-500 text-sm mb-8">No handoffs. No interruptions. No API billing.</p>
+          <p className="text-slate-500 text-sm mb-8">No extra API cost. No VS Code open. No handoffs.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a href="/signup"
               className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-8 py-4 rounded-xl text-base transition-all"
               style={{ boxShadow: "0 0 40px rgba(99,102,241,0.45)" }}>
-              Start free — 5 min setup →
+              Start free — one paste setup →
             </a>
             <button onClick={downloadSetup}
               className="inline-flex items-center gap-2 border border-indigo-500/40 hover:border-indigo-400 text-indigo-300 hover:text-indigo-200 font-semibold px-8 py-4 rounded-xl transition-colors text-base cursor-pointer">
@@ -699,6 +703,84 @@ export function HomePage() {
             </button>
           </div>
           <p className="text-slate-600 text-xs mt-3">Sign up to get a setup file with your token pre-filled</p>
+        </div>
+
+        {/* ── Use cases — right after animation ── */}
+        <div className="w-full max-w-6xl mb-20">
+          <div className="text-center mb-10">
+            <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest mb-3">Use cases</p>
+            <h2 className="text-3xl font-extrabold mb-3">Not just a bug pipeline.</h2>
+            <p className="text-slate-500 text-sm max-w-xl mx-auto">AgentInbox is a task pipe between anyone and your Claude. What Claude does with the task is up to you.</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
+            {[
+              {
+                icon: "🐛", accent: "border-red-500/20 bg-red-500/5",
+                tag: "Bug fixing", tagColor: "text-red-400 bg-red-500/10",
+                title: "Client submits a bug",
+                desc: "QA or client opens your submission form, describes the issue. Claude traces the root cause across files, fixes it, takes a screenshot as proof. Telegram ✅ when done.",
+                flow: ["Form submit", "Claude fixes", "Screenshot proof", "Telegram ✅"],
+                flowColor: "bg-red-500/20 text-red-300",
+              },
+              {
+                icon: "✨", accent: "border-indigo-500/20 bg-indigo-500/5",
+                tag: "Feature building", tagColor: "text-indigo-400 bg-indigo-500/10",
+                title: "PM requests a feature",
+                desc: "PM submits a feature request with a spec file attached. Claude reads the spec, proposes a plan, waits for your approval, then implements it. No dev interruption.",
+                flow: ["Spec attached", "Plan proposed", "PM approves", "Feature built"],
+                flowColor: "bg-indigo-500/20 text-indigo-300",
+              },
+              {
+                icon: "📱", accent: "border-violet-500/20 bg-violet-500/5",
+                tag: "Phone control", tagColor: "text-violet-400 bg-violet-500/10",
+                title: "Manage Claude from Telegram",
+                desc: "Message your bot from bed. Get notified when tasks arrive. Approve Claude's plan with one reply. Receive ✅ when done. No laptop. No VS Code.",
+                flow: ["Message bot", "Claude wakes", "Reply approve", "✅ on Telegram"],
+                flowColor: "bg-violet-500/20 text-violet-300",
+              },
+              {
+                icon: "🤖", accent: "border-cyan-500/20 bg-cyan-500/5",
+                tag: "CI / automation", tagColor: "text-cyan-400 bg-cyan-500/10",
+                title: "CI pipeline fails → Claude fixes",
+                desc: "Your CI POSTs a task when a build breaks. Claude gets the error, finds the broken code, fixes it, and pushes. You wake up to a green build.",
+                flow: ["Build fails", "CI posts task", "Claude fixes", "Green build"],
+                flowColor: "bg-cyan-500/20 text-cyan-300",
+              },
+              {
+                icon: "🖥️", accent: "border-emerald-500/20 bg-emerald-500/5",
+                tag: "Remote dev machine", tagColor: "text-emerald-400 bg-emerald-500/10",
+                title: "24/7 on a cloud VM",
+                desc: "Run the worker on a $6/mo Linux VM. Tasks get fixed around the clock — even when your PC is off. Your codebase cloned there, Claude running headlessly.",
+                flow: ["VM always on", "Worker running", "Claude wakes", "Fixes at 3am"],
+                flowColor: "bg-emerald-500/20 text-emerald-300",
+              },
+              {
+                icon: "💬", accent: "border-amber-500/20 bg-amber-500/5",
+                tag: "Chat support / analysis", tagColor: "text-amber-400 bg-amber-500/10",
+                title: "Answer questions, not just fix code",
+                desc: "Customer asks a question → task created → Claude reads your docs and replies. Or: 'why did sales drop?' → Claude queries your DB and posts a summary.",
+                flow: ["Question arrives", "Claude reads docs", "Drafts reply", "PM reviews"],
+                flowColor: "bg-amber-500/20 text-amber-300",
+              },
+            ].map((uc) => (
+              <Card key={uc.title} className={`p-6 cursor-default border ${uc.accent}`}>
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-2xl">{uc.icon}</span>
+                  <span className={`text-xs font-bold px-2 py-1 rounded-full ${uc.tagColor}`}>{uc.tag}</span>
+                </div>
+                <h3 className="text-white font-bold text-base mb-2">{uc.title}</h3>
+                <p className="text-slate-400 text-sm leading-relaxed mb-4">{uc.desc}</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {uc.flow.map((step, i) => (
+                    <span key={step} className="flex items-center gap-1">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${uc.flowColor}`}>{step}</span>
+                      {i < uc.flow.length - 1 && <span className="text-slate-600 text-xs">→</span>}
+                    </span>
+                  ))}
+                </div>
+              </Card>
+            ))}
+          </div>
         </div>
 
         {/* Problem vs Solution */}
@@ -744,11 +826,11 @@ export function HomePage() {
             <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest mb-6">✅ With AgentInbox</p>
             <div className="flex flex-col gap-0 w-full max-w-xs">
               {[
-                { icon: "📤", label: "Anyone submits",       sub: "form link, no account" },
-                { icon: "⚡", label: "Claude picks it up",   sub: "real-time via MCP" },
-                { icon: "🔧", label: "Bug fixed in repo",    sub: "your rules, your codebase" },
-                { icon: "📸", label: "Screenshot proof",     sub: "posted back instantly" },
-                { icon: "✅", label: "Done — everyone sees", sub: "PM notified, client sees status" },
+                { icon: "📤", label: "Anyone submits",            sub: "form, Telegram, CI — your choice" },
+                { icon: "⚡", label: "Claude wakes instantly",    sub: "WebSocket push, no polling" },
+                { icon: "🔧", label: "Task done on your machine", sub: "your codebase, local DB, internal APIs" },
+                { icon: "📸", label: "Screenshot proof",          sub: "posted back instantly" },
+                { icon: "📱", label: "Telegram ✅ sent to you",   sub: "approve mid-task from your phone" },
               ].map((s, i, arr) => (
                 <div key={s.label} className="flex flex-col items-center">
                   <div className="flex items-center gap-3 w-full bg-slate-800/50 rounded-xl px-4 py-3 border border-slate-700/40">
@@ -766,23 +848,50 @@ export function HomePage() {
           </div>
         </div>
 
-        {/* Who can submit */}
+        {/* Who it's for — 3 persona cards */}
         <div className="w-full max-w-5xl mb-16 text-center">
-          <h2 className="text-2xl font-bold mb-2">Anyone can submit a task</h2>
-          <p className="text-slate-500 text-sm mb-8">Not just clients. Any source that can POST HTTP.</p>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
+          <p className="text-indigo-400 text-xs font-bold uppercase tracking-widest mb-3">Who it's for</p>
+          <h2 className="text-3xl font-extrabold mb-3">Built for developers who ship alone.</h2>
+          <p className="text-slate-500 text-sm mb-10">No QA team. No DevOps. Just you, your Claude, and a pipe that handles everything else.</p>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
             {[
-              { icon: "👤", label: "Client",      sub: "via submission form" },
-              { icon: "🧪", label: "QA engineer", sub: "bug + screenshots" },
-              { icon: "📋", label: "PM",          sub: "feature requests" },
-              { icon: "🔗", label: "Jira/GitLab", sub: "webhook integration" },
-              { icon: "🤖", label: "CI pipeline", sub: "failed build → fix" },
-              { icon: "📱", label: "Your app",    sub: "programmatic API" },
-            ].map((s) => (
-              <Card key={s.label} className="p-4 text-center">
-                <div className="text-2xl mb-2">{s.icon}</div>
-                <p className="text-white text-sm font-semibold">{s.label}</p>
-                <p className="text-slate-500 text-xs mt-1">{s.sub}</p>
+              {
+                icon: "🧑‍💻",
+                title: "Freelancer",
+                quote: "Clients email bugs at midnight. Claude fixes by morning.",
+                points: ["Client submits via form link", "Claude fixes while you sleep", "Client gets screenshot proof", "You wake up to Telegram ✅"],
+                accent: "border-indigo-500/30",
+                glow: "rgba(99,102,241,0.08)",
+              },
+              {
+                icon: "🏢",
+                title: "Agency",
+                quote: "5 client projects. One dashboard. Zero interruptions.",
+                points: ["Each client has own submission link", "Custom fields per project", "PM dashboard across all projects", "Approval gate for production safety"],
+                accent: "border-violet-500/30",
+                glow: "rgba(139,92,246,0.08)",
+              },
+              {
+                icon: "🚀",
+                title: "Solo SaaS founder",
+                quote: "No QA team. Ship fast. Nothing hits prod without your OK.",
+                points: ["Users report bugs via in-app link", "CI posts failed builds as tasks", "Approval gate — you approve from phone", "Screenshot proof before closing ticket"],
+                accent: "border-emerald-500/30",
+                glow: "rgba(52,211,153,0.08)",
+              },
+            ].map((p) => (
+              <Card key={p.title} className={`p-6 text-left border ${p.accent}`} style={{ boxShadow: `0 0 40px ${p.glow}` }}>
+                <div className="text-3xl mb-3">{p.icon}</div>
+                <h3 className="text-white font-bold text-lg mb-1">{p.title}</h3>
+                <p className="text-slate-400 text-sm italic mb-4">"{p.quote}"</p>
+                <ul className="space-y-2">
+                  {p.points.map((pt) => (
+                    <li key={pt} className="flex items-start gap-2 text-slate-300 text-sm">
+                      <span className="text-indigo-400 mt-0.5">→</span>
+                      {pt}
+                    </li>
+                  ))}
+                </ul>
               </Card>
             ))}
           </div>
@@ -858,6 +967,88 @@ export function HomePage() {
           </div>
         </div>
 
+        {/* ── Telegram section ── */}
+        <div className="w-full max-w-5xl mb-20">
+          <div className="rounded-2xl border border-violet-500/20 overflow-hidden"
+            style={{ background: "linear-gradient(135deg,rgba(139,92,246,0.07),rgba(99,102,241,0.04))", boxShadow: "0 0 60px rgba(139,92,246,0.08)" }}>
+            <div className="p-8 sm:p-12 grid grid-cols-1 sm:grid-cols-2 gap-10 items-center">
+              {/* Left — copy */}
+              <div>
+                <div className="inline-flex items-center gap-2 bg-violet-500/20 rounded-full px-3 py-1 text-violet-400 text-xs font-bold uppercase tracking-wider mb-4">📱 Telegram bot</div>
+                <h2 className="text-3xl font-extrabold mb-3">Full control<br />from your phone.</h2>
+                <p className="text-slate-400 text-sm leading-relaxed mb-6">
+                  Connect your Telegram bot once in Settings. From then on — submit tasks by messaging the bot, get notified the moment Claude picks it up, approve or reject Claude's plan with a single reply, and receive ✅ when it's done.
+                  <br /><br />
+                  <span className="text-slate-300">No laptop. No VS Code. No terminal.</span>
+                </p>
+                <div className="space-y-2">
+                  {[
+                    "📤  Message bot → task created instantly",
+                    "⏳  Claude proposes plan → reply 'approve'",
+                    "✅  Fix done → proof posted to dashboard",
+                    "❓  Claude asks a question → reply to answer",
+                  ].map((item) => (
+                    <div key={item} className="flex items-center gap-2 text-slate-300 text-sm">
+                      <span>{item}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              {/* Right — Telegram chat mockup */}
+              <div className="flex flex-col gap-0">
+                {/* Phone frame */}
+                <div className="bg-[#0d1117] border border-slate-700/60 rounded-2xl overflow-hidden" style={{ boxShadow: "0 0 40px rgba(139,92,246,0.12)" }}>
+                  {/* Header */}
+                  <div className="flex items-center gap-3 px-4 py-3 border-b border-slate-700/60 bg-slate-800/60">
+                    <div className="w-8 h-8 rounded-full bg-violet-500/30 border border-violet-500/40 flex items-center justify-center text-sm">📥</div>
+                    <div>
+                      <p className="text-white text-sm font-semibold">AgentInbox Bot</p>
+                      <p className="text-emerald-400 text-xs">● online</p>
+                    </div>
+                  </div>
+                  {/* Messages */}
+                  <div className="p-4 space-y-3 text-sm">
+                    {/* Bot message — new feature */}
+                    <div className="flex gap-2">
+                      <div className="w-6 h-6 rounded-full bg-violet-500/30 flex items-center justify-center text-xs shrink-0 mt-1">📥</div>
+                      <div className="bg-slate-800/80 border border-slate-700/40 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[85%]">
+                        <p className="text-slate-200">✨ <span className="font-semibold">New feature:</span> Add export to CSV button</p>
+                        <p className="text-slate-500 text-xs mt-1">Project: MBL Account Opening</p>
+                        <p className="text-violet-400 text-xs mt-0.5">Claude is on it.</p>
+                      </div>
+                    </div>
+                    {/* Bot — approval needed */}
+                    <div className="flex gap-2">
+                      <div className="w-6 h-6 rounded-full bg-violet-500/30 flex items-center justify-center text-xs shrink-0 mt-1">📥</div>
+                      <div className="bg-slate-800/80 border border-amber-500/20 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[85%]">
+                        <p className="text-amber-300 font-semibold text-xs mb-1">⏳ Approval needed</p>
+                        <p className="text-slate-300 text-xs">Plan: Add export button to ReportTable.tsx, wire to existing CSV util.</p>
+                        <p className="text-slate-500 text-xs mt-1.5">👆 Reply: <span className="text-emerald-400">approve</span> or <span className="text-red-400">reject: reason</span></p>
+                      </div>
+                    </div>
+                    {/* User reply */}
+                    <div className="flex justify-end">
+                      <div className="bg-indigo-600/80 border border-indigo-500/30 rounded-2xl rounded-tr-sm px-3 py-2 max-w-[60%]">
+                        <p className="text-white text-xs">approve</p>
+                      </div>
+                    </div>
+                    {/* Bot — done */}
+                    <div className="flex gap-2">
+                      <div className="w-6 h-6 rounded-full bg-violet-500/30 flex items-center justify-center text-xs shrink-0 mt-1">📥</div>
+                      <div className="bg-slate-800/80 border border-emerald-500/20 rounded-2xl rounded-tl-sm px-3 py-2 max-w-[85%]">
+                        <p className="text-emerald-300 font-semibold text-xs mb-1">✅ Fixed: Add export to CSV button</p>
+                        <p className="text-slate-400 text-xs">Added ExportButton component in ReportTable.tsx line 84. Uses existing csvUtil.export().</p>
+                        <p className="text-slate-500 text-xs mt-1">Proof posted to dashboard →</p>
+                      </div>
+                    </div>
+                    <p className="text-slate-600 text-xs text-center pt-1">One bot. Full control. No laptop needed.</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
         {/* 8-line setup */}
         <div className="w-full max-w-4xl mb-16">
           <div className="rounded-2xl border border-indigo-500/25 overflow-hidden"
@@ -907,7 +1098,8 @@ export function HomePage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {[
               { icon: "📥", title: "Submission form",       desc: "Shareable link — no account needed. Attach screenshots, PDFs, Word docs. Custom fields for Environment, Module, Priority.", accent: "bg-indigo-500/10" },
-              { icon: "⚡", title: "Real-time MCP delivery", desc: "Tasks land in your Claude session via WebSocket the moment they're submitted. No polling, no ngrok, no extra terminals.", accent: "bg-violet-500/10" },
+              { icon: "⚡", title: "Instant wake-on-task",   desc: "Task arrives → WebSocket push → Claude wakes in seconds. Zero polling, zero idle tokens, no terminal to babysit.", accent: "bg-violet-500/10" },
+              { icon: "📱", title: "Telegram control",        desc: "Submit tasks, approve plans, and get ✅ from your phone. One bot per workspace — full control without touching a laptop.", accent: "bg-sky-500/10" },
               { icon: "🤖", title: "Claude Pro as free API", desc: "Route work into your $20/mo Claude Pro session. Your app POSTs a task, Claude handles it, you read the result back.", accent: "bg-blue-500/10" },
               { icon: "📸", title: "Screenshot proof",       desc: "Claude takes a Playwright screenshot on every fix. PM sees it. Client sees it. No trust gap.", accent: "bg-emerald-500/10" },
               { icon: "✅", title: "Approval gate",          desc: "Claude proposes a plan — PM approves before any code runs. Per-project toggle. Email + toast notification.", accent: "bg-amber-500/10" },
@@ -959,7 +1151,7 @@ export function HomePage() {
 
         {/* Bottom CTA */}
         <div className="text-center mb-24 max-w-2xl">
-          <h2 className="text-4xl font-extrabold mb-4">Ship bugs in minutes,<br />not days.</h2>
+          <h2 className="text-4xl font-extrabold mb-4">Fix bugs. Ship features.<br />Sleep through it.</h2>
           <p className="text-slate-400 mb-8">Sign up free. Connect Claude. Share a link.<br />Submit. Fix. Proof. Done.</p>
           <a href="/signup"
             className="inline-flex items-center gap-2 bg-indigo-500 hover:bg-indigo-400 text-white font-bold px-10 py-4 rounded-xl text-lg transition-all"
