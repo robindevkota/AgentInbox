@@ -860,8 +860,46 @@ Based on your codebase scan, write CLAUDE.local.md with:
 - Where the main entry points are
 - Any important conventions or gotchas
 
+Also include a Verification section:
+
+\`\`\`
+## Verification
+- Start command: <how to start the app, e.g. npm run dev>
+- URL: <e.g. http://localhost:3000>
+- Login: <test credentials if login is required, e.g. admin@test.com / password123>
+- Stop command: <how to stop the app after verification>
+\`\`\`
+
+Fill this in based on what you find in the codebase (package.json scripts, .env.example, README, seed files).
+If you cannot determine the credentials, write "ASK_DEVELOPER" and leave a comment.
+
 ## Step 8 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
+
+Also create .claude/rules/verification.md with this content:
+
+\`\`\`
+# Verification rule
+
+After every fix, before calling complete_task:
+1. Read CLAUDE.local.md to get the start command, URL, and login credentials
+2. Start the app
+3. Use Playwright MCP to open the relevant page
+4. Navigate to where the fix is visible
+5. If login is required, log in using the credentials from CLAUDE.local.md
+6. Take a screenshot (browser_take_screenshot)
+7. Stop the app
+8. Call complete_task with screenshot_base64 set to the screenshot
+
+If the app cannot be started (missing deps, missing env vars):
+- Note the reason in summary_technical
+- Call complete_task without a screenshot
+- Do NOT block on this — ship the fix, note the verification gap
+
+If the task description includes an attached screenshot or file from the submitter:
+- Use it to understand what the bug looks like
+- After fixing, verify the same area no longer shows the problem
+\`\`\`
 
 ## Step 9 — Update .gitignore
 Add these lines:
@@ -873,6 +911,7 @@ agentinbox-start.vbs
 agentinbox-start.sh
 agentinbox.log
 .agentinbox-running
+.claude/rules/verification.md
 \`\`\`
 
 ## Step 10 — Start the worker now
