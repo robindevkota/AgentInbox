@@ -874,10 +874,10 @@ export function HomePage() {
               <Card key={p.title} className={`p-6 text-left border ${p.accent}`} style={{ boxShadow: `0 0 40px ${p.glow}` }}>
                 <div className="text-3xl mb-3">{p.icon}</div>
                 <h3 className="text-white font-bold text-lg mb-1">{p.title}</h3>
-                <p className="text-slate-400 text-sm italic mb-4">"{p.quote}"</p>
+                <p className="text-slate-200 text-sm italic mb-4">"{p.quote}"</p>
                 <ul className="space-y-2">
                   {p.points.map((pt) => (
-                    <li key={pt} className="flex items-start gap-2 text-slate-300 text-sm">
+                    <li key={pt} className="flex items-start gap-2 text-white text-sm">
                       <span className="text-indigo-400 mt-0.5">→</span>
                       {pt}
                     </li>
