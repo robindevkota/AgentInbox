@@ -28,24 +28,21 @@ function HeroScene() {
     const W = 1100, H = 440;
     canvas.width = W; canvas.height = H;
 
-    const BUG_X   = 130;   // Bug reporters (left)
-    const CENTER_X = 550;  // Agent home base (center top)
-    const DEV_X   = 880;   // Monitor (right)
-    const CLAUDE_X = DEV_X + 90; // Claude char — right of monitor
-    const GROUND  = 310;   // ground y
-    const PERCH_Y = 80;    // agent sits up here at start
-    const SPEED   = 1.1;   // slow convincing walk
+    const BUG_X    = 130;   // reporters (left)
+    const CENTER_X = 550;   // agent home base (center top)
+    const DEV_X    = 830;   // monitor (right, shifted left to make room for phone)
+    const CLAUDE_X = DEV_X + 90;
+    const PHONE_X  = 1020;  // Telegram phone (far right)
+    const GROUND   = 310;
+    const PERCH_Y  = 80;
+    const SPEED    = 1.1;
 
-    // phases:
-    // idle       — agent perched top-center, gentle bob, reporters dim
-    // bug-arrive — reporter bounces, bug floats right toward center, agent drops heroically
-    // to-bug     — agent runs LEFT to pick up bug
-    // to-dev     — agent runs RIGHT toward codebase carrying bug
-    // fixing     — agent stands left of monitor, claude fixes, files flicker
-    // handoff    — claude extends arm, hands screenshot card to agent
-    // to-client  — agent runs LEFT all the way to reporter to deliver fix
-    // deliver    — agent at reporter side, toast shows, celebrates
-    // to-center  — agent walks back right to center perch
+    // task types — cycle through each loop
+    type TaskType = "bug" | "feature" | "telegram";
+    let loopCount = 0;
+    const TASK_TYPES: TaskType[] = ["bug", "feature", "telegram"];
+    let taskType: TaskType = "bug";
+
     type Phase = "idle"|"bug-arrive"|"to-bug"|"to-dev"|"fixing"|"handoff"|"to-client"|"deliver"|"to-center";
     let phase: Phase = "idle";
     let tick = 0;
@@ -54,9 +51,12 @@ function HeroScene() {
     let handoffProgress = 0;
     let toastAlpha = 0;
     let activeReporter = 0;
+    let phoneGlow = 0; // pulse when telegram task arrives
 
     const agent = { x: CENTER_X, y: PERCH_Y, frame: 0, dir: 1, carrying: false, hasScreenshot: false, excited: 0, landing: false, landTick: 0 };
     const bugProj = { x: BUG_X + 30, y: GROUND - 30, active: false, done: false };
+    // telegram proj — floats LEFT from phone to center
+    const tgProj  = { x: PHONE_X - 30, y: GROUND - 120, active: false, done: false };
 
     // status label — fades in, stays sticky so user can read the full line
     let labelText = "💤  AgentInbox on standby — waiting for tasks...";
@@ -138,13 +138,16 @@ function HeroScene() {
           ctx.fillStyle = "rgba(199,210,254,0.8)"; ctx.font = "bold 6px monospace";
           ctx.fillText("fix_proof.png", 0, -44 + BY - bob);
         } else {
-          // bug above head
-          ctx.fillStyle = "rgba(239,68,68,0.95)";
+          // task item above head — emoji depends on taskType
+          const taskEmoji = taskType === "feature" ? "✨" : taskType === "telegram" ? "📱" : "🐛";
+          const bubbleColor = taskType === "feature" ? "rgba(99,102,241,0.95)" : taskType === "telegram" ? "rgba(34,211,238,0.9)" : "rgba(239,68,68,0.95)";
+          const strokeColor = taskType === "feature" ? "rgba(165,180,252,0.7)" : taskType === "telegram" ? "rgba(103,232,249,0.7)" : "rgba(252,165,165,0.7)";
+          ctx.fillStyle = bubbleColor;
           ctx.beginPath(); ctx.arc(0, -54 + BY - bob, 16, 0, Math.PI * 2); ctx.fill();
-          ctx.strokeStyle = "rgba(252,165,165,0.7)"; ctx.lineWidth = 2;
+          ctx.strokeStyle = strokeColor; ctx.lineWidth = 2;
           ctx.stroke();
           ctx.font = "16px serif"; ctx.textAlign = "center";
-          ctx.fillText("🐛", 0, -48 + BY - bob);
+          ctx.fillText(taskEmoji, 0, -48 + BY - bob);
         }
       } else if (excited > 0) {
         ctx.beginPath(); ctx.moveTo(-22, -6 + BY - bob); ctx.lineTo(-36, -28 + BY - bob); ctx.stroke();
@@ -294,11 +297,13 @@ function HeroScene() {
 
     // ── Draw reporters (left side) ───────────────────────────────────────
     const drawReporters = () => {
+      if (taskType === "telegram") return; // hide when telegram task
       const reporters = [
         { emoji: "👤", label: "Client",  y: GROUND - 60 },
         { emoji: "🧪", label: "QA",      y: GROUND      },
         { emoji: "📋", label: "PM / CI", y: GROUND + 60 },
       ];
+      const arrowColor = taskType === "feature" ? "99,102,241" : "239,68,68";
       reporters.forEach(({ emoji, label, y }, i) => {
         const isActive = (phase === "bug-arrive" || phase === "to-bug") && i === activeReporter;
         const bounce = isActive ? -Math.abs(Math.sin(subTick * 0.2)) * 10 : 0;
@@ -306,19 +311,93 @@ function HeroScene() {
         ctx.font = "30px serif"; ctx.textAlign = "center";
         ctx.fillText(emoji, BUG_X, y + bounce);
 
-        ctx.fillStyle = isActive ? "#fca5a5" : "#e2e8f0";
-        ctx.font = `bold 13px monospace`; ctx.textAlign = "center";
+        ctx.fillStyle = isActive ? (taskType === "feature" ? "#a5b4fc" : "#fca5a5") : "#e2e8f0";
+        ctx.font = "bold 13px monospace"; ctx.textAlign = "center";
         ctx.fillText(label, BUG_X, y + 22 + bounce);
 
-        // arrow pointing right
         const arrowA = isActive ? 0.9 : 0.35;
-        ctx.strokeStyle = `rgba(239,68,68,${arrowA})`; ctx.lineWidth = isActive ? 2 : 1;
+        ctx.strokeStyle = `rgba(${arrowColor},${arrowA})`; ctx.lineWidth = isActive ? 2 : 1;
         ctx.setLineDash(isActive ? [] : [3, 6]);
         ctx.beginPath(); ctx.moveTo(BUG_X + 18, y - 10); ctx.lineTo(BUG_X + 45, y - 10); ctx.stroke();
         ctx.setLineDash([]);
-        ctx.fillStyle = `rgba(239,68,68,${arrowA})`;
+        ctx.fillStyle = `rgba(${arrowColor},${arrowA})`;
         ctx.beginPath(); ctx.moveTo(BUG_X + 48, y - 10); ctx.lineTo(BUG_X + 40, y - 15); ctx.lineTo(BUG_X + 40, y - 5); ctx.closePath(); ctx.fill();
       });
+    };
+
+    // ── Draw Telegram phone (far right) ──────────────────────────────────
+    const drawPhone = () => {
+      const px = PHONE_X, py = GROUND - 170;
+      const isTg = taskType === "telegram";
+      const glowA = isTg ? 0.3 + Math.abs(Math.sin(phoneGlow * 0.08)) * 0.3 : 0.08;
+
+      // glow halo
+      const g = ctx.createRadialGradient(px, py + 80, 0, px, py + 80, 80);
+      g.addColorStop(0, `rgba(34,211,238,${glowA})`);
+      g.addColorStop(1, "rgba(34,211,238,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(px, py + 80, 80, 0, Math.PI * 2); ctx.fill();
+
+      // phone body
+      ctx.fillStyle = "#0f172a";
+      ctx.strokeStyle = isTg ? "#22d3ee" : "rgba(34,211,238,0.25)";
+      ctx.lineWidth = 2.5;
+      rr(px - 28, py, 56, 96, 10); ctx.fill(); ctx.stroke();
+
+      // screen
+      ctx.fillStyle = isTg ? "#0c2233" : "#080f1a";
+      rr(px - 22, py + 8, 44, 72, 6); ctx.fill();
+
+      // Telegram icon
+      ctx.font = "22px serif"; ctx.textAlign = "center";
+      ctx.fillText("✈️", px, py + 36);
+
+      // label "Telegram"
+      ctx.fillStyle = isTg ? "#67e8f9" : "rgba(103,232,249,0.5)";
+      ctx.font = "bold 10px monospace"; ctx.textAlign = "center";
+      ctx.fillText("Telegram", px, py + 56);
+
+      // chat bubble if active
+      if (isTg && (phase === "bug-arrive" || phase === "to-bug" || phase === "to-dev")) {
+        ctx.fillStyle = "rgba(34,211,238,0.15)";
+        ctx.strokeStyle = "rgba(34,211,238,0.5)"; ctx.lineWidth = 1;
+        rr(px - 38, py + 64, 76, 20, 6); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#a5f3fc"; ctx.font = "9px monospace"; ctx.textAlign = "center";
+        ctx.fillText("✨ Add export btn", px, py + 78);
+      }
+
+      // Telegram checkmark delivered badge
+      if (isTg && phase === "deliver") {
+        const ba = Math.min(1, subTick / 20);
+        ctx.globalAlpha = ba;
+        ctx.fillStyle = "#022c22"; ctx.strokeStyle = "#34d399"; ctx.lineWidth = 1.5;
+        rr(px - 38, py + 64, 76, 20, 6); ctx.fill(); ctx.stroke();
+        ctx.fillStyle = "#6ee7b7"; ctx.font = "bold 9px monospace"; ctx.textAlign = "center";
+        ctx.fillText("✅ Fixed! Sent.", px, py + 78);
+        ctx.globalAlpha = 1;
+      }
+
+      // home bar
+      ctx.fillStyle = "rgba(34,211,238,0.3)";
+      ctx.fillRect(px - 10, py + 88, 20, 3);
+
+      // label below phone
+      ctx.fillStyle = isTg ? "rgba(103,232,249,0.95)" : "rgba(103,232,249,0.5)";
+      ctx.font = "bold 12px monospace"; ctx.textAlign = "center";
+      ctx.fillText("Phone / Telegram", px, GROUND + 22);
+
+      // arrow from phone toward center when telegram task
+      if (isTg && (phase === "bug-arrive" || phase === "to-bug")) {
+        const arrowA2 = 0.7 + Math.abs(Math.sin(tick * 0.05)) * 0.3;
+        ctx.strokeStyle = `rgba(34,211,238,${arrowA2})`; ctx.lineWidth = 1.5;
+        ctx.setLineDash([4, 6]);
+        ctx.beginPath(); ctx.moveTo(px - 32, py + 48); ctx.lineTo(CENTER_X + 60, PERCH_Y + 40); ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.fillStyle = `rgba(34,211,238,${arrowA2})`;
+        const angle2 = Math.atan2(PERCH_Y + 40 - (py + 48), CENTER_X + 60 - (px - 32));
+        ctx.save(); ctx.translate(CENTER_X + 60, PERCH_Y + 40); ctx.rotate(angle2);
+        ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(-10, -5); ctx.lineTo(-10, 5); ctx.closePath(); ctx.fill();
+        ctx.restore();
+      }
     };
 
     // ── Draw perch (agent's home, top-center) ────────────────────────────
@@ -356,29 +435,46 @@ function HeroScene() {
       if (toastAlpha <= 0) return;
       ctx.globalAlpha = Math.min(1, toastAlpha);
       ctx.fillStyle = "#052e16"; ctx.strokeStyle = "rgba(52,211,153,0.7)"; ctx.lineWidth = 1.5;
-      rr(W / 2 - 185, 16, 370, 48, 10); ctx.fill(); ctx.stroke();
+      rr(W / 2 - 220, 16, 440, 48, 10); ctx.fill(); ctx.stroke();
       ctx.fillStyle = "#6ee7b7"; ctx.font = "bold 13px monospace"; ctx.textAlign = "center";
-      ctx.fillText("✅  PM Dashboard — Bug fixed! Screenshot ready.", W / 2, 47);
+      const toastMsg = taskType === "feature"
+        ? "✅  PM Dashboard — Feature built! Screenshot ready."
+        : taskType === "telegram"
+        ? "✅  Telegram ✅ sent — Fix delivered to your phone."
+        : "✅  PM Dashboard — Bug fixed! Screenshot ready.";
+      ctx.fillText(toastMsg, W / 2, 47);
       ctx.globalAlpha = 1;
     };
 
     // ── Status bar ───────────────────────────────────────────────────────
-    const LABELS: Record<Phase, string> = {
+    const getLabels = (): Record<Phase, string> => ({
       idle:         "💤  AgentInbox on standby — waiting for tasks...",
-      "bug-arrive": "🐛  Bug submitted via MCP socket — agent notified!",
-      "to-bug":     "🏃  Agent picks up the bug from reporter",
-      "to-dev":     "🏃  Carrying bug to developer codebase...",
-      fixing:       "⚡  Claude reads CLAUDE.md + agents + skills + rules — fixing...",
+      "bug-arrive": taskType === "feature"
+                      ? "✨  Feature request submitted — agent notified!"
+                      : taskType === "telegram"
+                      ? "📱  Telegram message received — Claude waking up!"
+                      : "🐛  Bug submitted via submission form — agent notified!",
+      "to-bug":     taskType === "telegram"
+                      ? "🏃  Agent picks up Telegram task"
+                      : `🏃  Agent picks up the ${taskType === "feature" ? "feature request" : "bug"} from reporter`,
+      "to-dev":     `🏃  Carrying ${taskType === "feature" ? "feature spec" : taskType === "telegram" ? "Telegram task" : "bug"} to developer codebase...`,
+      fixing:       "⚡  Claude reads codebase, rules + skills — implementing...",
       handoff:      "🤝  Claude hands screenshot proof to AgentInbox agent",
-      "to-client":  "🏃  Delivering fix + screenshot to reporter...",
-      deliver:      "🎉  Fix delivered! Client sees proof. Zero handoffs.",
+      "to-client":  taskType === "telegram"
+                      ? "📱  Sending ✅ back via Telegram..."
+                      : "🏃  Delivering fix + screenshot to reporter...",
+      deliver:      taskType === "feature"
+                      ? "🎉  Feature built! PM sees proof. Zero interruptions."
+                      : taskType === "telegram"
+                      ? "🎉  ✅ sent on Telegram — fix delivered to your phone!"
+                      : "🎉  Bug fixed! Client sees proof. Zero handoffs.",
       "to-center":  "↩️  Agent returns to standby position",
-    };
+    });
 
     // ── Phase controller ─────────────────────────────────────────────────
     const setPhase = (p: Phase) => {
       phase = p; subTick = 0;
-      labelText = LABELS[p] ?? "";
+      labelText = getLabels()[p] ?? "";
       labelAlpha = 0; labelTick = 0;
     };
     setTimeout(() => { activeReporter = Math.floor(Math.random() * 3); setPhase("bug-arrive"); }, 2000);
@@ -393,6 +489,7 @@ function HeroScene() {
       drawPath();
       drawPerch();
       drawReporters();
+      drawPhone();
       drawMonitor();
 
       // ── Phase logic ──────────────────────────────────────────────────
@@ -402,39 +499,74 @@ function HeroScene() {
         agent.excited = 0; agent.frame = tick;
 
       } else if (phase === "bug-arrive") {
-        // agent still perched, bug floats from reporter toward center
         agent.x = CENTER_X; agent.y = PERCH_Y + 30;
         agent.dir = 1; agent.carrying = false; agent.excited = 0; agent.frame = tick;
+        if (taskType === "telegram") phoneGlow++;
 
-        if (!bugProj.done) {
-          bugProj.active = true;
-          bugProj.x += 3;
-          bugProj.y = GROUND - 50 + Math.sin(subTick * 0.1) * 10;
-          ctx.font = "20px serif"; ctx.textAlign = "center";
-          ctx.fillText("🐛", safe(bugProj.x), safe(bugProj.y));
-          ctx.fillStyle = "rgba(239,68,68,0.55)"; ctx.font = "bold 8px monospace";
-          ctx.fillText("bug report", safe(bugProj.x), safe(bugProj.y) + 14);
-          if (bugProj.x > CENTER_X - 40) { bugProj.done = true; }
+        if (taskType === "telegram") {
+          // telegram proj floats LEFT from phone toward center
+          if (!tgProj.done) {
+            tgProj.active = true;
+            tgProj.x -= 3;
+            tgProj.y = GROUND - 120 + Math.sin(subTick * 0.1) * 8;
+            ctx.font = "20px serif"; ctx.textAlign = "center";
+            ctx.fillText("📱", safe(tgProj.x), safe(tgProj.y));
+            ctx.fillStyle = "rgba(34,211,238,0.7)"; ctx.font = "bold 8px monospace";
+            ctx.fillText("Telegram msg", safe(tgProj.x), safe(tgProj.y) + 14);
+            if (tgProj.x < CENTER_X + 40) { tgProj.done = true; }
+          } else {
+            agent.excited = subTick;
+            agent.y = Math.max(PERCH_Y + 30, PERCH_Y + 30 + subTick * 3);
+            if (subTick > 28 || agent.y >= GROUND - 10) {
+              agent.y = GROUND;
+              tgProj.active = false; tgProj.done = false; tgProj.x = PHONE_X - 30;
+              setPhase("to-bug");
+            }
+          }
         } else {
-          // bug arrived — agent gets excited and starts dropping
-          agent.excited = subTick;
-          agent.y = Math.max(PERCH_Y + 30, PERCH_Y + 30 + subTick * 3);
-          if (subTick > 28 || agent.y >= GROUND - 10) {
-            agent.y = GROUND;
-            bugProj.active = false; bugProj.done = false; bugProj.x = BUG_X + 30;
-            setPhase("to-bug");
+          if (!bugProj.done) {
+            bugProj.active = true;
+            bugProj.x += 3;
+            bugProj.y = GROUND - 50 + Math.sin(subTick * 0.1) * 10;
+            const emoji = taskType === "feature" ? "✨" : "🐛";
+            const label = taskType === "feature" ? "feature req" : "bug report";
+            ctx.font = "20px serif"; ctx.textAlign = "center";
+            ctx.fillText(emoji, safe(bugProj.x), safe(bugProj.y));
+            ctx.fillStyle = taskType === "feature" ? "rgba(99,102,241,0.7)" : "rgba(239,68,68,0.55)";
+            ctx.font = "bold 8px monospace";
+            ctx.fillText(label, safe(bugProj.x), safe(bugProj.y) + 14);
+            if (bugProj.x > CENTER_X - 40) { bugProj.done = true; }
+          } else {
+            agent.excited = subTick;
+            agent.y = Math.max(PERCH_Y + 30, PERCH_Y + 30 + subTick * 3);
+            if (subTick > 28 || agent.y >= GROUND - 10) {
+              agent.y = GROUND;
+              bugProj.active = false; bugProj.done = false; bugProj.x = BUG_X + 30;
+              setPhase("to-bug");
+            }
           }
         }
 
       } else if (phase === "to-bug") {
-        // agent runs LEFT to pick up bug from reporter
-        agent.dir = -1; agent.frame++; agent.excited = 0;
-        agent.carrying = false;
-        agent.x -= SPEED;
-        agent.y = GROUND - Math.abs(Math.sin(agent.frame * 0.25)) * 5;
-        if (agent.x <= BUG_X + 55) {
-          agent.carrying = true; agent.hasScreenshot = false;
-          setPhase("to-dev");
+        agent.frame++; agent.excited = 0; agent.carrying = false;
+        if (taskType === "telegram") {
+          // agent runs RIGHT to pick up from phone side
+          agent.dir = 1;
+          agent.x += SPEED;
+          agent.y = GROUND - Math.abs(Math.sin(agent.frame * 0.25)) * 5;
+          if (agent.x >= PHONE_X - 70) {
+            agent.carrying = true; agent.hasScreenshot = false;
+            setPhase("to-dev");
+          }
+        } else {
+          // agent runs LEFT to pick up from reporter
+          agent.dir = -1;
+          agent.x -= SPEED;
+          agent.y = GROUND - Math.abs(Math.sin(agent.frame * 0.25)) * 5;
+          if (agent.x <= BUG_X + 55) {
+            agent.carrying = true; agent.hasScreenshot = false;
+            setPhase("to-dev");
+          }
         }
 
       } else if (phase === "to-dev") {
@@ -465,19 +597,32 @@ function HeroScene() {
         }
 
       } else if (phase === "to-client") {
-        // agent runs LEFT all the way to reporter side to deliver fix
-        agent.dir = -1; agent.frame++; agent.carrying = true; agent.hasScreenshot = true; agent.excited = 0;
-        agent.x -= SPEED;
-        agent.y = GROUND - Math.abs(Math.sin(agent.frame * 0.25)) * 5;
-        if (agent.x <= BUG_X + 60) {
-          agent.x = BUG_X + 60;
-          agent.carrying = false; agent.hasScreenshot = false;
-          setPhase("deliver");
+        agent.frame++; agent.carrying = true; agent.hasScreenshot = true; agent.excited = 0;
+        if (taskType === "telegram") {
+          // deliver back to phone (right side)
+          agent.dir = 1;
+          agent.x += SPEED;
+          agent.y = GROUND - Math.abs(Math.sin(agent.frame * 0.25)) * 5;
+          if (agent.x >= PHONE_X - 65) {
+            agent.x = PHONE_X - 65;
+            agent.carrying = false; agent.hasScreenshot = false;
+            setPhase("deliver");
+          }
+        } else {
+          // deliver to left reporter
+          agent.dir = -1;
+          agent.x -= SPEED;
+          agent.y = GROUND - Math.abs(Math.sin(agent.frame * 0.25)) * 5;
+          if (agent.x <= BUG_X + 60) {
+            agent.x = BUG_X + 60;
+            agent.carrying = false; agent.hasScreenshot = false;
+            setPhase("deliver");
+          }
         }
 
       } else if (phase === "deliver") {
-        // agent at client side — celebrate, show toast
-        agent.x = BUG_X + 60; agent.dir = 1;
+        const deliverX = taskType === "telegram" ? PHONE_X - 65 : BUG_X + 60;
+        agent.x = deliverX; agent.dir = taskType === "telegram" ? -1 : 1;
         agent.carrying = false; agent.hasScreenshot = false;
         agent.excited = subTick;
         agent.y = GROUND - Math.abs(Math.sin(subTick * 0.16)) * 22;
@@ -489,17 +634,21 @@ function HeroScene() {
         }
 
       } else if (phase === "to-center") {
-        // agent walks RIGHT back to center perch
         agent.dir = 1; agent.frame++; agent.carrying = false; agent.excited = 0;
         agent.x += SPEED;
-        // arc upward as it nears center
         const prog = Math.max(0, (agent.x - BUG_X) / (CENTER_X - BUG_X));
         agent.y = GROUND - prog * (GROUND - PERCH_Y - 30) - Math.abs(Math.sin(agent.frame * 0.25)) * 4;
         if (agent.x >= CENTER_X) {
           agent.x = CENTER_X; agent.y = PERCH_Y + 30;
-          bugProj.x = BUG_X + 30; codeFlick = 0; handoffProgress = 0;
+          bugProj.x = BUG_X + 30; tgProj.x = PHONE_X - 30;
+          codeFlick = 0; handoffProgress = 0; phoneGlow = 0;
           setPhase("idle");
-          setTimeout(() => { activeReporter = Math.floor(Math.random() * 3); setPhase("bug-arrive"); }, 2200);
+          setTimeout(() => {
+            loopCount++;
+            taskType = TASK_TYPES[loopCount % TASK_TYPES.length];
+            activeReporter = Math.floor(Math.random() * 3);
+            setPhase("bug-arrive");
+          }, 2200);
         }
       }
 
