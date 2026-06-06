@@ -59,6 +59,8 @@ function buildMcpConfig(token: string): object {
 export function createRouter(): Router {
   const router = Router();
 
+  router.get("/health", (_req, res) => res.json({ ok: true }));
+
   // ── Public: project info + Tier 2 OTP ───────────────────────────────────
 
   // GET project info by token (for submission form header)

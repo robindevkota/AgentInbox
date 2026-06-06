@@ -85,6 +85,7 @@ function buildMcpConfig(token) {
 }
 function createRouter() {
     const router = (0, express_1.Router)();
+    router.get("/health", (_req, res) => res.json({ ok: true }));
     // ── Public: project info + Tier 2 OTP ───────────────────────────────────
     // GET project info by token (for submission form header)
     router.get("/submit/:token", tokens_1.requireProjectToken, (req, res) => {
