@@ -106,11 +106,12 @@ Works across processes — unlike in-memory flags.
 - PM dashboard — task list, detail panel, approval controls, screenshot card
 - Submission form — file upload, custom fields, priority, constellation animation
 - Auth — JWT login/signup, workspace management
-- Approval gate — per-project toggle, Claude proposes plan before touching code
+- Approval gate — per-project toggle, Claude proposes plan before touching code; PM approval emits WebSocket to wake Claude immediately
 - Screenshot verification — per-project toggle, Claude starts app + Playwright after fix
 - Telegram per-workspace — each developer connects their own bot via PM dashboard UI
 - Two Telegram task sources: website form + direct bot message
 - Bidirectional Telegram: approve/reject/answer questions via reply, ✅ on completion
+- Task type selector on submission form — Bug / Feature / Other; Telegram shows ✨/🐛/💬 accordingly
 - Playground — animation + chat live demos (conversion tool)
 
 ---
@@ -124,6 +125,8 @@ Works across processes — unlike in-memory flags.
 | Complex multi-file bugs — 5 scenarios | Hidden bugs across 3-4 files, no hints | ✅ 5/5 |
 | Manual — new developer onboarding | Fresh signup → setup → submit → fix → screenshot | ✅ |
 | Manual — Telegram bidirectional | Message bot → fix → ✅ back on Telegram | ✅ |
+| Feature submission + approval gate | Submit feature → plan proposed → PM approves → Claude implements | ✅ |
+| Task type Telegram label | ✨ New feature / 🐛 New bug / 💬 New request on Telegram | ✅ |
 
 **100% production ready. First customers can onboard today.**
 

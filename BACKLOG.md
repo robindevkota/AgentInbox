@@ -18,6 +18,9 @@
 - Auth — JWT login/signup, workspace management
 - Per-workspace billing columns (plan, task_count_this_month)
 - End-to-end pipe verified on MBL project (real task, real Telegram ✅)
+- Task type selector on submission form — Bug / Feature / Other prepends [TYPE] to description
+- Telegram shows ✨ New feature / 🐛 New bug / 💬 New request based on task type
+- Approval wake fix — PM clicking Approve now emits WebSocket, Claude resumes immediately
 
 ---
 
