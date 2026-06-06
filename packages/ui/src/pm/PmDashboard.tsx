@@ -55,6 +55,7 @@ interface Project {
   name: string;
   token: string;
   require_approval: number;
+  require_verification: number;
   notify_email: string | null;
   brand_name: string | null;
   brand_color: string | null;
@@ -1374,6 +1375,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
   const [brandName, setBrandName]     = useState(project?.brand_name || "");
   const [brandColor, setBrandColor]   = useState(project?.brand_color || "#6366f1");
   const [requireApproval, setRequireApproval] = useState(!!project?.require_approval);
+  const [requireVerification, setRequireVerification] = useState(!!project?.require_verification);
   const [wsToken, setWsToken]         = useState<string | null>(null);
   const [wsTokenCopied, setWsTokenCopied] = useState(false);
   const [wsTokenRotating, setWsTokenRotating] = useState(false);
@@ -1437,6 +1439,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
       setBrandName(project.brand_name || "");
       setBrandColor(project.brand_color || "#6366f1");
       setRequireApproval(!!project.require_approval);
+      setRequireVerification(!!project.require_verification);
       try { setCustomFields(project.custom_fields ? JSON.parse(project.custom_fields) : []); } catch { setCustomFields([]); }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1473,6 +1476,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
         brand_name: brandName || undefined,
         brand_color: brandColor,
         require_approval: requireApproval,
+        require_verification: requireVerification,
         custom_fields: JSON.stringify(customFields),
       }),
     });
@@ -1622,6 +1626,16 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${requireApproval ? "translate-x-5" : "translate-x-1"}`} />
               </div>
               <span className="text-sm text-slate-300">{requireApproval ? "Required" : "Disabled"}</span>
+            </label>
+          </Field>
+
+          <Field label="Screenshot verification" hint="After every fix Claude starts the app, opens Playwright, takes a screenshot, and attaches proof to the task">
+            <label className="flex items-center gap-3 cursor-pointer">
+              <div onClick={() => setRequireVerification(!requireVerification)}
+                className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${requireVerification ? "bg-indigo-500" : "bg-slate-300"}`}>
+                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${requireVerification ? "translate-x-5" : "translate-x-1"}`} />
+              </div>
+              <span className="text-sm text-slate-300">{requireVerification ? "Enabled" : "Disabled"}</span>
             </label>
           </Field>
         </div>
