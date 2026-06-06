@@ -160,7 +160,8 @@ Server runs on port 3001. UI served from `ui-dist/`.
 ### Two task sources
 ```
 Source 1: Website submission form
-  → task created → Telegram: "🐛 New bug" → Claude wakes
+  → task created → Telegram: "🐛 New bug" / "✨ New feature" / "💬 New request" → Claude wakes
+  (label depends on Bug / Feature / Other selected in the form)
 
 Source 2: You message the Telegram bot (non-reply message)
   → task created from your message → Telegram: "⚡ Task created" → Claude wakes
