@@ -1091,9 +1091,9 @@ export function HomePage() {
               { icon: "📥", title: "Submission form",       desc: "Shareable link — no account needed. Attach screenshots, PDFs, Word docs. Custom fields for Environment, Module, Priority.", accent: "bg-indigo-500/10" },
               { icon: "⚡", title: "Instant wake-on-task",   desc: "Task arrives → WebSocket push → Claude wakes in seconds. Zero polling, zero idle tokens, no terminal to babysit.", accent: "bg-violet-500/10" },
               { icon: "📱", title: "Telegram control",        desc: "Submit tasks, approve plans, and get ✅ from your phone. One bot per workspace — full control without touching a laptop.", accent: "bg-sky-500/10" },
-              { icon: "🤖", title: "Claude Pro as free API", desc: "Route work into your $20/mo Claude Pro session. Your app POSTs a task, Claude handles it, you read the result back.", accent: "bg-blue-500/10" },
+              { icon: "🤖", title: "Claude Pro as free API", desc: "No Anthropic API key needed. Tasks run through your $20/mo Claude Pro — zero extra AI cost, no usage meter ticking.", accent: "bg-blue-500/10" },
               { icon: "📸", title: "Screenshot proof",       desc: "Claude takes a Playwright screenshot on every fix. PM sees it. Client sees it. No trust gap.", accent: "bg-emerald-500/10" },
-              { icon: "✅", title: "Approval gate",          desc: "Claude proposes a plan — PM approves before any code runs. Per-project toggle. Email + toast notification.", accent: "bg-amber-500/10" },
+              { icon: "✅", title: "Approval gate",          desc: "Claude proposes a plan — PM approves before any code runs. Per-project toggle. Approve from dashboard or Telegram reply.", accent: "bg-amber-500/10" },
               { icon: "🔔", title: "Live notifications",     desc: "Toast alerts with sound the moment Claude completes, escalates, or needs approval. Tab badge. No refreshing.", accent: "bg-pink-500/10" },
               { icon: "📋", title: "Audit log",              desc: "Every status change recorded with actor + timestamp. Escalation history. Rejection reasons. Compliance-ready.", accent: "bg-cyan-500/10" },
               { icon: "🎨", title: "White-label",            desc: "Custom brand name and color per project. Clients see your brand on the submission form, not AgentInbox.", accent: "bg-orange-500/10" },
@@ -1102,7 +1102,7 @@ export function HomePage() {
               <Card key={f.title} className="p-6 cursor-default">
                 <div className={`text-2xl mb-4 w-11 h-11 rounded-xl flex items-center justify-center ${f.accent}`}>{f.icon}</div>
                 <h3 className="text-white font-bold text-base mb-2">{f.title}</h3>
-                <p className="text-slate-400 text-sm leading-relaxed">{f.desc}</p>
+                <p className="text-slate-300 text-sm leading-relaxed">{f.desc}</p>
               </Card>
             ))}
           </div>
