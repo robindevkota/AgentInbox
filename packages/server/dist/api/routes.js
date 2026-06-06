@@ -667,13 +667,22 @@ function createRouter() {
                     wsToken = t;
             }
         }
-        const projectCwd = "YOUR_PROJECT_PATH"; // Claude will replace this with the actual cwd
+        // Resolve project submit token if JWT provided
+        let projectSubmitToken = null;
+        if (jwt) {
+            const payload = (0, users_1.verifyToken)(jwt);
+            if (payload) {
+                const projects = db_1.db.prepare("SELECT token FROM projects WHERE workspace_id = ? ORDER BY created_at ASC LIMIT 1").get(payload.workspaceId);
+                if (projects)
+                    projectSubmitToken = projects.token;
+            }
+        }
         const setupMd = `Set up AgentInbox in this project. Workspace token: ${wsToken}
 
 Do not ask questions. Execute all steps now.
 
 ## Step 1 — Scan the codebase
-Read the folder structure, key files, and stack. Note the absolute path of this project root — you will need it in Step 2.
+Read the folder structure, key files, and stack. Note the absolute path of this project root — you will need it in the steps below.
 
 ## Step 2 — Install socket.io-client
 Run in the project root:
@@ -682,16 +691,18 @@ Run in the project root:
 If package.json does not exist, run npm init -y first.
 
 ## Step 3 — Write agentinbox-worker.js in the project root
-Write this file exactly (do not change the logic, only fill in the token and path):
+Write this file exactly (replace PROJECT_PATH with the actual absolute path of this project root):
 
 \`\`\`js
 const { io } = require("socket.io-client");
 const { spawn, execSync } = require("child_process");
-const { existsSync } = require("fs");
+const { existsSync, writeFileSync, unlinkSync } = require("fs");
+const { join } = require("path");
 
 const TOKEN = process.env.AGENTINBOX_TOKEN || "${wsToken}";
 const SERVER_URL = "https://useagentinbox.com";
 const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || __dirname;
+const LOCKFILE = join(PROJECT_CWD, ".agentinbox-running");
 
 function findClaude() {
   try { execSync("claude --version", { stdio: "ignore" }); return "claude"; } catch {}
@@ -707,17 +718,15 @@ const TASK_PROMPT =
   "fix the issue in the codebase, then call complete_task with a technical summary and plain-English summary. " +
   "If no pending tasks, exit.";
 
-let claudeRunning = false;
-
 function spawnClaude() {
-  if (claudeRunning) { console.log("[worker] Claude already running — task queued"); return; }
-  claudeRunning = true;
+  if (existsSync(LOCKFILE)) { console.log("[worker] Claude already running — task queued"); return; }
+  try { writeFileSync(LOCKFILE, String(process.pid)); } catch {}
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", TASK_PROMPT], {
     cwd: PROJECT_CWD, stdio: "inherit", detached: false
   });
-  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); claudeRunning = false; });
-  proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); claudeRunning = false; });
+  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); try { unlinkSync(LOCKFILE); } catch {} });
+  proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); try { unlinkSync(LOCKFILE); } catch {} });
 }
 
 const socket = io(SERVER_URL, {
@@ -738,8 +747,25 @@ setInterval(() => {}, 60000);
 console.log("[worker] Starting...");
 \`\`\`
 
-## Step 4 — Write the startup scripts
-Use the actual absolute path of this project root for PROJECT_PATH below.
+## Step 4 — Write .mcp.json in the project root
+This lets Claude call AgentInbox tools (get_pending_tasks, complete_task, etc.) when it wakes up.
+
+\`\`\`json
+{
+  "mcpServers": {
+    "agentinbox": {
+      "command": "npx",
+      "args": ["-y", "agentinbox-mcp"],
+      "env": {
+        "AGENTINBOX_TOKEN": "${wsToken}"
+      }
+    }
+  }
+}
+\`\`\`
+
+## Step 5 — Write the startup scripts
+Replace PROJECT_PATH with the actual absolute path of this project root.
 
 **Windows — write agentinbox-start.bat in the project root:**
 \`\`\`bat
@@ -767,7 +793,7 @@ cd "PROJECT_PATH"
 node agentinbox-worker.js >> "PROJECT_PATH/agentinbox.log" 2>&1
 \`\`\`
 
-## Step 5 — Add to system startup
+## Step 6 — Add to system startup
 
 **Windows:** Run this PowerShell command:
 \`\`\`
@@ -777,7 +803,6 @@ Copy-Item "PROJECT_PATH\\agentinbox-start.vbs" "$env:APPDATA\\Microsoft\\Windows
 **Mac:** Run these commands:
 \`\`\`bash
 chmod +x PROJECT_PATH/agentinbox-start.sh
-# Create launchd plist
 cat > ~/Library/LaunchAgents/com.agentinbox.worker.plist << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -791,7 +816,7 @@ EOF
 launchctl load ~/Library/LaunchAgents/com.agentinbox.worker.plist
 \`\`\`
 
-## Step 6 — Write CLAUDE.local.md
+## Step 7 — Write CLAUDE.local.md
 Based on your codebase scan, write CLAUDE.local.md with:
 - What this project does (1 sentence)
 - Stack and key folders
@@ -799,10 +824,10 @@ Based on your codebase scan, write CLAUDE.local.md with:
 - Where the main entry points are
 - Any important conventions or gotchas
 
-## Step 7 — Write codebase rules
+## Step 8 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
 
-## Step 8 — Update .gitignore
+## Step 9 — Update .gitignore
 Add these lines:
 \`\`\`
 CLAUDE.local.md
@@ -811,31 +836,33 @@ agentinbox-start.bat
 agentinbox-start.vbs
 agentinbox-start.sh
 agentinbox.log
+.agentinbox-running
 \`\`\`
 
-## Step 9 — Start the worker now
+## Step 10 — Start the worker now
 Run this to verify it connects:
   node agentinbox-worker.js
 
 You should see: [worker] Connected to AgentInbox
-Then Ctrl+C — it will auto-start on next PC boot from the startup script.
+Then Ctrl+C — it will auto-start on next PC boot.
 
-## Step 10 — Report back
+## Step 11 — Report back
 Tell me:
 - OS detected
 - Absolute project path used
-- Startup script is in place (confirm)
-- Submission link: https://useagentinbox.com/submit/PROJECT_SUBMIT_TOKEN
+- Startup script copied to startup folder (confirm)
+- Submission link: https://useagentinbox.com/submit/${projectSubmitToken || "YOUR_PROJECT_TOKEN"}
 
 ## How it works
-PC boots → startup script runs silently (no window) → worker connects to AgentInbox
-Task arrives → Claude wakes, fixes it, exits → Telegram ✅ → proof on PM dashboard
+PC boots → worker starts silently → connects to AgentInbox
+Task submitted → Claude wakes, fixes it, exits → Telegram ✅ → proof on PM dashboard
 VS Code does NOT need to be open. You don't need to be at your desk.
 
 ## Troubleshooting
 **Not connecting:** check agentinbox.log — look for [worker] Error
 **Claude not found:** set CLAUDE_PATH in agentinbox-start.bat/.sh to the full path of claude
-**socket.io not found:** run npm install socket.io-client in the project root`;
+**socket.io not found:** run npm install socket.io-client in the project root
+**get_pending_tasks not found:** make sure .mcp.json is in the project root`;
         res.setHeader("Content-Disposition", "attachment; filename=\"agentinbox-setup.txt\"");
         res.setHeader("Content-Type", "text/plain; charset=utf-8");
         res.send(setupMd);
