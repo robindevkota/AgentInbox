@@ -34,6 +34,7 @@ export function SubmitPage() {
   const [otpSession, setOtpSession] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [customFieldValues, setCustomFieldValues] = useState<Record<string, string>>({});
+  const [taskType, setTaskType] = useState<"bug" | "feature" | "other">("bug");
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
@@ -106,7 +107,8 @@ export function SubmitPage() {
 
     const form = new FormData();
     form.append("title", titleRef.current!.value.trim());
-    form.append("description", descRef.current!.value.trim());
+    const typePrefix = `[${taskType.toUpperCase()}] `;
+    form.append("description", typePrefix + descRef.current!.value.trim());
     form.append("priority", priority);
     if (nameRef.current!.value) form.append("submitter_name", nameRef.current!.value.trim());
     if (emailRef.current!.value) form.append("submitter_email", emailRef.current!.value.trim());
@@ -315,9 +317,35 @@ export function SubmitPage() {
             required
             rows={5}
             maxLength={5000}
-            placeholder="What happened? What did you expect? Steps to reproduce if it's a bug..."
+            placeholder="Bug: what happened, what you expected, steps to reproduce. Feature: what to build, attach a spec doc or screenshot for details."
             className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white placeholder:text-slate-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-shadow shadow-sm resize-y"
           />
+        </div>
+
+        {/* Task type */}
+        <div>
+          <label className="block text-xs font-semibold text-slate-500 uppercase tracking-widest mb-1.5">Type</label>
+          <div className="flex gap-2">
+            {([
+              { value: "bug",     label: "🐛 Bug",     desc: "Something is broken" },
+              { value: "feature", label: "✨ Feature",  desc: "New functionality" },
+              { value: "other",   label: "💬 Other",   desc: "Question or request" },
+            ] as const).map((t) => (
+              <button
+                key={t.value}
+                type="button"
+                onClick={() => setTaskType(t.value)}
+                className={`flex-1 py-2.5 px-3 rounded-xl text-sm font-medium border transition-colors text-left ${
+                  taskType === t.value
+                    ? "bg-indigo-500/20 border-indigo-500/50 text-indigo-300"
+                    : "bg-white/5 border-white/10 text-slate-500 hover:border-white/20 hover:text-slate-400"
+                }`}
+              >
+                <div>{t.label}</div>
+                <div className="text-xs font-normal opacity-60 mt-0.5">{t.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Priority */}
