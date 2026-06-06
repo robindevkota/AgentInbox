@@ -11,5 +11,9 @@
     "build": "pnpm --filter=@robindevkota/agentinbox build && pnpm --filter=@agentinbox/ui build",
     "start": "node packages/server/dist/cli.js start",
     "lint": "pnpm --parallel --filter=* lint"
+  },
+  "dependencies": {
+    "node-fetch": "^3.3.2",
+    "socket.io-client": "^4.7.5"
   }
 }

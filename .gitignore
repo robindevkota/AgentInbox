@@ -15,3 +15,4 @@ data/
 *.png
 settings-workspace-token.png
 landing-*.png
+.agentinbox-running

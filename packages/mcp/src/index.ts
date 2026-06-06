@@ -29,6 +29,8 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { io as SocketClient, Socket } from "socket.io-client";
 import { spawn } from "child_process";
+import { existsSync, writeFileSync, unlinkSync } from "fs";
+import { join } from "path";
 
 const TOKEN = process.env.AGENTINBOX_TOKEN;
 const SERVER_URL = process.env.AGENTINBOX_URL || "https://useagentinbox.com";
@@ -37,35 +39,55 @@ const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
 const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || process.cwd();
 
 // ── Claude wake-on-task ───────────────────────────────────────────────────────
-// Spawns Claude headlessly when a task arrives. Debounced — if Claude is already
-// running for this project, the new task will be picked up by the active session.
+// Spawns a headless Claude process when a task arrives. Uses a lockfile instead
+// of an in-memory flag so that an active interactive Claude session (like the
+// developer chatting) does not block task processing. The spawned Claude writes
+// the lockfile; the interactive Claude never touches it.
 
-let claudeRunning = false;
+const LOCKFILE = join(PROJECT_CWD, ".agentinbox-running");
+
+function isTaskClaudeRunning(): boolean {
+  return existsSync(LOCKFILE);
+}
+
+const TASK_PROMPT =
+  "Check AgentInbox for pending tasks using get_pending_tasks. " +
+  "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
+  "fix the issue in the codebase, then call complete_task with a technical summary and plain-English summary. " +
+  "If no pending tasks, exit.";
 
 function spawnClaude(): void {
-  if (claudeRunning) {
-    process.stderr.write("[agentinbox-mcp] Claude already running — task will be picked up by active session\n");
+  if (isTaskClaudeRunning()) {
+    process.stderr.write("[agentinbox-mcp] Task Claude already running (lockfile present) — task will be queued\n");
     return;
   }
 
-  claudeRunning = true;
   process.stderr.write(`[agentinbox-mcp] Waking Claude in ${PROJECT_CWD}\n`);
 
+  try {
+    writeFileSync(LOCKFILE, String(process.pid));
+  } catch (e) {
+    process.stderr.write(`[agentinbox-mcp] Warning: could not write lockfile: ${e}\n`);
+  }
+
+  // Use --print so Claude runs headlessly and exits when done.
+  // This process (agentinbox-mcp) stays alive independently — the MCP connection
+  // to the parent Claude Code session is NOT affected by this spawn.
   const proc = spawn(
     CLAUDE_PATH,
-    ["--dangerously-skip-permissions"],
+    ["--dangerously-skip-permissions", "--print", TASK_PROMPT],
     { cwd: PROJECT_CWD, stdio: "inherit", detached: false }
   );
 
   proc.on("error", (err) => {
     process.stderr.write(`[agentinbox-mcp] Failed to spawn Claude: ${err.message}\n`);
     process.stderr.write(`[agentinbox-mcp] Set CLAUDE_PATH env var if claude is not in PATH\n`);
-    claudeRunning = false;
+    try { unlinkSync(LOCKFILE); } catch {}
   });
 
   proc.on("close", (code) => {
     process.stderr.write(`[agentinbox-mcp] Claude exited (code ${code})\n`);
-    claudeRunning = false;
+    try { unlinkSync(LOCKFILE); } catch {}
   });
 }
 

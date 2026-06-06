@@ -54,9 +54,9 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   // No Bearer token — fall back to API key for self-hosted / legacy access
   const key = req.headers["x-api-key"] || req.query.api_key;
   const configuredKey = process.env.API_KEY;
-  if (!configuredKey || key === configuredKey) {
+  if (configuredKey && key === configuredKey) {
     next();
     return;
   }
-  res.status(401).json({ error: "Authentication required" });
+  res.status(403).json({ error: "Not authenticated" });
 }
