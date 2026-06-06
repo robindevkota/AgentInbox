@@ -33,17 +33,23 @@ export function Signup() {
   }
 
   return (
-    <div className="min-h-screen bg-[#06080f] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#06080f] flex flex-col px-4">
       <AgentBackground />
 
+      {/* Nav */}
+      <div className="relative flex items-center justify-between px-2 py-4 max-w-5xl mx-auto w-full">
+        <Link to="/" className="inline-flex items-center gap-2 text-white font-extrabold text-lg tracking-tight hover:opacity-80 transition-opacity">
+          <div className="w-7 h-7 rounded-lg bg-indigo-500 flex items-center justify-center text-sm">📥</div>
+          AgentInbox
+        </Link>
+        <Link to="/" className="text-sm text-slate-300 hover:text-white transition-colors font-medium">← Back to home</Link>
+      </div>
+
+      <div className="flex-1 flex items-center justify-center">
       <div className="relative w-full max-w-sm">
-        {/* Logo */}
+        {/* Subtitle */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-2 mb-3">
-            <div className="w-8 h-8 rounded-lg bg-indigo-500 flex items-center justify-center text-sm">📥</div>
-            <span className="text-white font-extrabold text-xl tracking-tight">AgentInbox</span>
-          </div>
-          <p className="text-slate-400 text-sm">Create your account — free to start</p>
+          <p className="text-slate-200 text-sm">Create your account — free to start</p>
         </div>
 
         {/* Card */}
@@ -51,7 +57,7 @@ export function Signup() {
           style={{ boxShadow: "0 0 40px rgba(99,102,241,0.08)" }}>
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Workspace name</label>
+              <label className="block text-sm font-medium text-white mb-1.5">Workspace name</label>
               <input
                 type="text"
                 value={workspaceName}
@@ -64,7 +70,7 @@ export function Signup() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Email</label>
+              <label className="block text-sm font-medium text-white mb-1.5">Email</label>
               <input
                 type="email"
                 value={email}
@@ -76,7 +82,7 @@ export function Signup() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-300 mb-1.5">Password</label>
+              <label className="block text-sm font-medium text-white mb-1.5">Password</label>
               <input
                 type="password"
                 value={password}
@@ -104,7 +110,7 @@ export function Signup() {
             </button>
           </form>
 
-          <p className="text-center text-sm text-slate-500 mt-6">
+          <p className="text-center text-sm text-slate-300 mt-6">
             Already have an account?{" "}
             <Link to="/login" className="text-indigo-400 hover:text-indigo-300 font-medium transition-colors">
               Sign in
@@ -112,9 +118,8 @@ export function Signup() {
           </p>
         </div>
 
-        <p className="text-center text-xs text-slate-600 mt-4">
-          Free plan: 1 project · 50 tasks/month
-        </p>
+        <p className="text-center text-xs text-slate-300 mt-4">Free plan: 1 project · 50 tasks/month</p>
+      </div>
       </div>
     </div>
   );

@@ -41,10 +41,8 @@ function HeroScene() {
 
     // Single cycle: client submits from left AND phone shows notification simultaneously.
     // After fix: agent delivers to client (left), Telegram ✅ fires at same time.
-    // taskType alternates bug/feature each loop.
-    type TaskType = "bug" | "feature";
+    // Single cycle — always shows both bug AND feature via slash style 🐛/✨
     let loopCount = 0;
-    let taskType: TaskType = "bug";
 
     type Phase = "idle"|"arrive"|"to-bug"|"to-dev"|"fixing"|"handoff"|"to-client"|"deliver"|"to-center";
     let phase: Phase = "idle";
@@ -58,6 +56,8 @@ function HeroScene() {
 
     const agent = { x: CENTER_X, y: PERCH_Y + 30, frame: 0, dir: 1, carrying: false, hasScreenshot: false, excited: 0 };
     const taskProj = { x: BUG_X + 30, y: GROUND - 40, done: false };
+    // phoneProj: task floats FROM phone UP to agent perch during arrive phase (visual only)
+    const phoneProj = { y: PHONE_Y + 4, done: false };
 
     let labelText = "💤  AgentInbox on standby — waiting for tasks...";
     let labelAlpha = 0;
@@ -111,13 +111,13 @@ function HeroScene() {
           ctx.fillStyle = "rgba(199,210,254,0.8)"; ctx.font = "bold 6px monospace";
           ctx.fillText("fix_proof.png", 0, -44+BY-bob);
         } else {
-          const emoji = taskType === "feature" ? "✨" : "🐛";
-          const bColor = taskType === "feature" ? "rgba(99,102,241,0.95)" : "rgba(239,68,68,0.95)";
-          const sColor = taskType === "feature" ? "rgba(165,180,252,0.7)" : "rgba(252,165,165,0.7)";
-          ctx.fillStyle = bColor;
-          ctx.beginPath(); ctx.arc(0,-54+BY-bob,16,0,Math.PI*2); ctx.fill();
-          ctx.strokeStyle = sColor; ctx.lineWidth = 2; ctx.stroke();
-          ctx.font = "16px serif"; ctx.textAlign = "center"; ctx.fillText(emoji, 0, -48+BY-bob);
+          // always show both bug + feature slash style on carried item
+          ctx.fillStyle = "rgba(139,92,246,0.9)";
+          ctx.beginPath(); ctx.arc(0,-54+BY-bob,18,0,Math.PI*2); ctx.fill();
+          ctx.strokeStyle = "rgba(196,181,253,0.7)"; ctx.lineWidth = 2; ctx.stroke();
+          ctx.font = "14px serif"; ctx.textAlign = "center"; ctx.fillText("🐛", -8, -48+BY-bob);
+          ctx.fillStyle="#cbd5e1"; ctx.font="bold 11px monospace"; ctx.fillText("/",2,-48+BY-bob);
+          ctx.font = "14px serif"; ctx.fillText("✨", 12, -48+BY-bob);
         }
       } else if (excited > 0) {
         ctx.beginPath(); ctx.moveTo(-22,-6+BY-bob); ctx.lineTo(-36,-28+BY-bob); ctx.stroke();
@@ -206,17 +206,16 @@ function HeroScene() {
         { emoji: "📋", label: "PM / CI", y: GROUND + 55 },
       ];
       const isArriving = phase === "arrive" || phase === "to-bug";
-      const col = taskType === "feature" ? "99,102,241" : "239,68,68";
       reporters.forEach(({ emoji, label, y }, i) => {
         const active = isArriving && i === activeReporter;
         const bounce = active ? -Math.abs(Math.sin(subTick*0.2))*10 : 0;
         ctx.font = "28px serif"; ctx.textAlign = "center"; ctx.fillText(emoji, BUG_X, y+bounce);
-        ctx.fillStyle = active ? (taskType==="feature"?"#a5b4fc":"#fca5a5") : "#cbd5e1";
-        ctx.font = "bold 12px monospace"; ctx.textAlign = "center"; ctx.fillText(label, BUG_X, y+20+bounce);
+        ctx.fillStyle = active ? "#ffffff" : "#cbd5e1";
+        ctx.font = `bold ${active?13:12}px monospace`; ctx.textAlign = "center"; ctx.fillText(label, BUG_X, y+20+bounce);
         const a = active ? 0.9 : 0.25;
-        ctx.strokeStyle=`rgba(${col},${a})`; ctx.lineWidth=active?2:1; ctx.setLineDash(active?[]:[3,6]);
+        ctx.strokeStyle=`rgba(139,92,246,${a})`; ctx.lineWidth=active?2:1; ctx.setLineDash(active?[]:[3,6]);
         ctx.beginPath(); ctx.moveTo(BUG_X+16,y-8); ctx.lineTo(BUG_X+44,y-8); ctx.stroke(); ctx.setLineDash([]);
-        ctx.fillStyle=`rgba(${col},${a})`;
+        ctx.fillStyle=`rgba(139,92,246,${a})`;
         ctx.beginPath(); ctx.moveTo(BUG_X+47,y-8); ctx.lineTo(BUG_X+39,y-13); ctx.lineTo(BUG_X+39,y-3); ctx.closePath(); ctx.fill();
       });
     };
@@ -224,90 +223,127 @@ function HeroScene() {
     // ── Draw Telegram phone — sits below path on right, always visible ────
     const drawPhone = () => {
       const px = PHONE_X;
-      const pw = 58, ph = 96, pr = 10;
-      const pTop = PHONE_Y + 8;
+      const pw = 82, ph = 130, pr = 14;
+      const pTop = PHONE_Y + 4;
       const isArriving = phase==="arrive" || phase==="to-bug" || phase==="to-dev" || phase==="fixing";
       const isDone = phoneNotifAlpha > 0;
 
       // glow
-      const glowStr = isDone ? phoneNotifAlpha*0.55 : isArriving ? 0.2+Math.abs(Math.sin(tick*0.05))*0.15 : 0.06;
-      const g = ctx.createRadialGradient(px,pTop+ph/2,0,px,pTop+ph/2,75);
+      const glowStr = isDone ? phoneNotifAlpha*0.7 : isArriving ? 0.3+Math.abs(Math.sin(tick*0.05))*0.2 : 0.08;
+      const g = ctx.createRadialGradient(px,pTop+ph/2,0,px,pTop+ph/2,90);
       g.addColorStop(0,`rgba(34,211,238,${glowStr})`); g.addColorStop(1,"rgba(34,211,238,0)");
-      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(px,pTop+ph/2,75,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle=g; ctx.beginPath(); ctx.arc(px,pTop+ph/2,90,0,Math.PI*2); ctx.fill();
 
       // phone body
       ctx.fillStyle="#0f172a";
-      ctx.strokeStyle = isDone ? "#34d399" : isArriving ? "#22d3ee" : "rgba(34,211,238,0.3)";
-      ctx.lineWidth=2.5;
+      ctx.strokeStyle = isDone ? "#34d399" : isArriving ? "#22d3ee" : "rgba(34,211,238,0.45)";
+      ctx.lineWidth=3;
       rr(px-pw/2,pTop,pw,ph,pr); ctx.fill(); ctx.stroke();
 
       // screen bg
       ctx.fillStyle = isDone ? "#0a1f14" : isArriving ? "#091a2a" : "#080f1a";
-      rr(px-pw/2+5,pTop+7,pw-10,ph-15,6); ctx.fill();
+      rr(px-pw/2+6,pTop+9,pw-12,ph-20,8); ctx.fill();
 
       if (isDone) {
-        // ✅ reply on screen
-        ctx.font="16px serif"; ctx.textAlign="center"; ctx.fillText("✈️",px,pTop+24);
-        ctx.fillStyle="#14532d"; ctx.strokeStyle="rgba(52,211,153,0.6)"; ctx.lineWidth=1;
-        rr(px-pw/2+6,pTop+31,pw-12,34,5); ctx.fill(); ctx.stroke();
-        ctx.fillStyle="#86efac"; ctx.font="bold 9px monospace"; ctx.textAlign="center";
-        ctx.fillText(taskType==="feature"?"✅ Feature built!":"✅ Bug fixed!",px,pTop+44);
-        ctx.fillStyle="rgba(134,239,172,0.8)"; ctx.font="8px monospace";
-        ctx.fillText("📸 proof sent",px,pTop+57);
+        // ✅ reply on screen — big clear green
+        ctx.font="24px serif"; ctx.textAlign="center"; ctx.fillText("✈️",px,pTop+32);
+        ctx.fillStyle="#14532d"; ctx.strokeStyle="#34d399"; ctx.lineWidth=2;
+        rr(px-pw/2+8,pTop+40,pw-16,50,7); ctx.fill(); ctx.stroke();
+        ctx.font="15px serif"; ctx.textAlign="center"; ctx.fillText("🐛",px-14,pTop+57);
+        ctx.fillStyle="#86efac"; ctx.font="bold 13px monospace"; ctx.textAlign="center"; ctx.fillText("/",px,pTop+58);
+        ctx.font="15px serif"; ctx.fillText("✨",px+14,pTop+57);
+        ctx.fillStyle="#ffffff"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
+        ctx.fillText("✅ Fixed!",px,pTop+73);
+        ctx.fillStyle="#86efac"; ctx.font="bold 10px monospace";
+        ctx.textAlign="center"; ctx.fillText("📸 proof sent",px,pTop+86);
       } else if (isArriving) {
-        // incoming notification on screen — pulsing
-        const pa = 0.7+Math.abs(Math.sin(tick*0.07))*0.3;
-        ctx.font="16px serif"; ctx.textAlign="center"; ctx.fillText("✈️",px,pTop+24);
+        // incoming notification — pulsing, max contrast
+        const pa = 0.8+Math.abs(Math.sin(tick*0.07))*0.2;
+        ctx.font="24px serif"; ctx.textAlign="center"; ctx.fillText("✈️",px,pTop+32);
         ctx.globalAlpha=pa;
-        ctx.fillStyle="#1e3a5f"; ctx.strokeStyle="rgba(34,211,238,0.6)"; ctx.lineWidth=1;
-        rr(px-pw/2+6,pTop+31,pw-12,34,5); ctx.fill(); ctx.stroke();
-        ctx.fillStyle="#e0f2fe"; ctx.font="bold 9px monospace"; ctx.textAlign="center";
-        ctx.fillText(taskType==="feature"?"✨ New feature":"🐛 New bug",px,pTop+44);
-        ctx.fillStyle="rgba(148,163,184,0.9)"; ctx.font="8px monospace";
-        ctx.fillText("notified via bot",px,pTop+57);
+        ctx.fillStyle="#0c2340"; ctx.strokeStyle="#38bdf8"; ctx.lineWidth=2;
+        rr(px-pw/2+8,pTop+40,pw-16,50,7); ctx.fill(); ctx.stroke();
+        // emoji + title big and white
+        ctx.font="15px serif"; ctx.textAlign="center"; ctx.fillText("🐛",px-14,pTop+57);
+        ctx.fillStyle="#93c5fd"; ctx.font="bold 13px monospace"; ctx.textAlign="center"; ctx.fillText("/",px,pTop+58);
+        ctx.font="15px serif"; ctx.fillText("✨",px+14,pTop+57);
+        ctx.fillStyle="#ffffff"; ctx.font="bold 13px monospace"; ctx.textAlign="center";
+        ctx.fillText("Bug / Feature",px,pTop+74);
         ctx.globalAlpha=1;
-        // red notification dot
-        ctx.fillStyle="#ef4444"; ctx.beginPath(); ctx.arc(px+pw/2-6,pTop+6,7,0,Math.PI*2); ctx.fill();
-        ctx.fillStyle="white"; ctx.font="bold 8px monospace"; ctx.textAlign="center"; ctx.fillText("1",px+pw/2-6,pTop+10);
+        // red notification dot — bigger
+        ctx.fillStyle="#ef4444"; ctx.beginPath(); ctx.arc(px+pw/2-9,pTop+9,10,0,Math.PI*2); ctx.fill();
+        ctx.fillStyle="white"; ctx.font="bold 10px monospace"; ctx.textAlign="center"; ctx.fillText("1",px+pw/2-9,pTop+13);
       } else {
-        // idle screen
-        ctx.font="18px serif"; ctx.textAlign="center"; ctx.fillText("✈️",px,pTop+34);
-        ctx.fillStyle="rgba(103,232,249,0.5)"; ctx.font="bold 9px monospace"; ctx.textAlign="center";
-        ctx.fillText("Telegram",px,pTop+54);
+        // idle screen — Telegram plane icon big, label crystal clear
+        ctx.font="32px serif"; ctx.textAlign="center"; ctx.fillText("✈️",px,pTop+50);
+        ctx.fillStyle="#ffffff"; ctx.font="bold 13px monospace"; ctx.textAlign="center";
+        ctx.fillText("Telegram",px,pTop+72);
       }
 
       // home bar
-      ctx.fillStyle="rgba(34,211,238,0.3)"; ctx.fillRect(px-10,pTop+ph-8,20,3);
+      ctx.fillStyle="rgba(34,211,238,0.5)"; ctx.fillRect(px-16,pTop+ph-11,32,4);
 
-      // label below phone
-      ctx.fillStyle="#e2e8f0"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
-      ctx.fillText("📱 Telegram Bot",px,pTop+ph+18);
+      // label below phone — bright white
+      ctx.fillStyle="#ffffff"; ctx.font="bold 14px monospace"; ctx.textAlign="center";
+      ctx.fillText("📱 Telegram Bot",px,pTop+ph+22);
 
       // ✅ delivered badge above phone — big + bright
       if (isDone) {
         ctx.globalAlpha=Math.min(1,phoneNotifAlpha);
-        ctx.fillStyle="#052e16"; ctx.strokeStyle="#34d399"; ctx.lineWidth=2;
-        rr(px-65,pTop-52,130,34,8); ctx.fill(); ctx.stroke();
-        ctx.fillStyle="#6ee7b7"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
-        ctx.fillText(taskType==="feature"?"✅ Feature built! 🎉":"✅ Bug fixed! 📸",px,pTop-29);
+        ctx.fillStyle="#052e16"; ctx.strokeStyle="#34d399"; ctx.lineWidth=2.5;
+        rr(px-78,pTop-62,156,40,10); ctx.fill(); ctx.stroke();
+        ctx.fillStyle="#ffffff"; ctx.font="bold 14px monospace"; ctx.textAlign="center";
+        ctx.fillText("✅ Fixed! 🐛/✨ 📸 proof sent",px,pTop-35);
         ctx.globalAlpha=1;
       }
 
-      // dashed connector perch → phone
-      ctx.strokeStyle="rgba(34,211,238,0.14)"; ctx.lineWidth=1; ctx.setLineDash([3,6]);
+      // dashed connector perch → phone — pulsing bright cyan
+      const connAlpha = 0.45 + Math.abs(Math.sin(tick * 0.04)) * 0.35;
+      ctx.strokeStyle=`rgba(34,211,238,${connAlpha})`; ctx.lineWidth=2; ctx.setLineDash([5,7]);
       ctx.beginPath(); ctx.moveTo(px,PERCH_Y+62); ctx.lineTo(px,pTop); ctx.stroke();
       ctx.setLineDash([]);
     };
 
     // ── Draw ground path ─────────────────────────────────────────────────
     const drawPath = () => {
-      ctx.strokeStyle = "rgba(99,102,241,0.18)"; ctx.lineWidth = 1.5; ctx.setLineDash([8,10]);
-      ctx.beginPath(); ctx.moveTo(BUG_X+52,GROUND+14); ctx.lineTo(DEV_X-80,GROUND+14); ctx.stroke();
+      const x0 = BUG_X + 52, x1 = DEV_X - 80, y = GROUND + 14;
+
+      // glowing floor strip under the path
+      const floorGrad = ctx.createLinearGradient(x0, y, x1, y);
+      floorGrad.addColorStop(0,   "rgba(99,102,241,0)");
+      floorGrad.addColorStop(0.2, "rgba(99,102,241,0.18)");
+      floorGrad.addColorStop(0.8, "rgba(99,102,241,0.18)");
+      floorGrad.addColorStop(1,   "rgba(99,102,241,0)");
+      ctx.fillStyle = floorGrad;
+      ctx.fillRect(x0, y+2, x1-x0, 8);
+
+      // bright solid path line
+      const lineGrad = ctx.createLinearGradient(x0, 0, x1, 0);
+      lineGrad.addColorStop(0,   "rgba(99,102,241,0.2)");
+      lineGrad.addColorStop(0.15,"rgba(139,92,246,0.85)");
+      lineGrad.addColorStop(0.5, "rgba(165,180,252,1)");
+      lineGrad.addColorStop(0.85,"rgba(139,92,246,0.85)");
+      lineGrad.addColorStop(1,   "rgba(99,102,241,0.2)");
+      ctx.strokeStyle = lineGrad; ctx.lineWidth = 2.5; ctx.setLineDash([]);
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+
+      // dashed direction markers
+      ctx.strokeStyle = "rgba(165,180,252,0.35)"; ctx.lineWidth = 1; ctx.setLineDash([6, 12]);
+      ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
       ctx.setLineDash([]);
-      ctx.strokeStyle = "rgba(99,102,241,0.06)"; ctx.lineWidth = 6;
-      ctx.beginPath(); ctx.moveTo(BUG_X+52,GROUND+14); ctx.lineTo(DEV_X-80,GROUND+14); ctx.stroke();
-      ctx.fillStyle = "rgba(99,102,241,0.3)";
-      ctx.beginPath(); ctx.moveTo(DEV_X-77,GROUND+14); ctx.lineTo(DEV_X-87,GROUND+8); ctx.lineTo(DEV_X-87,GROUND+20); ctx.closePath(); ctx.fill();
+
+      // arrow at right end
+      ctx.fillStyle = "rgba(165,180,252,0.9)";
+      ctx.beginPath(); ctx.moveTo(x1+3,y); ctx.lineTo(x1-9,y-7); ctx.lineTo(x1-9,y+7); ctx.closePath(); ctx.fill();
+
+      // agent position glow — follows agent x along the path
+      if (agent.y >= GROUND - 20) {
+        const agx = Math.max(x0, Math.min(x1, agent.x));
+        const ag = ctx.createRadialGradient(agx, y, 0, agx, y, 38);
+        ag.addColorStop(0, "rgba(139,92,246,0.45)");
+        ag.addColorStop(1, "rgba(139,92,246,0)");
+        ctx.fillStyle = ag; ctx.beginPath(); ctx.ellipse(agx, y, 38, 10, 0, 0, Math.PI*2); ctx.fill();
+      }
     };
 
     // ── PM dashboard toast (top center) ──────────────────────────────────
@@ -317,7 +353,7 @@ function HeroScene() {
       ctx.fillStyle = "#052e16"; ctx.strokeStyle = "rgba(52,211,153,0.7)"; ctx.lineWidth = 1.5;
       rr(W/2-230,12,460,44,10); ctx.fill(); ctx.stroke();
       ctx.fillStyle = "#6ee7b7"; ctx.font = "bold 13px monospace"; ctx.textAlign = "center";
-      const msg = taskType==="feature" ? "✅  Feature built — screenshot on PM Dashboard + Telegram ✅ sent!" : "✅  Bug fixed — screenshot on PM Dashboard + Telegram ✅ sent!";
+      const msg = "✅  🐛/✨ Fixed — screenshot proof on PM Dashboard + Telegram ✅ sent!";
       ctx.fillText(msg, W/2, 39);
       ctx.globalAlpha = 1;
     };
@@ -325,9 +361,9 @@ function HeroScene() {
     // ── Status labels ────────────────────────────────────────────────────
     const getLabels = (): Record<Phase, string> => ({
       idle:        "💤  AgentInbox on standby — waiting for tasks...",
-      arrive:      taskType==="feature" ? "✨  Feature request submitted — agent + Telegram both notified!" : "🐛  Bug submitted via form or CI — agent + Telegram both notified!",
-      "to-bug":    `🏃  Agent picks up the ${taskType==="feature"?"feature":"bug"} from reporter`,
-      "to-dev":    `🏃  Carrying ${taskType==="feature"?"feature spec":"bug"} to developer codebase...`,
+      arrive:      "🐛/✨  Bug or feature submitted — from form, CI, or Telegram — agent notified!",
+      "to-bug":    "🏃  Agent picks up the task from reporter",
+      "to-dev":    "🏃  Carrying 🐛/✨ to developer codebase...",
       fixing:      "⚡  Claude reads codebase + rules — implementing fix...",
       handoff:     "🤝  Claude hands screenshot proof to AgentInbox agent",
       "to-client": "🏃  Delivering fix + screenshot proof back to client...",
@@ -357,26 +393,61 @@ function HeroScene() {
         agent.x=CENTER_X; agent.y=PERCH_Y+30; agent.dir=1;
         agent.carrying=false; agent.hasScreenshot=false; agent.excited=0; agent.frame=tick;
         phoneNotifAlpha=0;
-        ctx.fillStyle="rgba(165,180,252,0.9)"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
+        ctx.fillStyle="#c7d2fe"; ctx.font="bold 14px monospace"; ctx.textAlign="center";
         ctx.fillText("💤 on standby", CENTER_X, PERCH_Y-20);
 
       } else if (phase === "arrive") {
-        // task floats RIGHT from reporter, phone simultaneously lights up
-        agent.x=CENTER_X; agent.y=PERCH_Y+30; agent.dir=1; agent.carrying=false; agent.excited=0; agent.frame=tick;
-        if (!taskProj.done) {
-          taskProj.x+=3;
-          taskProj.y=GROUND-40+Math.sin(subTick*0.1)*10;
-          ctx.font="20px serif"; ctx.textAlign="center";
-          ctx.fillText(taskType==="feature"?"✨":"🐛", safe(taskProj.x), safe(taskProj.y));
-          ctx.fillStyle=taskType==="feature"?"rgba(99,102,241,0.7)":"rgba(239,68,68,0.55)"; ctx.font="bold 8px monospace";
-          ctx.fillText(taskType==="feature"?"feature req":"bug report", safe(taskProj.x), safe(taskProj.y)+14);
-          if (taskProj.x > CENTER_X-40) taskProj.done=true;
-        } else {
-          agent.excited=subTick;
-          agent.y=Math.max(PERCH_Y+30, PERCH_Y+30+subTick*3);
-          if (subTick>28 || agent.y>=GROUND-10) {
-            agent.y=GROUND; taskProj.done=false; taskProj.x=BUG_X+30; setPhase("to-bug");
-          }
+        // left reporter task + phone task both shoot toward agent at center perch
+        agent.x=CENTER_X; agent.y=PERCH_Y+30; agent.dir=1; agent.carrying=false; agent.frame=tick;
+
+        // ── left reporter projectile (flies RIGHT along GROUND level) ──
+        const tpx = BUG_X + 30 + subTick * 1.5;
+        const tpy = GROUND - 50 + Math.sin(subTick * 0.12) * 14;
+        if (tpx < CENTER_X - 20) {
+          // big emoji — draw shadow first for contrast
+          ctx.globalAlpha=0.35; ctx.fillStyle="#000"; ctx.font="26px serif"; ctx.textAlign="center";
+          ctx.fillText("🐛", tpx-14+2, tpy+2); ctx.fillText("✨", tpx+14+2, tpy+2);
+          ctx.globalAlpha=1;
+          ctx.font="26px serif"; ctx.textAlign="center";
+          ctx.fillText("🐛", tpx-14, tpy); ctx.fillText("✨", tpx+14, tpy);
+          ctx.fillStyle="#cbd5e1"; ctx.font="bold 14px monospace"; ctx.textAlign="center"; ctx.fillText("/",tpx,tpy-2);
+          // pill label — white text on purple bg
+          const lbl = "Bug / Feature";
+          const lblBg = "rgba(99,102,241,0.9)";
+          const lw = 72;
+          ctx.fillStyle=lblBg; rr(tpx-lw/2, tpy+6, lw, 20, 5); ctx.fill();
+          ctx.fillStyle="#ffffff"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
+          ctx.fillText(lbl, tpx, tpy+20);
+        }
+
+        // ── phone projectile (flies UP from phone to agent perch) ──
+        const pprogress = Math.min(1, subTick / 180); // 180 frames — slow float upward
+        const ppy = PHONE_Y + 4 - pprogress * (PHONE_Y + 4 - (PERCH_Y + 10));
+        const ppx = PHONE_X + 22;
+        if (pprogress < 1) {
+          ctx.globalAlpha=0.35; ctx.fillStyle="#000"; ctx.font="22px serif"; ctx.textAlign="center";
+          ctx.fillText("🐛", ppx-12+2, ppy+2); ctx.fillText("✨", ppx+12+2, ppy+2);
+          ctx.globalAlpha=1;
+          ctx.font="22px serif"; ctx.textAlign="center";
+          ctx.fillText("🐛", ppx-12, ppy); ctx.fillText("✨", ppx+12, ppy);
+          ctx.fillStyle="#ffffff"; ctx.font="bold 13px monospace"; ctx.textAlign="center"; ctx.fillText("/",ppx,ppy-2);
+          // pill label cyan for Telegram
+          const lw2 = 76;
+          ctx.fillStyle="rgba(6,182,212,0.9)"; rr(ppx-lw2/2, ppy+4, lw2, 20, 5); ctx.fill();
+          ctx.fillStyle="#ffffff"; ctx.font="bold 12px monospace"; ctx.textAlign="center";
+          ctx.fillText("📱 Telegram", ppx, ppy+18);
+        }
+
+        // agent gets excited once both projectiles arrive (~frame 260)
+        if (subTick > 260) {
+          agent.excited = subTick - 260;
+          agent.y = PERCH_Y + 30;
+        }
+        if (subTick > 290) {
+          agent.y = GROUND;
+          taskProj.done=false; taskProj.x=BUG_X+30;
+          phoneProj.y=PHONE_Y+4; phoneProj.done=false;
+          setPhase("to-bug");
         }
 
       } else if (phase === "to-bug") {
@@ -431,11 +502,10 @@ function HeroScene() {
         agent.y=GROUND-prog*(GROUND-PERCH_Y-30)-Math.abs(Math.sin(agent.frame*0.25))*4;
         if (agent.x>=CENTER_X) {
           agent.x=CENTER_X; agent.y=PERCH_Y+30;
-          taskProj.x=BUG_X+30; codeFlick=0; handoffProgress=0; phoneNotifAlpha=0;
+          taskProj.x=BUG_X+30; phoneProj.y=PHONE_Y+4; phoneProj.done=false; codeFlick=0; handoffProgress=0; phoneNotifAlpha=0;
           setPhase("idle");
           setTimeout(() => {
             loopCount++;
-            taskType = loopCount%2===0 ? "bug" : "feature";
             activeReporter=Math.floor(Math.random()*3);
             setPhase("arrive");
           }, 2000);
@@ -688,12 +758,12 @@ export function HomePage() {
                   <span className={`text-xs font-bold px-2 py-1 rounded-full ${uc.tagColor}`}>{uc.tag}</span>
                 </div>
                 <h3 className="text-white font-bold text-base mb-2">{uc.title}</h3>
-                <p className="text-slate-400 text-sm leading-relaxed mb-4">{uc.desc}</p>
+                <p className="text-slate-200 text-sm leading-relaxed mb-4">{uc.desc}</p>
                 <div className="flex flex-wrap gap-1.5">
                   {uc.flow.map((step, i) => (
                     <span key={step} className="flex items-center gap-1">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${uc.flowColor}`}>{step}</span>
-                      {i < uc.flow.length - 1 && <span className="text-slate-600 text-xs">→</span>}
+                      {i < uc.flow.length - 1 && <span className="text-slate-300 text-xs">→</span>}
                     </span>
                   ))}
                 </div>
@@ -836,7 +906,7 @@ export function HomePage() {
                   <div className="shrink-0 w-9 h-9 rounded-full bg-indigo-500/20 border border-indigo-500/30 flex items-center justify-center text-indigo-400 font-bold text-sm">{step}</div>
                   <div>
                     <p className="text-white font-semibold text-sm mb-1">{icon} {title}</p>
-                    <p className="text-slate-400 text-xs leading-relaxed">{desc}</p>
+                    <p className="text-slate-200 text-xs leading-relaxed">{desc}</p>
                   </div>
                 </div>
               ))}
@@ -857,7 +927,7 @@ export function HomePage() {
                 {[{ n: "12", l: "Total" }, { n: "9", l: "Done" }, { n: "2", l: "Active" }, { n: "1", l: "Escalated" }].map(({ n, l }) => (
                   <div key={l} className="bg-slate-900/60 rounded-lg p-2 text-center">
                     <p className="text-white font-bold text-lg">{n}</p>
-                    <p className="text-slate-500 text-xs">{l}</p>
+                    <p className="text-slate-300 text-xs">{l}</p>
                   </div>
                 ))}
               </div>
@@ -870,8 +940,8 @@ export function HomePage() {
               ].map(({ title, status, time }) => (
                 <div key={title} className="flex items-center gap-3 bg-slate-900/40 rounded-xl px-3 py-2.5 border border-slate-700/30">
                   <div className={`w-2 h-2 rounded-full shrink-0 ${status === "done" ? "bg-emerald-400" : status === "in_progress" ? "bg-amber-400 animate-pulse" : "bg-slate-500"}`} />
-                  <p className="text-slate-300 text-xs flex-1 truncate">{title}</p>
-                  <p className="text-slate-600 text-xs shrink-0">{time}</p>
+                  <p className="text-white text-xs flex-1 truncate">{title}</p>
+                  <p className="text-slate-400 text-xs shrink-0">{time}</p>
                 </div>
               ))}
               {/* Toast */}
