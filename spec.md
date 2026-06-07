@@ -35,10 +35,14 @@ package.json    ← { "dependencies": { "json-server": "^0.17.4" } }
 - Submit button: "Publish" — clears form and refreshes list on success
 - No frameworks — plain DOM APIs only
 
-## After building — screenshot proof
-When the build is complete:
+## After building — screenshot proof (REQUIRED)
+When the build is complete, you MUST take a screenshot and attach it:
+
 1. Start json-server: `json-server db.json --port 3000`
-2. Start a local HTTP server: `python -m http.server 8081` (from the project root)
-3. Use Playwright MCP to open `http://localhost:8081` and take a screenshot
-4. Attach the screenshot to the task when calling complete_task
-5. The screenshot will appear as proof on the PM dashboard and be sent via Telegram
+2. Start HTTP server: `python -m http.server 8081` (run from the project root folder)
+3. Use Playwright MCP: `browser_navigate` to `http://localhost:8081`
+4. Use Playwright MCP: `browser_take_screenshot` — save the result
+5. Read the saved screenshot file as base64
+6. Call `complete_task` with `screenshot_base64` set to the base64 string
+
+The screenshot will appear as a photo in Telegram and as a proof card on the PM dashboard.

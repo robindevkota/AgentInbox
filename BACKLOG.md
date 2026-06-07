@@ -124,7 +124,76 @@ Stack: Python/Flask. Project: `d:\test-flask-app\` with bugs hidden across 6 fil
 
 ---
 
+## ✅ Screenshot proof in Telegram + dashboard — PASSED (Jun 7, 2026)
+
+- `complete_task(screenshot_base64)` → stored in DB → image card on PM dashboard ✅
+- `notifyTaskDone` sends Telegram **photo** when screenshot present (not just text) ✅
+- Tested end-to-end on MBL project — photo received in Telegram ✅
+
+---
+
+## 🎬 Show HN demo video — READY TO RECORD (Jun 7, 2026)
+
+**Goal:** Validate Claude can build a feature from scratch on an empty repo (not just fix bugs).
+Also good material for Show HN demo video.
+
+### Role separation — important
+- **Robin** — hits record, watches, pastes setup prompt once (intentional on-camera moment)
+- **This Claude (AgentInbox session)** — drives everything via Playwright + submits tasks on Robin's command
+- **Worker Claude (separate Claude Code session in empty repo)** — receives task, builds/fixes, completes, exits
+- These two Claude sessions must NEVER be the same process
+
+### Demo video flow (Playwright automated — Robin just records)
+1. This Claude opens browser → navigates to https://useagentinbox.com
+2. Signs up fresh — new email, new workspace name
+3. Creates project → enables screenshot verification
+4. Configures Telegram bot (Robin's new test bot token)
+5. Downloads setup file
+6. **Robin pastes setup prompt into Claude Code in empty repo** ← only manual step, good on camera
+7. Worker connects → `[worker] Connected to AgentInbox` visible in terminal
+8. This Claude opens submission form → fills title/description → attaches `spec.md` → submits
+9. Dashboard shows task arriving → in_progress → done → screenshot proof card appears
+10. Robin's Telegram phone shows ✅ (Robin shows phone to camera)
+11. This Claude opens submission form again → attaches `bug-report.md` → submits
+12. Worker Claude fixes the planted bug → new screenshot proof
+13. Robin's Telegram shows ✅ again
+14. Done — full Show HN demo in one take, no fumbling
+
+### Test Telegram credentials (ready for tomorrow)
+- **Bot:** @agentinbox_test_bot
+- **Token:** `8956174290:AAFx-1zeDHJxmpiI59XX2q2-QYyOKHUJz4c`
+- **Chat ID:** `6121077387`
+
+### Files to prepare before recording
+- `spec.md` — todo app spec: HTML/CSS/JS + JSON server, file structure, UI requirements
+- `bug-report.md` — describes the intentionally planted bug (e.g. completed tasks missing strikethrough)
+- Empty repo at `d:\test-todo-app\` — just a folder, nothing in it
+- New Telegram bot token — different from MBL bot
+
+### Tech stack for the demo app
+- `index.html` — vanilla HTML/CSS/JS, no build step, opens instantly in browser
+- `db.json` — JSON server data file  
+- `package.json` — json-server as only dependency
+- Bug to plant: completed tasks should show strikethrough but don't (visible on screen, obvious before/after)
+
+### Why Playwright automation
+- Robin just hits record — no typos, no fumbling, professional one-take video
+- Only manual moment is pasting setup prompt — intentional, shows it's real and simple
+- Entire onboarding + feature + bug flow in ~90 seconds
+
+**Why this matters:**
+- Tests creation from scratch on empty repo (all previous tests used existing code)
+- Validates spec.md file attachment → Claude reads and builds to spec
+- Clean role separation proves async pipe works without developer involvement
+- This IS the Show HN demo video — one recording, ready to post
+
+---
+
 ## 🟡 After testing passes
+
+### 1. Telegram file/image attachments
+When a developer sends a photo or document via Telegram bot, download it from Telegram's servers and store it the same way as form uploads — so Claude can read it like any other attachment.
+Currently only text messages are handled. Photos and `document` message types are silently ignored.
 
 ### 2. Stripe billing
 The only thing blocking revenue.
