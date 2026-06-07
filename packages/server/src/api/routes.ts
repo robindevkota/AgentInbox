@@ -809,6 +809,10 @@ This lets Claude call AgentInbox tools (get_pending_tasks, complete_task, etc.) 
       "env": {
         "AGENTINBOX_TOKEN": "${wsToken}"
       }
+    },
+    "playwright": {
+      "command": "npx",
+      "args": ["-y", "@playwright/mcp@latest"]
     }
   }
 }
