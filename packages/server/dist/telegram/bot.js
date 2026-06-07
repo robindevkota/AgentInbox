@@ -333,11 +333,12 @@ async function notifyTaskDone(taskId, title) {
     if (!botToken || !chatId)
         return;
     const task = tasks_1.taskQueries.getTask(taskId);
+    const reply = task?.summary_plain ? `✅ <b>Done:</b> ${title}\n\n${task.summary_plain}` : `✅ <b>Done:</b> ${title}`;
     if (task?.screenshot_base64) {
-        await _sendPhoto(botToken, chatId, task.screenshot_base64, `✅ <b>Done:</b> ${title}\n\nProof screenshot attached.`);
+        await _sendPhoto(botToken, chatId, task.screenshot_base64, reply);
     }
     else {
-        await _send(botToken, chatId, `✅ <b>Done:</b> ${title}\n\nProof posted to dashboard.`);
+        await _send(botToken, chatId, reply);
     }
 }
 async function notifyTaskEscalated(taskId, title, reason) {

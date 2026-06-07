@@ -352,10 +352,11 @@ export async function notifyTaskDone(taskId: string, title: string): Promise<voi
   const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
   if (!botToken || !chatId) return;
   const task = taskQueries.getTask(taskId);
+  const reply = task?.summary_plain ? `✅ <b>Done:</b> ${title}\n\n${task.summary_plain}` : `✅ <b>Done:</b> ${title}`;
   if (task?.screenshot_base64) {
-    await _sendPhoto(botToken, chatId, task.screenshot_base64, `✅ <b>Done:</b> ${title}\n\nProof screenshot attached.`);
+    await _sendPhoto(botToken, chatId, task.screenshot_base64, reply);
   } else {
-    await _send(botToken, chatId, `✅ <b>Done:</b> ${title}\n\nProof posted to dashboard.`);
+    await _send(botToken, chatId, reply);
   }
 }
 
