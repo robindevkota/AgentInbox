@@ -400,8 +400,15 @@ export function SubmitPage() {
                   type="file"
                   accept=".pdf,.docx,.txt,.md,.csv,.json,.png,.jpg,.jpeg,.gif,.webp"
                   onChange={(e) => setFileName(e.target.files?.[0]?.name || null)}
-                  className="text-xs text-slate-400 file:mr-3 file:py-1.5 file:px-4 file:rounded-lg file:border-0 file:text-xs file:font-medium file:bg-indigo-500/20 file:text-indigo-300 hover:file:bg-indigo-500/30 cursor-pointer"
+                  className="hidden"
                 />
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="text-xs font-medium bg-indigo-500/20 text-indigo-300 hover:bg-indigo-500/30 px-4 py-1.5 rounded-lg transition-colors cursor-pointer"
+                >
+                  Choose File
+                </button>
                 <p className="text-xs text-slate-600 mt-2">PDF, Word, images, text — up to 20MB</p>
               </div>
             )}
