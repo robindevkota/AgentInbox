@@ -950,7 +950,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
 **socket.io not found:** run npm install socket.io-client in the project root
 **get_pending_tasks not found:** make sure .mcp.json is in the project root`;
 
-    res.setHeader("Content-Disposition", "attachment; filename=\"agentinbox-setup.txt\"");
+    res.setHeader("Content-Disposition", "attachment; filename=\"setup.md\"");
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
     res.send(setupMd);
   });
