@@ -953,6 +953,15 @@ Task submitted → Claude wakes, fixes it, takes screenshot, exits → Telegram 
 VS Code does NOT need to be open. You don't need to be at your desk.
 
 ## Troubleshooting
+**Verify worker is running:** check .agentinbox/worker.log — should show [worker] Connected to AgentInbox
+  - Windows: \`type .agentinbox\\worker.log\`
+  - Mac/Linux: \`cat .agentinbox/worker.log\`
+
+**Worker did not start on boot:** the .vbs was not registered or boot happened before setup completed.
+  - Windows: double-click .agentinbox/start.vbs to start it now (runs silently in background)
+  - Re-register: \`Copy-Item ".agentinbox\\start.vbs" "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\agentinbox-${wsToken.slice(3, 11)}.vbs" -Force\`
+  - Mac: \`launchctl load ~/Library/LaunchAgents/com.agentinbox.worker.plist\`
+
 **Not connecting:** check .agentinbox/worker.log — look for [worker] Error
 **Claude not found:** set CLAUDE_PATH in .agentinbox/start.bat/.sh to the full path of claude
 **socket.io not found:** run npm install socket.io-client in the project root
