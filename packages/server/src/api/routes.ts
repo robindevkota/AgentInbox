@@ -746,13 +746,11 @@ Write this file exactly (replace PROJECT_PATH with the actual absolute path of t
 \`\`\`js
 const { io } = require("socket.io-client");
 const { spawn, execSync } = require("child_process");
-const { existsSync, writeFileSync, unlinkSync } = require("fs");
-const { join } = require("path");
+const { existsSync } = require("fs");
 
 const TOKEN = process.env.AGENTINBOX_TOKEN || "${wsToken}";
 const SERVER_URL = "https://useagentinbox.com";
 const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || __dirname;
-const LOCKFILE = join(PROJECT_CWD, ".agentinbox-running");
 
 function findClaude() {
   try { execSync("claude --version", { stdio: "ignore" }); return "claude"; } catch {}
@@ -768,15 +766,17 @@ const TASK_PROMPT =
   "fix the issue in the codebase, then call complete_task with a technical summary and plain-English summary. " +
   "If no pending tasks, exit.";
 
+let claudeRunning = false;
+
 function spawnClaude() {
-  if (existsSync(LOCKFILE)) { console.log("[worker] Claude already running — task queued"); return; }
-  try { writeFileSync(LOCKFILE, String(process.pid)); } catch {}
+  if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
+  claudeRunning = true;
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", TASK_PROMPT], {
     cwd: PROJECT_CWD, stdio: "inherit", detached: false
   });
-  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); try { unlinkSync(LOCKFILE); } catch {} });
-  proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); try { unlinkSync(LOCKFILE); } catch {} });
+  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); claudeRunning = false; });
+  proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); claudeRunning = false; });
 }
 
 const socket = io(SERVER_URL, {
@@ -922,8 +922,7 @@ agentinbox-worker.js
 agentinbox-start.bat
 agentinbox-start.vbs
 agentinbox-start.sh
-agentinbox.log
-.agentinbox-running${requireVerification ? "\n.claude/rules/verification.md" : ""}
+agentinbox.log${requireVerification ? "\n.claude/rules/verification.md" : ""}
 \`\`\`
 
 ## Step 10 — Start the worker now
