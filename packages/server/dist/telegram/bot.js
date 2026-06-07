@@ -170,11 +170,12 @@ async function fetchUpdatesForWorkspace(ws) {
                     if (attachment)
                         attachment.name = msg.document.file_name || attachment.name;
                 }
-                // If no text and has attachment, treat as task with file
-                const messageText = text || (attachment ? `Attached file: ${attachment?.name}` : "");
+                // If message has photo/document, always treat as task regardless of text
+                const hasAttachment = !!(msg.photo || msg.document);
+                const messageText = text || (hasAttachment ? `Attached file: ${attachment?.name || "photo"}` : "");
                 const intent = await classifyMessage(messageText);
-                // Normal conversation — just reply, no task
-                if (intent.type === "chat" && !attachment) {
+                // Normal conversation — just reply, no task (only if no attachment)
+                if (intent.type === "chat" && !hasAttachment) {
                     await _send(ws.botToken, ws.chatId, intent.reply, msg.message_id);
                     continue;
                 }
