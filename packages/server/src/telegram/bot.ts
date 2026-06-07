@@ -248,10 +248,27 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
 
 // ── Start/stop polling per workspace ─────────────────────────────────────────
 
+async function getLatestUpdateId(botToken: string): Promise<number> {
+  try {
+    const res = await fetch(`${apiUrl(botToken)}/getUpdates?limit=100&timeout=0`);
+    if (!res.ok) return 0;
+    const data = await res.json() as { ok: boolean; result: any[] };
+    if (!data.ok || !data.result.length) return 0;
+    return data.result[data.result.length - 1].update_id;
+  } catch {
+    return 0;
+  }
+}
+
 function startPollerForWorkspace(workspaceId: string, botToken: string, chatId: string, projectId: string | null): void {
   if (activePollers.has(workspaceId)) return;
   const ws: WorkspaceTelegram = { workspaceId, botToken, chatId, projectId, lastUpdateId: 0 };
   pollerState.set(workspaceId, ws);
+  // Fast-forward offset on startup so we don't reprocess old messages after a restart
+  getLatestUpdateId(botToken).then(latestId => {
+    ws.lastUpdateId = latestId;
+    console.log(`[telegram] Poller for ${workspaceId} starting at update_id ${latestId}`);
+  });
   const interval = setInterval(() => fetchUpdatesForWorkspace(ws), 3000);
   activePollers.set(workspaceId, interval);
   console.log(`[telegram] Started poller for workspace ${workspaceId}`);
