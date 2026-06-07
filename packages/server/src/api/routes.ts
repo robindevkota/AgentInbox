@@ -732,7 +732,11 @@ Do not ask questions. Execute all steps now.
 ## Step 1 — Scan the codebase
 Read the folder structure, key files, and stack. Note the absolute path of this project root — you will need it in the steps below.
 
-## Step 2 — Install socket.io-client
+## Step 2 — Create .agentinbox/ folder
+All AgentInbox files live in a dedicated folder so they stay out of the developer's way.
+Create the folder: .agentinbox/ in the project root.
+
+## Step 3 — Install socket.io-client
 Run in the project root:
   npm install socket.io-client --save
 
@@ -740,17 +744,18 @@ If package.json does not exist, run npm init -y first.
 If you use pnpm: pnpm add socket.io-client --ignore-workspace-root-check
 If you use yarn: yarn add socket.io-client
 
-## Step 3 — Write agentinbox-worker.js in the project root
+## Step 4 — Write .agentinbox/worker.js
 Write this file exactly (replace PROJECT_PATH with the actual absolute path of this project root):
 
 \`\`\`js
 const { io } = require("socket.io-client");
 const { spawn, execSync } = require("child_process");
+const path = require("path");
 const { existsSync } = require("fs");
 
 const TOKEN = process.env.AGENTINBOX_TOKEN || "${wsToken}";
 const SERVER_URL = "https://useagentinbox.com";
-const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || __dirname;
+const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || path.resolve(__dirname, "..");
 
 function findClaude() {
   try { execSync("claude --version", { stdio: "ignore" }); return "claude"; } catch {}
@@ -763,7 +768,9 @@ const CLAUDE_PATH = findClaude();
 const TASK_PROMPT =
   "Check AgentInbox for pending tasks using get_pending_tasks. " +
   "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
-  "fix the issue in the codebase, then call complete_task with a technical summary and plain-English summary. " +
+  "implement the feature or fix the bug in the codebase. " +
+  "When done, take a screenshot as proof: start the app, use Playwright MCP browser_navigate then browser_take_screenshot, " +
+  "read the screenshot as base64, call complete_task with screenshot_base64. " +
   "If no pending tasks, exit.";
 
 let claudeRunning = false;
@@ -797,8 +804,9 @@ setInterval(() => {}, 60000);
 console.log("[worker] Starting...");
 \`\`\`
 
-## Step 4 — Write .mcp.json in the project root
-This lets Claude call AgentInbox tools (get_pending_tasks, complete_task, etc.) when it wakes up.
+## Step 5 — Write .mcp.json in the project root
+This lets Claude call AgentInbox tools and take screenshots when it wakes up.
+If .mcp.json already exists, merge the new servers in — do not overwrite existing entries.
 
 \`\`\`json
 {
@@ -818,51 +826,51 @@ This lets Claude call AgentInbox tools (get_pending_tasks, complete_task, etc.) 
 }
 \`\`\`
 
-## Step 5 — Write the startup scripts
+## Step 6 — Write the startup scripts inside .agentinbox/
 Replace PROJECT_PATH with the actual absolute path of this project root.
 
-**Windows — write agentinbox-start.bat in the project root:**
+**Windows — write .agentinbox/start.bat:**
 \`\`\`bat
 @echo off
 set AGENTINBOX_TOKEN=${wsToken}
 set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
-cd /d PROJECT_PATH
-node agentinbox-worker.js >> PROJECT_PATH\\agentinbox.log 2>&1
+cd /d PROJECT_PATH\\.agentinbox
+node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
 \`\`\`
 
-**Windows — write agentinbox-start.vbs in the project root:**
+**Windows — write .agentinbox/start.vbs:**
 \`\`\`vbs
 Set WshShell = CreateObject("WScript.Shell")
-WshShell.Run "PROJECT_PATH\\agentinbox-start.bat", 7, False
+WshShell.Run "PROJECT_PATH\\.agentinbox\\start.bat", 0, False
 \`\`\`
 
-**Mac/Linux — write agentinbox-start.sh in the project root:**
+**Mac/Linux — write .agentinbox/start.sh:**
 \`\`\`bash
 #!/bin/bash
 export AGENTINBOX_TOKEN=${wsToken}
 export AGENTINBOX_URL=https://useagentinbox.com
 export CLAUDE_PROJECT_PATH="PROJECT_PATH"
-cd "PROJECT_PATH"
-node agentinbox-worker.js >> "PROJECT_PATH/agentinbox.log" 2>&1
+cd "PROJECT_PATH/.agentinbox"
+node worker.js >> "PROJECT_PATH/.agentinbox/worker.log" 2>&1
 \`\`\`
 
-## Step 6 — Add to system startup
+## Step 7 — Add to system startup
 
 **Windows:** Run this PowerShell command:
 \`\`\`
-Copy-Item "PROJECT_PATH\\agentinbox-start.vbs" "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\agentinbox-${wsToken.slice(3, 11)}.vbs" -Force
+Copy-Item "PROJECT_PATH\\.agentinbox\\start.vbs" "$env:APPDATA\\Microsoft\\Windows\\Start Menu\\Programs\\Startup\\agentinbox-${wsToken.slice(3, 11)}.vbs" -Force
 \`\`\`
 
 **Mac:** Run these commands:
 \`\`\`bash
-chmod +x PROJECT_PATH/agentinbox-start.sh
+chmod +x PROJECT_PATH/.agentinbox/start.sh
 cat > ~/Library/LaunchAgents/com.agentinbox.worker.plist << EOF
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0"><dict>
   <key>Label</key><string>com.agentinbox.worker</string>
-  <key>ProgramArguments</key><array><string>PROJECT_PATH/agentinbox-start.sh</string></array>
+  <key>ProgramArguments</key><array><string>PROJECT_PATH/.agentinbox/start.sh</string></array>
   <key>RunAtLoad</key><true/>
   <key>KeepAlive</key><false/>
 </dict></plist>
@@ -870,7 +878,7 @@ EOF
 launchctl load ~/Library/LaunchAgents/com.agentinbox.worker.plist
 \`\`\`
 
-## Step 7 — Write CLAUDE.local.md
+## Step 8 — Write CLAUDE.local.md in the project root
 Based on your codebase scan, write CLAUDE.local.md with:
 - What this project does (1 sentence)
 - Stack and key folders
@@ -890,7 +898,7 @@ Also include a Verification section — find the values from package.json script
 
 If you cannot determine credentials, write "ASK_DEVELOPER" as a placeholder.
 ` : ""}
-## Step 8 — Write codebase rules
+## Step 9 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
 ${requireVerification ? `
 Also create .claude/rules/verification.md with this content:
@@ -918,25 +926,21 @@ If the submitter attached a screenshot or file:
 \`\`\`
 ` : ""}
 
-## Step 9 — Update .gitignore
+## Step 10 — Update .gitignore
 Add these lines:
 \`\`\`
+.agentinbox/
 CLAUDE.local.md
-agentinbox-worker.js
-agentinbox-start.bat
-agentinbox-start.vbs
-agentinbox-start.sh
-agentinbox.log${requireVerification ? "\n.claude/rules/verification.md" : ""}
-\`\`\`
+${requireVerification ? ".claude/rules/verification.md\n" : ""}\`\`\`
 
-## Step 10 — Start the worker now
+## Step 11 — Start the worker now
 Run this to verify it connects:
-  node agentinbox-worker.js
+  node .agentinbox/worker.js
 
 You should see: [worker] Connected to AgentInbox
 Then Ctrl+C — it will auto-start on next PC boot.
 
-## Step 11 — Report back
+## Step 12 — Report back
 Tell me:
 - OS detected
 - Absolute project path used
@@ -945,14 +949,15 @@ Tell me:
 
 ## How it works
 PC boots → worker starts silently → connects to AgentInbox
-Task submitted → Claude wakes, fixes it, exits → Telegram ✅ → proof on PM dashboard
+Task submitted → Claude wakes, fixes it, takes screenshot, exits → Telegram ✅ photo → proof on PM dashboard
 VS Code does NOT need to be open. You don't need to be at your desk.
 
 ## Troubleshooting
-**Not connecting:** check agentinbox.log — look for [worker] Error
-**Claude not found:** set CLAUDE_PATH in agentinbox-start.bat/.sh to the full path of claude
+**Not connecting:** check .agentinbox/worker.log — look for [worker] Error
+**Claude not found:** set CLAUDE_PATH in .agentinbox/start.bat/.sh to the full path of claude
 **socket.io not found:** run npm install socket.io-client in the project root
-**get_pending_tasks not found:** make sure .mcp.json is in the project root`;
+**get_pending_tasks not found:** make sure .mcp.json is in the project root
+**No screenshot in Telegram:** make sure .mcp.json includes the playwright server entry`;
 
     res.setHeader("Content-Disposition", "attachment; filename=\"setup.md\"");
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
