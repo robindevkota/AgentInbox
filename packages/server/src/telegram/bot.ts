@@ -107,6 +107,20 @@ async function _send(botToken: string, chatId: string, text: string, replyToMess
   }
 }
 
+async function _sendPhoto(botToken: string, chatId: string, screenshotBase64: string, caption: string): Promise<void> {
+  try {
+    const buf = Buffer.from(screenshotBase64, "base64");
+    const formData = new FormData();
+    formData.append("chat_id", chatId);
+    formData.append("caption", caption);
+    formData.append("parse_mode", "HTML");
+    formData.append("photo", new Blob([buf], { type: "image/png" }), "screenshot.png");
+    await fetch(`${apiUrl(botToken)}/sendPhoto`, { method: "POST", body: formData });
+  } catch {
+    // ignore
+  }
+}
+
 // ── Poll updates for one workspace ───────────────────────────────────────────
 
 async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
@@ -279,7 +293,12 @@ export async function notifyTaskDone(taskId: string, title: string): Promise<voi
   const botToken = cfg?.bot_token || process.env.TELEGRAM_BOT_TOKEN;
   const chatId = cfg?.chat_id || process.env.TELEGRAM_CHAT_ID;
   if (!botToken || !chatId) return;
-  await _send(botToken, chatId, `✅ <b>Fixed:</b> ${title}\n\nProof posted to dashboard.`);
+  const task = taskQueries.getTask(taskId);
+  if (task?.screenshot_base64) {
+    await _sendPhoto(botToken, chatId, task.screenshot_base64, `✅ <b>Done:</b> ${title}\n\nProof screenshot attached.`);
+  } else {
+    await _send(botToken, chatId, `✅ <b>Done:</b> ${title}\n\nProof posted to dashboard.`);
+  }
 }
 
 export async function notifyTaskEscalated(taskId: string, title: string, reason: string): Promise<void> {
