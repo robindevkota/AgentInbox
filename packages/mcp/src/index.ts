@@ -336,7 +336,17 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
     switch (name) {
       case "get_pending_tasks":  result = await getPendingTasks(); break;
       case "get_task":           result = await getTask(args!.id as string); break;
-      case "get_file":           result = await getFile(args!.task_id as string); break;
+      case "get_file": {
+        const fileResult = await getFile(args!.task_id as string);
+        // Return image as a vision-readable content block if it's an image
+        if (fileResult.file_data && fileResult.media_type) {
+          return { content: [
+            { type: "text", text: `File: ${fileResult.file_name}` },
+            { type: "image", data: fileResult.file_data, mimeType: fileResult.media_type },
+          ]};
+        }
+        return { content: [{ type: "text", text: JSON.stringify(fileResult, null, 2) }] };
+      }
       case "update_task_status": result = await updateTaskStatus(args!.id as string, args!.status as string); break;
       case "complete_task":      result = await completeTask(args!.id as string, args!.summary_technical as string, args!.summary_plain as string, args!.screenshot_base64 as string | undefined); break;
       case "escalate_task":      result = await escalateTask(args!.id as string, args!.reason as string); break;

@@ -321,9 +321,17 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
             case "get_task":
                 result = await getTask(args.id);
                 break;
-            case "get_file":
-                result = await getFile(args.task_id);
-                break;
+            case "get_file": {
+                const fileResult = await getFile(args.task_id);
+                // Return image as a vision-readable content block if it's an image
+                if (fileResult.file_data && fileResult.media_type) {
+                    return { content: [
+                            { type: "text", text: `File: ${fileResult.file_name}` },
+                            { type: "image", data: fileResult.file_data, mimeType: fileResult.media_type },
+                        ] };
+                }
+                return { content: [{ type: "text", text: JSON.stringify(fileResult, null, 2) }] };
+            }
             case "update_task_status":
                 result = await updateTaskStatus(args.id, args.status);
                 break;

@@ -975,11 +975,11 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     });
     router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
-        if (!task || !task.file_content) {
+        if (!task || (!task.file_content && !task.file_data)) {
             res.status(404).json({ error: "No file for this task" });
             return;
         }
-        res.json({ file_name: task.file_name, file_content: task.file_content });
+        res.json({ file_name: task.file_name, file_content: task.file_content, file_data: task.file_data, media_type: task.file_name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? "image/jpeg" : undefined });
     });
     router.post("/agent/tasks/:id/status", requireWorkspaceToken, (req, res) => {
         try {
