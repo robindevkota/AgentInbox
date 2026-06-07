@@ -110,6 +110,35 @@ async function _sendPhoto(botToken, chatId, screenshotBase64, caption) {
     }
 }
 // ── Poll updates for one workspace ───────────────────────────────────────────
+async function _downloadTelegramFile(botToken, fileId) {
+    try {
+        const res = await fetch(`${apiUrl(botToken)}/getFile?file_id=${fileId}`);
+        if (!res.ok)
+            return null;
+        const info = await res.json();
+        if (!info.ok || !info.result?.file_path)
+            return null;
+        const filePath = info.result.file_path;
+        const fileRes = await fetch(`https://api.telegram.org/file/bot${botToken}/${filePath}`);
+        if (!fileRes.ok)
+            return null;
+        const buf = Buffer.from(await fileRes.arrayBuffer());
+        const name = filePath.split("/").pop() || "attachment";
+        const data = buf.toString("base64");
+        // Best-effort text extraction for markdown/text files
+        let content = "";
+        if (name.match(/\.(md|txt|json|csv|js|ts|py|html|css)$/i)) {
+            content = buf.toString("utf-8").slice(0, 10000);
+        }
+        else {
+            content = `[Attached file: ${name}]`;
+        }
+        return { data, name, content };
+    }
+    catch {
+        return null;
+    }
+}
 async function fetchUpdatesForWorkspace(ws) {
     try {
         const res = await fetch(`${apiUrl(ws.botToken)}/getUpdates?offset=${ws.lastUpdateId + 1}&timeout=3`);
@@ -123,13 +152,29 @@ async function fetchUpdatesForWorkspace(ws) {
             const msg = update.message;
             if (!msg || String(msg.chat.id) !== String(ws.chatId))
                 continue;
-            const text = (msg.text || "").trim();
+            const text = (msg.text || msg.caption || "").trim();
             const replyToId = msg.reply_to_message?.message_id;
             // New message (not a reply) — classify then act
             if (!replyToId) {
-                const intent = await classifyMessage(text);
+                // Detect attached file — photo or document
+                let attachment = null;
+                if (msg.photo) {
+                    // photo is array — last entry is highest resolution
+                    const fileId = msg.photo[msg.photo.length - 1].file_id;
+                    attachment = await _downloadTelegramFile(ws.botToken, fileId);
+                    if (attachment)
+                        attachment.name = "photo.jpg";
+                }
+                else if (msg.document) {
+                    attachment = await _downloadTelegramFile(ws.botToken, msg.document.file_id);
+                    if (attachment)
+                        attachment.name = msg.document.file_name || attachment.name;
+                }
+                // If no text and has attachment, treat as task with file
+                const messageText = text || (attachment ? `Attached file: ${attachment?.name}` : "");
+                const intent = await classifyMessage(messageText);
                 // Normal conversation — just reply, no task
-                if (intent.type === "chat") {
+                if (intent.type === "chat" && !attachment) {
                     await _send(ws.botToken, ws.chatId, intent.reply, msg.message_id);
                     continue;
                 }
@@ -143,10 +188,11 @@ async function fetchUpdatesForWorkspace(ws) {
                     continue;
                 const task = tasks_1.taskQueries.createTask({
                     project_id: ws.projectId,
-                    title: intent.title || (text.length > 80 ? text.slice(0, 77) + "..." : text),
-                    description: text,
+                    title: intent.title || (messageText.length > 80 ? messageText.slice(0, 77) + "..." : messageText),
+                    description: messageText,
                     priority: "medium",
                     submitter_name: "Developer (Telegram)",
+                    ...(attachment ? { file_name: attachment.name, file_data: attachment.data, file_content: attachment.content } : {}),
                 });
                 const msgId = await _send(ws.botToken, ws.chatId, `⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`, msg.message_id);
                 if (msgId) {
