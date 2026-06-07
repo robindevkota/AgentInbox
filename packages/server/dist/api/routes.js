@@ -798,7 +798,10 @@ set AGENTINBOX_TOKEN=${wsToken}
 set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
 cd /d PROJECT_PATH\\.agentinbox
+:loop
 node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
+timeout /t 5 /nobreak > nul
+goto loop
 \`\`\`
 
 **Windows — write .agentinbox/start.vbs:**
@@ -814,7 +817,10 @@ export AGENTINBOX_TOKEN=${wsToken}
 export AGENTINBOX_URL=https://useagentinbox.com
 export CLAUDE_PROJECT_PATH="PROJECT_PATH"
 cd "PROJECT_PATH/.agentinbox"
-node worker.js >> "PROJECT_PATH/.agentinbox/worker.log" 2>&1
+while true; do
+  node worker.js >> "PROJECT_PATH/.agentinbox/worker.log" 2>&1
+  sleep 5
+done
 \`\`\`
 
 ## Step 7 — Add to system startup
