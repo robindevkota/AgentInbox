@@ -735,7 +735,7 @@ const TASK_PROMPT =
   "Check AgentInbox for pending tasks using get_pending_tasks. " +
   "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
   "implement the feature or fix the bug in the codebase. " +
-  "When done, take a screenshot as proof: start the app, use Playwright MCP browser_navigate then browser_take_screenshot, " +
+  "When done, take a screenshot as proof: start the app, use Playwright MCP browser_resize to 1280x900, then browser_navigate, then browser_take_screenshot, " +
   "read the screenshot as base64, call complete_task with screenshot_base64. " +
   "If no pending tasks, exit.";
 
