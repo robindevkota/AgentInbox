@@ -58,6 +58,34 @@ The standalone worker runs in a completely separate process — no conflict.
 - Server is on Render — run tsc in packages/server/ then push to deploy
 - Setup prompt lives in routes.ts /setup/download — update it when the worker pattern changes
 
+## Reliability fixes applied (Jun 8, 2026) — DO NOT regress these
+
+### Fix 1 — Socket deduplication (manager.ts)
+`emitTaskCreated` must emit only to the LATEST agent socket per workspace, not the whole room.
+The `latestAgentSocket` Map in manager.ts tracks this. NEVER change emitTaskCreated to
+`io.to('ws:<workspaceId>').emit(...)` — that broadcasts to every stale VS Code session and
+causes N×M Claude spawns (N tasks × M open sessions).
+
+### Fix 2 — Stale lockfile guard (mcp/src/index.ts)
+`isTaskClaudeRunning()` checks lockfile AGE — treats it as stale after 15 minutes and deletes it.
+NEVER revert to `return existsSync(LOCKFILE)` alone — a crash or reboot leaves the lockfile
+forever and all future tasks are silently dropped.
+
+### Fix 3 — Stuck task recovery (tasks.ts getPendingTasks)
+`getPendingTasks` returns tasks stuck in `in_progress` for over 15 minutes (Claude crashed
+mid-task) and resets them to `pending`. NEVER query only `status = 'pending'` in this function —
+that makes crashed tasks invisible forever and they pile up in the DB unresolved.
+
+### Fix 4 — Atomic race claim (tasks.ts updateStatus + routes.ts)
+`updateStatus(id, 'in_progress')` uses `WHERE status = 'pending'` — only one Claude wins when
+two race. Returns `undefined` if claim lost; route returns HTTP 409. NEVER change this to an
+unconditional UPDATE — two Claudes would both work the same task and send duplicate notifications.
+
+### Fix 5 — Idempotent complete_task (tasks.ts completeTask + routes.ts + mcp/tools.ts)
+`completeTask` returns `{ task, wasAlreadyDone }`. Telegram and PM socket events are only fired
+when `wasAlreadyDone === false`. NEVER fire notifications unconditionally on every complete_task
+call — duplicate ✅ Done messages flood the developer's Telegram.
+
 ## Credentials (Render / production)
 - Login: robin.devkota@amniltech.com / Super@123
 - Workspace token: wt_cAyY3qI_a3TsfKAO8Z4idI9Nl7muGxva
