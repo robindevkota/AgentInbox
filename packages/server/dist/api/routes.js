@@ -762,8 +762,9 @@ const TASK_PROMPT =
   "Check AgentInbox for pending tasks using get_pending_tasks. " +
   "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
   "implement the feature or fix the bug in the codebase. " +
-  "When done, take a screenshot as proof: start the app, use Playwright MCP browser_resize to 1280x900, then browser_navigate, then browser_take_screenshot, " +
-  "read the screenshot as base64, call complete_task with screenshot_base64. " +
+  "When done, take a screenshot as proof: use the Bash tool (NOT PowerShell) to start the app in background with '&' (e.g. 'npx serve . --listen 8080 &'), wait 3 seconds, " +
+  "use Playwright MCP browser_resize to 1280x900, then browser_navigate, then browser_take_screenshot, " +
+  "call complete_task with screenshot_base64, then use Bash to kill the server. " +
   "ENVIRONMENT FAILURE RULES — always follow these, no exceptions: " +
   "(1) If the app fails to start (port conflict, missing dependency, install error): try once on an alternate port or with npm install. If it fails a second time, stop — do NOT keep retrying. Call complete_task without a screenshot and note the reason in summary_technical. " +
   "(2) If Playwright or any screenshot tool is missing or fails: skip the screenshot entirely. Complete the task with the fix only. Never install browsers or heavy dependencies. " +
