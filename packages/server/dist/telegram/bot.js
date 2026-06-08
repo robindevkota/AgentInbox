@@ -95,18 +95,27 @@ async function _send(botToken, chatId, text, replyToMessageId) {
         return null;
     }
 }
-async function _sendPhoto(botToken, chatId, screenshotBase64, caption) {
+async function _sendPhoto(botToken, chatId, screenshotBase64, caption, replyToMessageId) {
     try {
         const buf = Buffer.from(screenshotBase64, "base64");
         const formData = new FormData();
         formData.append("chat_id", chatId);
         formData.append("caption", caption);
         formData.append("parse_mode", "HTML");
+        if (replyToMessageId)
+            formData.append("reply_to_message_id", String(replyToMessageId));
         formData.append("photo", new Blob([buf], { type: "image/png" }), "screenshot.png");
-        await fetch(`${apiUrl(botToken)}/sendPhoto`, { method: "POST", body: formData });
+        const res = await fetch(`${apiUrl(botToken)}/sendPhoto`, { method: "POST", body: formData });
+        if (!res.ok) {
+            const err = await res.text();
+            console.error(`[telegram] sendPhoto failed: ${res.status} ${err}`);
+            // Fallback — send text with note that screenshot failed to upload
+            await _send(botToken, chatId, caption + "\n\n<i>(screenshot upload failed)</i>", replyToMessageId);
+        }
     }
-    catch {
-        // ignore
+    catch (e) {
+        console.error(`[telegram] sendPhoto error: ${e}`);
+        await _send(botToken, chatId, caption + "\n\n<i>(screenshot upload failed)</i>", replyToMessageId);
     }
 }
 // ── Poll updates for one workspace ───────────────────────────────────────────
