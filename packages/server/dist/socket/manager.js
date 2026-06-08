@@ -19,6 +19,10 @@ const socket_io_1 = require("socket.io");
 const tasks_1 = require("../queue/tasks");
 const users_1 = require("../auth/users");
 let io = null;
+// Only the most-recently connected agent socket per workspace receives task events.
+// This prevents multiple agentinbox-mcp processes (from repeated VS Code sessions)
+// from all spawning Claude when a single task arrives.
+const latestAgentSocket = new Map(); // workspaceId → socket.id
 function initSocketServer(httpServer) {
     io = new socket_io_1.Server(httpServer, {
         cors: { origin: "*", methods: ["GET", "POST"] },
@@ -61,20 +65,31 @@ function initSocketServer(httpServer) {
         else {
             const workspaceName = socket.workspaceName;
             socket.join(`ws:${workspaceId}`);
+            latestAgentSocket.set(workspaceId, socket.id);
             socket.emit("connected", { type: "agent", workspace_id: workspaceId, workspace_name: workspaceName });
-            console.log(`  [socket] agent connected — workspace: ${workspaceName} (${workspaceId})`);
+            console.log(`  [socket] agent connected — workspace: ${workspaceName} (${workspaceId}) socket: ${socket.id}`);
             socket.on("disconnect", (reason) => {
                 console.log(`  [socket] agent disconnected — workspace: ${workspaceName} (${reason})`);
+                if (latestAgentSocket.get(workspaceId) === socket.id) {
+                    latestAgentSocket.delete(workspaceId);
+                }
             });
         }
     });
     return io;
 }
-// Agent events
+// Agent events — emit only to the latest connected agent socket to prevent
+// multiple agentinbox-mcp instances from each spawning Claude for the same task.
 function emitTaskCreated(workspaceId, payload) {
     if (!io)
         return;
-    io.to(`ws:${workspaceId}`).emit("task.created", payload);
+    const socketId = latestAgentSocket.get(workspaceId);
+    if (socketId) {
+        io.to(socketId).emit("task.created", payload);
+    }
+    else {
+        io.to(`ws:${workspaceId}`).emit("task.created", payload);
+    }
 }
 // PM events
 function emitToPm(workspaceId, event, payload) {
