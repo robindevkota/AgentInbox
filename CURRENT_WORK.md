@@ -72,7 +72,7 @@ Minimum: "Claude picked up this task 43s ago."
 
 ---
 
-### Gap 6 — No failure contract for environment errors
+### ✅ Gap 6 — No failure contract for environment errors — FIXED
 **Files:** `packages/server/src/api/routes.ts` (TASK_PROMPT in setup endpoint) + `packages/mcp/src/index.ts` (TASK_PROMPT)
 **Problem:** `--dangerously-skip-permissions` removes the "ask human" escape valve.
 When the environment is broken, Claude has no explicit instructions — it improvises unpredictably:

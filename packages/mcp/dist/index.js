@@ -34,6 +34,15 @@ const SERVER_URL = process.env.AGENTINBOX_URL || "https://useagentinbox.com";
 const API_BASE = `${SERVER_URL}/api`;
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
 const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || process.cwd();
+// Validate PROJECT_CWD on startup — if not explicitly set, Claude may edit the wrong directory
+if (!process.env.CLAUDE_PROJECT_PATH) {
+    process.stderr.write(`[agentinbox-mcp] WARNING: CLAUDE_PROJECT_PATH is not set. Falling back to process.cwd() = ${PROJECT_CWD}\n` +
+        `[agentinbox-mcp] If this is wrong, set CLAUDE_PROJECT_PATH in your .agentinbox/start.bat or start.sh\n`);
+}
+else if (!(0, fs_1.existsSync)(PROJECT_CWD)) {
+    process.stderr.write(`[agentinbox-mcp] ERROR: CLAUDE_PROJECT_PATH does not exist: ${PROJECT_CWD}\n` +
+        `[agentinbox-mcp] Fix the path in your .agentinbox/start.bat or start.sh and restart the worker.\n`);
+}
 // ── Claude wake-on-task ───────────────────────────────────────────────────────
 // Spawns a headless Claude process when a task arrives. Uses a lockfile instead
 // of an in-memory flag so that an active interactive Claude session (like the

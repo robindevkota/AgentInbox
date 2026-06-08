@@ -53,6 +53,21 @@ const bot_1 = require("../telegram/bot");
 const claude_1 = require("../trigger/claude");
 const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
+// Rate limit: max submissions per token per hour — prevents token abuse / runaway Claude spawns
+const SUBMIT_RATE_LIMIT = 10;
+const submitCounts = new Map();
+function checkSubmitRateLimit(token) {
+    const now = Date.now();
+    const entry = submitCounts.get(token);
+    if (!entry || now > entry.resetAt) {
+        submitCounts.set(token, { count: 1, resetAt: now + 60 * 60 * 1000 });
+        return true;
+    }
+    if (entry.count >= SUBMIT_RATE_LIMIT)
+        return false;
+    entry.count++;
+    return true;
+}
 const upload = (0, multer_1.default)({
     storage: multer_1.default.memoryStorage(),
     limits: { fileSize: 20 * 1024 * 1024 },
@@ -155,6 +170,11 @@ function createRouter() {
     router.post("/submit/:token", tokens_1.requireProjectToken, upload.single("file"), async (req, res) => {
         try {
             const project = req.project;
+            // Rate limit — max 10 submissions per token per hour
+            if (!checkSubmitRateLimit(project.token)) {
+                res.status(429).json({ error: "Too many submissions. Maximum 10 tasks per hour per project. Please wait before submitting again." });
+                return;
+            }
             // Tier 2: verify session header if project requires OTP
             if (project.allowed_emails) {
                 const session = req.headers["x-otp-session"];
@@ -674,9 +694,11 @@ function createRouter() {
                     wsToken = t;
             }
         }
-        // Resolve project submit token + require_verification if JWT provided
+        // Resolve project submit token + require_verification + Telegram config if JWT provided
         let projectSubmitToken = null;
         let requireVerification = false;
+        let telegramBotToken = null;
+        let telegramChatId = null;
         if (jwt) {
             const payload = (0, users_1.verifyToken)(jwt);
             if (payload) {
@@ -684,6 +706,11 @@ function createRouter() {
                 if (proj) {
                     projectSubmitToken = proj.token;
                     requireVerification = proj.require_verification === 1;
+                }
+                const ws = db_1.db.prepare("SELECT telegram_bot_token, telegram_chat_id FROM workspaces WHERE id = ?").get(payload.workspaceId);
+                if (ws) {
+                    telegramBotToken = ws.telegram_bot_token;
+                    telegramChatId = ws.telegram_chat_id;
                 }
             }
         }
@@ -755,8 +782,31 @@ function spawnClaude() {
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", TASK_PROMPT], {
     cwd: PROJECT_CWD, stdio: "inherit", detached: false
   });
-  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); claudeRunning = false; });
-  proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); claudeRunning = false; });
+  // Kill Claude after 15 minutes if it hasn't exited — prevents claudeRunning stuck forever
+  const timeout = setTimeout(() => {
+    console.error("[worker] Claude timed out after 15 min — killing process");
+    proc.kill("SIGTERM");
+    setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000);
+  }, 15 * 60 * 1000);
+  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
+  proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); clearTimeout(timeout); claudeRunning = false; });
+}
+
+let connectFailures = 0;
+let alertSent = false;
+
+async function sendTelegramAlert(msg) {
+  // Reads bot token + chat ID from env — set in start.bat/start.sh during setup
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  if (!botToken || !chatId) return;
+  try {
+    await fetch("https://api.telegram.org/bot" + botToken + "/sendMessage", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ chat_id: chatId, text: msg }),
+    });
+  } catch {}
 }
 
 const socket = io(SERVER_URL, {
@@ -767,10 +817,17 @@ const socket = io(SERVER_URL, {
   reconnectionAttempts: Infinity,
 });
 
-socket.on("connect", () => console.log("[worker] Connected to AgentInbox"));
+socket.on("connect", () => { console.log("[worker] Connected to AgentInbox"); connectFailures = 0; alertSent = false; });
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
 socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\""); spawnClaude(); });
-socket.on("connect_error", (e) => console.error("[worker] Error: " + e.message));
+socket.on("connect_error", (e) => {
+  console.error("[worker] Error: " + e.message);
+  connectFailures++;
+  if (connectFailures >= 3 && !alertSent) {
+    alertSent = true;
+    sendTelegramAlert("⚠️ AgentInbox worker cannot connect to server after 3 attempts.\\nTasks will NOT be processed until this is resolved.\\nCheck worker.log on your PC.");
+  }
+});
 socket.on("disconnect", (r) => console.log("[worker] Disconnected: " + r));
 
 setInterval(() => {}, 60000);
@@ -808,6 +865,8 @@ Replace PROJECT_PATH with the actual absolute path of this project root.
 set AGENTINBOX_TOKEN=${wsToken}
 set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
+${telegramBotToken ? `set TELEGRAM_BOT_TOKEN=${telegramBotToken}` : "set TELEGRAM_BOT_TOKEN="}
+${telegramChatId ? `set TELEGRAM_CHAT_ID=${telegramChatId}` : "set TELEGRAM_CHAT_ID="}
 cd /d PROJECT_PATH\\.agentinbox
 :loop
 node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
@@ -827,6 +886,8 @@ WshShell.Run "PROJECT_PATH\\.agentinbox\\start.bat", 0, False
 export AGENTINBOX_TOKEN=${wsToken}
 export AGENTINBOX_URL=https://useagentinbox.com
 export CLAUDE_PROJECT_PATH="PROJECT_PATH"
+${telegramBotToken ? `export TELEGRAM_BOT_TOKEN=${telegramBotToken}` : "export TELEGRAM_BOT_TOKEN="}
+${telegramChatId ? `export TELEGRAM_CHAT_ID=${telegramChatId}` : "export TELEGRAM_CHAT_ID="}
 cd "PROJECT_PATH/.agentinbox"
 while true; do
   node worker.js >> "PROJECT_PATH/.agentinbox/worker.log" 2>&1

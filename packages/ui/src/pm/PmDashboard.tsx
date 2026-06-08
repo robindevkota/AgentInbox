@@ -881,6 +881,7 @@ function DashboardScreen({
                               <div className="flex items-center gap-1.5 shrink-0">
                                 {t.priority === "high" && <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-red-500/20 text-red-400 border border-red-500/20">high</span>}
                                 {t.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-md font-medium bg-white/5 text-slate-500">low</span>}
+                                {t.status === "in_progress" && <ElapsedTimer updatedAt={t.updated_at} />}
                                 <span className={`text-xs px-2.5 py-1 rounded-md font-medium ${STATUS_COLORS[t.status] || "bg-white/5 text-slate-400"}`}>
                                   {t.status.replace(/_/g, " ")}
                                 </span>
@@ -1206,6 +1207,7 @@ function TaskDetail({ task, authHeaders, onApprove, onReject, onReopen }: { task
           <div className="flex items-center gap-1.5 shrink-0">
             {task.priority === "high" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-red-100 text-red-700">high</span>}
             {task.priority === "low" && <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-[#252838] text-slate-500">low</span>}
+            {task.status === "in_progress" && <ElapsedTimer updatedAt={task.updated_at} />}
             <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${STATUS_COLORS[task.status] || "bg-[#252838] text-slate-400"}`}>
               {(task.status || "").replace(/_/g, " ")}
             </span>
@@ -1721,6 +1723,21 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+// Shows "Claude working · 43s" while a task is in_progress — kills the black-box feeling
+function ElapsedTimer({ updatedAt }: { updatedAt: number }) {
+  const [elapsed, setElapsed] = useState(Math.floor(Date.now() / 1000) - updatedAt);
+  useEffect(() => {
+    const iv = setInterval(() => setElapsed(Math.floor(Date.now() / 1000) - updatedAt), 1000);
+    return () => clearInterval(iv);
+  }, [updatedAt]);
+  const fmt = elapsed < 60 ? `${elapsed}s` : `${Math.floor(elapsed / 60)}m ${elapsed % 60}s`;
+  return (
+    <span className="text-xs text-indigo-400 animate-pulse font-medium">
+      ⚙ Claude working · {fmt}
+    </span>
+  );
+}
 
 const STATUS_COLORS: Record<string, string> = {
   pending:           "bg-slate-700/50 text-slate-400",
