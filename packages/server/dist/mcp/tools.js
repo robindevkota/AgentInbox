@@ -221,12 +221,16 @@ exports.mcpTools = [
                 screenshot_base64: zod_1.z.string().optional(),
             })
                 .parse(args);
-            const task = tasks_1.taskQueries.completeTask(id, summary_technical, summary_plain, pr_link, screenshot_base64);
-            if (!task) {
+            const result = tasks_1.taskQueries.completeTask(id, summary_technical, summary_plain, pr_link, screenshot_base64);
+            if (!result) {
                 return {
                     content: [{ type: "text", text: `Task ${id} not found` }],
                     isError: true,
                 };
+            }
+            const { task, wasAlreadyDone } = result;
+            if (wasAlreadyDone) {
+                return { content: [{ type: "text", text: `Task ${id} was already done — no duplicate notification sent` }] };
             }
             // Fire completion notifications async
             Promise.resolve().then(() => __importStar(require("../email/mailer"))).then(async ({ sendTaskCompleted }) => {

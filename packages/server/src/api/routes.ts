@@ -1052,16 +1052,20 @@ VS Code does NOT need to be open. You don't need to be at your desk.
         summary_plain: z.string().min(1),
         screenshot_base64: z.string().optional(),
       }).parse(req.body);
-      const updated = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64);
-      if (!updated) { res.status(404).json({ error: "Task not found" }); return; }
-      const ws = (req as any).agentWorkspace;
-      emitToPm(ws.id, "task.done", {
-        task_id: updated.id,
-        title: updated.title,
-        summary_plain,
-        has_screenshot: !!screenshot_base64,
-      });
-      notifyTaskDone(updated.id, updated.title).catch(() => {});
+      const result = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64);
+      if (!result) { res.status(404).json({ error: "Task not found" }); return; }
+      const { task: updated, wasAlreadyDone } = result;
+      // Only notify once — suppress Telegram + PM push if task was already done (duplicate complete_task call)
+      if (!wasAlreadyDone) {
+        const ws = (req as any).agentWorkspace;
+        emitToPm(ws.id, "task.done", {
+          task_id: updated.id,
+          title: updated.title,
+          summary_plain,
+          has_screenshot: !!screenshot_base64,
+        });
+        notifyTaskDone(updated.id, updated.title).catch(() => {});
+      }
       res.json(updated);
     } catch (err) { res.status(400).json({ error: String(err) }); }
   });

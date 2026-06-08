@@ -306,12 +306,16 @@ export const taskQueries = {
     summaryPlain: string,
     prLink?: string,
     screenshotBase64?: string,
-  ): Task | undefined {
+  ): { task: Task; wasAlreadyDone: boolean } | undefined {
+    const before = taskQueries.getTask(id);
+    if (!before) return undefined;
+    const wasAlreadyDone = before.status === "done";
     db.prepare(`
       UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, updated_at = ?
       WHERE id = ?
     `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, nowUnix(), id);
-    return taskQueries.getTask(id);
+    const task = taskQueries.getTask(id)!;
+    return { task, wasAlreadyDone };
   },
 
   reopenTask(id: string): Task | undefined {

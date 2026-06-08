@@ -210,12 +210,16 @@ export const mcpTools = [
         })
         .parse(args);
 
-      const task = taskQueries.completeTask(id, summary_technical, summary_plain, pr_link, screenshot_base64);
-      if (!task) {
+      const result = taskQueries.completeTask(id, summary_technical, summary_plain, pr_link, screenshot_base64);
+      if (!result) {
         return {
           content: [{ type: "text", text: `Task ${id} not found` }],
           isError: true,
         };
+      }
+      const { task, wasAlreadyDone } = result;
+      if (wasAlreadyDone) {
+        return { content: [{ type: "text", text: `Task ${id} was already done — no duplicate notification sent` }] };
       }
 
       // Fire completion notifications async

@@ -122,11 +122,16 @@ exports.taskQueries = {
         return exports.taskQueries.getTask(id);
     },
     completeTask(id, summaryTechnical, summaryPlain, prLink, screenshotBase64) {
+        const before = exports.taskQueries.getTask(id);
+        if (!before)
+            return undefined;
+        const wasAlreadyDone = before.status === "done";
         db_1.db.prepare(`
       UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, updated_at = ?
       WHERE id = ?
     `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, (0, db_1.nowUnix)(), id);
-        return exports.taskQueries.getTask(id);
+        const task = exports.taskQueries.getTask(id);
+        return { task, wasAlreadyDone };
     },
     reopenTask(id) {
         db_1.db.prepare("UPDATE tasks SET status = 'pending', updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), id);
