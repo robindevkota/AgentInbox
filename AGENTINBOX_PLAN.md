@@ -68,6 +68,24 @@ The standalone worker runs in a completely separate process — no conflict ever
 `.agentinbox-running` file written on Claude spawn, deleted on exit.
 Prevents two Claude instances running simultaneously on the same project.
 Works across processes — unlike in-memory flags.
+**Stale lockfile guard:** if the lockfile is older than 15 minutes (crash/reboot), it is automatically deleted and Claude is allowed to spawn again.
+
+### Race prevention (atomic claim)
+`update_task_status(in_progress)` uses `WHERE status = 'pending'` — only one Claude wins if two race.
+The server returns HTTP 409 to the loser; Claude should skip the task and move to the next.
+
+### Stuck task recovery
+`get_pending_tasks` also returns tasks stuck in `in_progress` for over 15 minutes (Claude crashed mid-task).
+Those tasks are reset to `pending` automatically before being returned, so they get retried.
+
+### Socket deduplication
+The server tracks only the **latest** agent socket per workspace in memory.
+`emitTaskCreated` sends to that one socket only — not the whole room.
+Prevents N VS Code sessions × M tasks = N×M Claude spawns.
+
+### Poll loop cap
+`ask_developer` and `propose_plan` poll loops are capped at 5 minutes in the TASK_PROMPT.
+After 5 minutes with no reply, Claude proceeds with best judgment and notes it in summary_technical.
 
 ### Token cost
 - **Idle:** zero — worker is a tiny Node process (~5MB RAM), Claude not running
@@ -129,6 +147,16 @@ Works across processes — unlike in-memory flags.
 | Task type Telegram label | ✨ New feature / 🐛 New bug / 💬 New request on Telegram | ✅ |
 
 **100% production ready. First customers can onboard today.**
+
+## Reliability Fixes — Applied (Jun 8, 2026)
+
+| Scenario | Root Cause | Fix |
+|---|---|---|
+| N×M Claude spawns | `emitTaskCreated` broadcast to all sockets in room; stale sockets accumulate per VS Code session | Server tracks latest agent socket per workspace, emits only to that one |
+| Stale lockfile deadlock | `.agentinbox-running` never cleaned up after crash/reboot; all future tasks silently dropped | Lockfile treated as stale after 15 min, auto-deleted |
+| Task stuck in `in_progress` forever | Claude crashes after `update_task_status(in_progress)` but before `complete_task`; task invisible to next spawn | `get_pending_tasks` resets and returns `in_progress` tasks older than 15 min |
+| Race — two Claudes on same task | No atomic claim; both see `pending`, both work in parallel, duplicate Telegram notifications | `update_task_status(in_progress)` uses `WHERE status = 'pending'` — only one wins; loser gets HTTP 409 |
+| `ask_developer` / `propose_plan` infinite token burn | TASK_PROMPT told Claude to poll every 30s with no timeout | TASK_PROMPT now caps poll loops at 5 minutes |
 
 ---
 

@@ -978,7 +978,9 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     router.get("/agent/tasks/pending", requireWorkspaceToken, (req, res) => {
         const ws = req.agentWorkspace;
         const projects = db_1.db.prepare("SELECT id, require_approval, require_verification FROM projects WHERE workspace_id = ?").all(ws.id);
-        const tasks = projects.flatMap((p) => tasks_1.taskQueries.listTasks(p.id, "pending").map((t) => ({ ...t, require_approval: p.require_approval === 1, require_verification: p.require_verification === 1 })));
+        const tasks = projects.flatMap((p) => 
+        // getPendingTasks also recovers tasks stuck in_progress > 15 min (Claude crashed mid-task)
+        tasks_1.taskQueries.getPendingTasks(p.id).map((t) => ({ ...t, require_approval: p.require_approval === 1, require_verification: p.require_verification === 1 })));
         res.json(tasks);
     });
     router.get("/agent/tasks/:id", requireWorkspaceToken, (req, res) => {
@@ -1002,6 +1004,11 @@ VS Code does NOT need to be open. You don't need to be at your desk.
         try {
             const { status } = zod_1.z.object({ status: zod_1.z.enum(["in_progress", "blocked", "failed"]) }).parse(req.body);
             const updated = tasks_1.taskQueries.updateStatus(req.params.id, status);
+            // updateStatus returns undefined when the atomic in_progress claim lost the race
+            if (!updated) {
+                res.status(409).json({ error: "Task already claimed by another Claude instance — skip it" });
+                return;
+            }
             res.json(updated);
         }
         catch (err) {

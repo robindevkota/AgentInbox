@@ -228,14 +228,25 @@ export const taskQueries = {
 
   getPendingTasks(projectId?: string): Task[] {
     const order = "ORDER BY CASE priority WHEN 'high' THEN 0 WHEN 'medium' THEN 1 ELSE 2 END, created_at ASC";
-    if (projectId) {
-      return db
-        .prepare(`SELECT * FROM tasks WHERE project_id = ? AND status = 'pending' ${order}`)
-        .all(projectId) as Task[];
+    // Also recover tasks stuck in_progress for over 15 minutes (Claude crashed mid-task)
+    const stuckCutoff = nowUnix() - 15 * 60;
+    const where = projectId
+      ? `project_id = ? AND (status = 'pending' OR (status = 'in_progress' AND updated_at < ${stuckCutoff}))`
+      : `status = 'pending' OR (status = 'in_progress' AND updated_at < ${stuckCutoff})`;
+    const query = projectId
+      ? `SELECT * FROM tasks WHERE ${where} ${order}`
+      : `SELECT * FROM tasks WHERE ${where} ${order}`;
+    const rows = projectId
+      ? db.prepare(query).all(projectId) as Task[]
+      : db.prepare(query).all() as Task[];
+    // Reset stuck tasks back to pending so the atomic claim in updateStatus works
+    for (const t of rows) {
+      if (t.status === "in_progress") {
+        db.prepare("UPDATE tasks SET status = 'pending', updated_at = ? WHERE id = ?").run(nowUnix(), t.id);
+        t.status = "pending";
+      }
     }
-    return db
-      .prepare(`SELECT * FROM tasks WHERE status = 'pending' ${order}`)
-      .all() as Task[];
+    return rows;
   },
 
   getApprovedTasks(projectId?: string): Task[] {
@@ -254,11 +265,17 @@ export const taskQueries = {
   },
 
   updateStatus(id: string, status: TaskStatus): Task | undefined {
-    db.prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?").run(
-      status,
-      nowUnix(),
-      id
-    );
+    if (status === "in_progress") {
+      // Atomic claim: only move to in_progress from pending.
+      // If two Claude instances race, only one wins — the other gets no rows changed
+      // and the task stays in_progress for the winner.
+      const result = db.prepare(
+        "UPDATE tasks SET status = 'in_progress', updated_at = ? WHERE id = ? AND status = 'pending'"
+      ).run(nowUnix(), id);
+      if (result.changes === 0) return undefined; // already claimed by another Claude
+    } else {
+      db.prepare("UPDATE tasks SET status = ?, updated_at = ? WHERE id = ?").run(status, nowUnix(), id);
+    }
     return taskQueries.getTask(id);
   },
 

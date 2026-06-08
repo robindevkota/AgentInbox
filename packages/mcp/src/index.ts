@@ -29,7 +29,7 @@ import {
 } from "@modelcontextprotocol/sdk/types.js";
 import { io as SocketClient, Socket } from "socket.io-client";
 import { spawn } from "child_process";
-import { existsSync, writeFileSync, unlinkSync } from "fs";
+import { existsSync, writeFileSync, unlinkSync, statSync } from "fs";
 import { join } from "path";
 
 const TOKEN = process.env.AGENTINBOX_TOKEN;
@@ -45,15 +45,29 @@ const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || process.cwd();
 // the lockfile; the interactive Claude never touches it.
 
 const LOCKFILE = join(PROJECT_CWD, ".agentinbox-running");
+const LOCKFILE_MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes — stale after this
 
 function isTaskClaudeRunning(): boolean {
-  return existsSync(LOCKFILE);
+  if (!existsSync(LOCKFILE)) return false;
+  try {
+    const age = Date.now() - statSync(LOCKFILE).mtimeMs;
+    if (age > LOCKFILE_MAX_AGE_MS) {
+      // Stale lockfile from a crash or machine reboot — remove it
+      process.stderr.write(`[agentinbox-mcp] Stale lockfile (${Math.round(age / 60000)}m old) — removing\n`);
+      unlinkSync(LOCKFILE);
+      return false;
+    }
+  } catch { return false; }
+  return true;
 }
 
 const TASK_PROMPT =
   "Check AgentInbox for pending tasks using get_pending_tasks. " +
   "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
   "fix the issue in the codebase, then call complete_task with a technical summary and plain-English summary. " +
+  "If you use ask_developer or propose_plan and need to poll for a reply: poll get_task every 30s, " +
+  "but give up after 5 minutes maximum — if no reply, proceed with best judgment and note it in summary_technical. " +
+  "Never poll indefinitely. " +
   "If no pending tasks, exit.";
 
 function spawnClaude(): void {
