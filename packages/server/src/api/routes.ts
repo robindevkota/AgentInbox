@@ -775,6 +775,13 @@ const TASK_PROMPT =
   "implement the feature or fix the bug in the codebase. " +
   "When done, take a screenshot as proof: start the app, use Playwright MCP browser_resize to 1280x900, then browser_navigate, then browser_take_screenshot, " +
   "read the screenshot as base64, call complete_task with screenshot_base64. " +
+  "ENVIRONMENT FAILURE RULES — always follow these, no exceptions: " +
+  "(1) If the app fails to start (port conflict, missing dependency, install error): try once on an alternate port or with npm install. If it fails a second time, stop — do NOT keep retrying. Call complete_task without a screenshot and note the reason in summary_technical. " +
+  "(2) If Playwright or any screenshot tool is missing or fails: skip the screenshot entirely. Complete the task with the fix only. Never install browsers or heavy dependencies. " +
+  "(3) If a file attachment says '[Could not parse file]': proceed without it, note it in summary_technical, fix based on title and description alone. " +
+  "(4) If any tool or command fails twice in a row: stop trying that approach immediately. Never loop more than 2 attempts on any single operation. " +
+  "(5) Never kill processes on the developer machine to free a port. If a port is busy, try one alternate port, then skip the screenshot. " +
+  "(6) An imperfect fix delivered is always better than a perfect fix never delivered. When in doubt, complete and note the limitation. " +
   "If no pending tasks, exit.";
 
 let claudeRunning = false;
