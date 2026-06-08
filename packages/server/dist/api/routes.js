@@ -906,11 +906,24 @@ CLAUDE.local.md
 ${requireVerification ? ".claude/rules/verification.md\n" : ""}\`\`\`
 
 ## Step 11 — Start the worker now
-Run this to verify it connects:
-  node .agentinbox/worker.js
+Launch the worker in the background using the startup script (same as what runs on boot):
+
+On Windows — run this PowerShell command:
+  Start-Process wscript.exe -ArgumentList (Resolve-Path ".agentinbox/start.vbs").Path
+
+On Mac/Linux — run:
+  bash .agentinbox/start.sh &
+
+Wait 3 seconds then check the log to confirm it connected:
+
+On Windows:
+  Start-Sleep 3; Get-Content .agentinbox/worker.log -Tail 5
+
+On Mac/Linux:
+  sleep 3 && tail -5 .agentinbox/worker.log
 
 You should see: [worker] Connected to AgentInbox
-Then Ctrl+C — it will auto-start on next PC boot.
+The worker now runs silently in the background and will auto-restart on every PC boot.
 
 ## Step 12 — Report back
 Tell me:
