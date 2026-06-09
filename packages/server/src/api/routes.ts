@@ -801,16 +801,17 @@ const TASK_PROMPT =
   "Check AgentInbox for pending tasks using get_pending_tasks. " +
   "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
   "implement the feature or fix the bug in the codebase. " +
-  "When done, take a screenshot as proof: use the Bash tool (NOT PowerShell) to start the app in background with '&' (e.g. 'npx serve . --listen 8080 &'), wait 3 seconds, " +
-  "use Playwright MCP browser_resize to 1280x900, then browser_navigate, then browser_take_screenshot, " +
-  "call complete_task with screenshot_base64, then use Bash to kill the server. " +
+  "Call complete_task with summary_technical and summary_plain. " +
+  "Only attempt a screenshot if the task description explicitly requests one AND require_verification is true in get_task response. " +
+  "If taking a screenshot: use Bash tool (NOT PowerShell) with '&' to background the server (e.g. 'npx serve . --listen 8080 &'), sleep 3, Playwright browser_navigate, browser_take_screenshot, then complete_task with screenshot_base64. " +
   "ENVIRONMENT FAILURE RULES — always follow these, no exceptions: " +
-  "(1) If the app fails to start (port conflict, missing dependency, install error): try once on an alternate port or with npm install. If it fails a second time, stop — do NOT keep retrying. Call complete_task without a screenshot and note the reason in summary_technical. " +
-  "(2) If Playwright or any screenshot tool is missing or fails: skip the screenshot entirely. Complete the task with the fix only. Never install browsers or heavy dependencies. " +
-  "(3) If a file attachment says '[Could not parse file]': proceed without it, note it in summary_technical, fix based on title and description alone. " +
-  "(4) If any tool or command fails twice in a row: stop trying that approach immediately. Never loop more than 2 attempts on any single operation. " +
-  "(5) Never kill processes on the developer machine to free a port. If a port is busy, try one alternate port, then skip the screenshot. " +
-  "(6) An imperfect fix delivered is always better than a perfect fix never delivered. When in doubt, complete and note the limitation. " +
+  "(1) If the app fails to start: try once on alternate port. If it fails again, call complete_task immediately without screenshot. " +
+  "(2) If Playwright or screenshot fails for any reason: call complete_task immediately without screenshot. Never retry more than once. " +
+  "(3) If a file attachment says '[Could not parse file]': proceed without it, note in summary_technical. " +
+  "(4) If any tool or command fails twice: stop immediately. Never loop more than 2 attempts on any single operation. " +
+  "(5) Never kill processes to free a port. Try one alternate port, then skip screenshot. " +
+  "(6) NEVER wait indefinitely for any process. If a command does not return within 10 seconds, kill it and move on. " +
+  "(7) An imperfect fix delivered is always better than a perfect fix never delivered. When in doubt, complete_task immediately. " +
   "If no pending tasks, exit.";
 
 let claudeRunning = false;
@@ -822,12 +823,12 @@ function spawnClaude() {
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", TASK_PROMPT], {
     cwd: PROJECT_CWD, stdio: "inherit", detached: false
   });
-  // Kill Claude after 15 minutes if it hasn't exited — prevents claudeRunning stuck forever
+  // Kill Claude after 3 minutes if it hasn't exited — prevents token burn from stuck loops
   const timeout = setTimeout(() => {
-    console.error("[worker] Claude timed out after 15 min — killing process");
+    console.error("[worker] Claude timed out after 3 min — killing process");
     proc.kill("SIGTERM");
     setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000);
-  }, 15 * 60 * 1000);
+  }, 3 * 60 * 1000);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
   proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); clearTimeout(timeout); claudeRunning = false; });
 }
