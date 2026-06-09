@@ -760,50 +760,32 @@ function findClaude() {
 
 const CLAUDE_PATH = findClaude();
 
-// Claude's only job: fix the code and call complete_task. Worker handles screenshots.
-const TASK_PROMPT =
-  "Check AgentInbox for pending tasks using get_pending_tasks. " +
-  "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
-  "if the task has a file attachment call get_file to read it. " +
-  "Implement the fix or feature. " +
-  "Call complete_task with summary_technical and summary_plain. Do NOT attempt screenshots — the worker handles that. " +
-  "RULES: (1) If a file says '[Could not parse file]': proceed without it. " +
-  "(2) complete_task immediately when done. Never loop or retry more than twice on anything. " +
-  "If no pending tasks, exit.";
+function buildTaskPrompt(requireVerification: boolean): string {
+  const base =
+    "Check AgentInbox for pending tasks using get_pending_tasks. " +
+    "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
+    "if the task has a file attachment call get_file to read it. " +
+    "Implement the fix or feature. ";
+
+  const screenshotInstructions = requireVerification
+    ? "SCREENSHOT (required): After fixing, read the '## Verification' section in CLAUDE.local.md for the start command and URL. " +
+      "Start the app with Bash (background process). Wait 3 seconds. " +
+      "Use browser_navigate to the URL. Use browser_take_screenshot — the base64 is in the tool response directly, do NOT read any file. " +
+      "Call complete_task with summary_technical, summary_plain, and screenshot_base64 set to that base64. " +
+      "If the app fails to start on the first attempt: call complete_task without a screenshot — do NOT retry or debug startup. "
+    : "Call complete_task with summary_technical and summary_plain. ";
+
+  return base + screenshotInstructions +
+    "RULES: (1) If a file says '[Could not parse file]': proceed without it. " +
+    "(2) complete_task immediately when done. Never loop or retry more than twice on anything. " +
+    "If no pending tasks, exit.";
+}
 
 let claudeRunning = false;
 const seenTaskIds = new Set(); // prevent duplicate spawns for same task on reconnect
 let pendingTaskTitle = "";
 let pendingTelegramMsgId = null;
 
-async function takeScreenshotAndAttach(taskId, taskTitle) {
-  console.log("[worker] Taking screenshot for task " + taskId);
-  const os = require("os");
-  const { spawnSync } = require("child_process");
-  const { unlinkSync } = require("fs");
-  let serverProc = null;
-  let screenshotPath = null;
-  try {
-    serverProc = spawn("npx", ["serve", PROJECT_CWD, "--listen", "8181"], { cwd: PROJECT_CWD, stdio: "ignore", detached: true, shell: true });
-    serverProc.unref();
-    await new Promise(r => setTimeout(r, 3000));
-    screenshotPath = os.tmpdir() + "/agentinbox-ss-" + Date.now() + ".png";
-    const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "http://localhost:8181", screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
-    if (result.status !== 0 || !existsSync(screenshotPath)) { console.error("[worker] Screenshot failed"); return; }
-    const buf = require("fs").readFileSync(screenshotPath);
-    if (buf[0] !== 0x89 || buf[1] !== 0x50 ) { console.error("[worker] Screenshot invalid"); return; }
-    const screenshot_base64 = buf.toString("base64");
-    await apiPost("/agent/tasks/" + taskId + "/screenshot", { screenshot_base64 });
-    console.log("[worker] Screenshot attached — " + buf.length + " bytes");
-    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
-      await sendTelegramPhoto(buf, "📸 " + taskTitle, pendingTelegramMsgId);
-    }
-  } catch (err) { console.error("[worker] Screenshot error:", err.message); }
-  finally {
-    if (serverProc && serverProc.pid) { try { process.kill(serverProc.pid, "SIGTERM"); } catch {} }
-    if (screenshotPath && existsSync(screenshotPath)) { try { unlinkSync(screenshotPath); } catch {} }
-  }
-}
 
 function apiPost(apiPath, body) {
   const https = require("https");
@@ -835,21 +817,22 @@ function spawnClaude(taskId, requireVerification) {
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
   claudeRunning = true;
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
-  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "0.50", TASK_PROMPT], {
+  const prompt = buildTaskPrompt(requireVerification);
+  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "0.50", prompt], {
     cwd: PROJECT_CWD, stdio: "inherit", detached: false
   });
-  // Kill Claude after 90 seconds — hard backstop in case --max-budget-usd isn't enough
+  // Kill Claude after 120 seconds — extra time for screenshot when require_verification is on
+  const timeoutMs = requireVerification ? 120 * 1000 : 90 * 1000;
   const timeout = setTimeout(() => {
-    console.error("[worker] Claude timed out after 90s — killing process");
+    console.error("[worker] Claude timed out — killing process");
     proc.kill("SIGTERM");
     setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000);
-  }, 90 * 1000);
+  }, timeoutMs);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
-  proc.on("close", async (code) => {
+  proc.on("close", (code) => {
     console.log("[worker] Claude exited (" + code + ")");
     clearTimeout(timeout);
     claudeRunning = false;
-    if (requireVerification && taskId) { await takeScreenshotAndAttach(taskId, pendingTaskTitle); }
   });
 }
 
@@ -986,6 +969,16 @@ Based on your codebase scan, write CLAUDE.local.md with:
 - How to run the project locally
 - Where the main entry points are
 - Any important conventions or gotchas
+${requireVerification ? `
+Also include a Verification section — find the values from package.json scripts, .env.example, README, or seed files:
+
+\`\`\`
+## Verification
+- Start: <e.g. npm run dev>
+- URL: <e.g. http://localhost:3000>
+- Login: <test credentials if login required, e.g. admin@test.com / password123 — write ASK_DEVELOPER if unknown>
+\`\`\`
+` : ""}
 ## Step 9 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
 
