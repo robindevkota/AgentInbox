@@ -946,8 +946,6 @@ Replace PROJECT_PATH with the actual absolute path of this project root.
 set AGENTINBOX_TOKEN=${wsToken}
 set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
-${telegramBotToken ? `set TELEGRAM_BOT_TOKEN=${telegramBotToken}` : "set TELEGRAM_BOT_TOKEN="}
-${telegramChatId ? `set TELEGRAM_CHAT_ID=${telegramChatId}` : "set TELEGRAM_CHAT_ID="}
 cd /d PROJECT_PATH\\.agentinbox
 :loop
 node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
@@ -967,8 +965,6 @@ WshShell.Run "PROJECT_PATH\\.agentinbox\\start.bat", 0, False
 export AGENTINBOX_TOKEN=${wsToken}
 export AGENTINBOX_URL=https://useagentinbox.com
 export CLAUDE_PROJECT_PATH="PROJECT_PATH"
-${telegramBotToken ? `export TELEGRAM_BOT_TOKEN=${telegramBotToken}` : "export TELEGRAM_BOT_TOKEN="}
-${telegramChatId ? `export TELEGRAM_CHAT_ID=${telegramChatId}` : "export TELEGRAM_CHAT_ID="}
 cd "PROJECT_PATH/.agentinbox"
 while true; do
   node worker.js >> "PROJECT_PATH/.agentinbox/worker.log" 2>&1
