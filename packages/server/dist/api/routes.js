@@ -743,13 +743,18 @@ Write this file exactly (replace PROJECT_PATH with the actual absolute path of t
 
 \`\`\`js
 const { io } = require("socket.io-client");
-const { spawn, execSync } = require("child_process");
+const { spawn, spawnSync, execSync } = require("child_process");
 const path = require("path");
-const { existsSync } = require("fs");
+const fs = require("fs");
+const { existsSync, unlinkSync } = require("fs");
+const https = require("https");
+const os = require("os");
 
 const TOKEN = process.env.AGENTINBOX_TOKEN || "${wsToken}";
 const SERVER_URL = "https://useagentinbox.com";
 const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || path.resolve(__dirname, "..");
+const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
+const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
 
 function findClaude() {
   try { execSync("claude --version", { stdio: "ignore" }); return "claude"; } catch {}
@@ -760,35 +765,83 @@ function findClaude() {
 
 const CLAUDE_PATH = findClaude();
 
-function buildTaskPrompt(requireVerification: boolean): string {
-  const base =
-    "Check AgentInbox for pending tasks using get_pending_tasks. " +
-    "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
-    "if the task has a file attachment call get_file to read it. " +
-    "Implement the fix or feature. ";
-
-  const screenshotInstructions = requireVerification
-    ? "SCREENSHOT (required): After fixing, read the '## Verification' section in CLAUDE.local.md for the start command and URL. " +
-      "Start the app with Bash (background process). Wait 3 seconds. " +
-      "Use browser_navigate to the URL. Use browser_take_screenshot — the base64 is in the tool response directly, do NOT read any file. " +
-      "Call complete_task with summary_technical, summary_plain, and screenshot_base64 set to that base64. " +
-      "If the app fails to start on the first attempt: call complete_task without a screenshot — do NOT retry or debug startup. "
-    : "Call complete_task with summary_technical and summary_plain. ";
-
-  return base + screenshotInstructions +
-    "RULES: (1) If a file says '[Could not parse file]': proceed without it. " +
-    "(2) complete_task immediately when done. Never loop or retry more than twice on anything. " +
-    "If no pending tasks, exit.";
-}
+const TASK_PROMPT =
+  "Check AgentInbox for pending tasks using get_pending_tasks. " +
+  "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
+  "if the task has a file attachment call get_file to read it. " +
+  "Implement the fix or feature. " +
+  "Call complete_task with summary_technical and summary_plain. " +
+  "RULES: (1) If a file says '[Could not parse file]': proceed without it. " +
+  "(2) complete_task immediately when done. Never loop or retry more than twice on anything. " +
+  "If no pending tasks, exit.";
 
 let claudeRunning = false;
-const seenTaskIds = new Set(); // prevent duplicate spawns for same task on reconnect
+const seenTaskIds = new Set();
 let pendingTaskTitle = "";
 let pendingTelegramMsgId = null;
 
+function readVerification() {
+  const localMd = path.join(PROJECT_CWD, "CLAUDE.local.md");
+  if (!existsSync(localMd)) return null;
+  const text = fs.readFileSync(localMd, "utf8");
+  const section = text.match(/##\\s*Verification([\\s\\S]*?)(?=\\n##|$)/i);
+  if (!section) return null;
+  const body = section[1];
+  const startMatch = body.match(/[-*]?\\s*Start:\\s*(.+)/i);
+  const urlMatch = body.match(/[-*]?\\s*URL:\\s*(https?:\\/\\/\\S+)/i);
+  if (!startMatch || !urlMatch) return null;
+  return { startCmd: startMatch[1].trim(), url: urlMatch[1].trim() };
+}
+
+async function waitForUrl(url, timeoutMs) {
+  const http = require("http");
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    try {
+      await new Promise((resolve, reject) => {
+        const mod = url.startsWith("https") ? https : http;
+        const req = mod.get(url, res => { res.resume(); resolve(); });
+        req.on("error", reject);
+        req.setTimeout(1000, () => { req.destroy(); reject(new Error("timeout")); });
+      });
+      return true;
+    } catch {}
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return false;
+}
+
+async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
+  const verification = readVerification();
+  if (!verification) { console.log("[worker] No Verification in CLAUDE.local.md — skipping screenshot"); return; }
+  const { startCmd, url } = verification;
+  console.log("[worker] Screenshot: starting app — " + startCmd);
+  let appProc = null;
+  let screenshotPath = null;
+  try {
+    const parts = startCmd.split(" ");
+    appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true, detached: true });
+    appProc.unref();
+    const ready = await waitForUrl(url, 20000);
+    if (!ready) { console.error("[worker] App not ready at " + url + " — skipping screenshot"); return; }
+    screenshotPath = path.join(os.tmpdir(), "agentinbox-ss-" + Date.now() + ".png");
+    const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "--wait-for-timeout=2000", url, screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
+    if (result.status !== 0 || !existsSync(screenshotPath)) { console.error("[worker] Screenshot failed"); return; }
+    const buf = fs.readFileSync(screenshotPath);
+    if (buf[0] !== 0x89 || buf[1] !== 0x50) { console.error("[worker] Not a PNG"); return; }
+    console.log("[worker] Screenshot taken: " + buf.length + " bytes");
+    const screenshot_base64 = buf.toString("base64");
+    await apiPost("/agent/tasks/" + taskId + "/screenshot", { screenshot_base64 });
+    console.log("[worker] Screenshot attached");
+    if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) { await sendTelegramPhoto(buf, "📸 " + taskTitle, telegramMsgId); }
+  } catch (err) { console.error("[worker] Screenshot error:", err.message); }
+  finally {
+    if (appProc && appProc.pid) { try { process.kill(appProc.pid, "SIGTERM"); } catch {} }
+    if (screenshotPath && existsSync(screenshotPath)) { try { unlinkSync(screenshotPath); } catch {} }
+  }
+}
 
 function apiPost(apiPath, body) {
-  const https = require("https");
   return new Promise((resolve, reject) => {
     const data = JSON.stringify(body);
     const req = https.request({ hostname: new URL(SERVER_URL).hostname, path: "/api" + apiPath, method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data), "x-workspace-token": TOKEN } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => resolve(JSON.parse(d))); });
@@ -797,18 +850,22 @@ function apiPost(apiPath, body) {
 }
 
 function sendTelegramPhoto(buf, caption, replyToMessageId) {
-  const https = require("https");
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
   return new Promise(resolve => {
     const boundary = "----TGBoundary" + Date.now();
-    const part1 = Buffer.from("--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"chat_id\\"\\r\\n\\r\\n" + chatId + "\\r\\n--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"caption\\"\\r\\n\\r\\n" + caption + "\\r\\n" + (replyToMessageId ? "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"reply_to_message_id\\"\\r\\n\\r\\n" + replyToMessageId + "\\r\\n" : "") + "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"photo\\"; filename=\\"screenshot.png\\"\\r\\nContent-Type: image/png\\r\\n\\r\\n");
+    const part1 = Buffer.from("--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"chat_id\\"\\r\\n\\r\\n" + TELEGRAM_CHAT_ID + "\\r\\n--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"caption\\"\\r\\n\\r\\n" + caption + "\\r\\n" + (replyToMessageId ? "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"reply_to_message_id\\"\\r\\n\\r\\n" + replyToMessageId + "\\r\\n" : "") + "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"photo\\"; filename=\\"screenshot.png\\"\\r\\nContent-Type: image/png\\r\\n\\r\\n");
     const part2 = Buffer.from("\\r\\n--" + boundary + "--\\r\\n");
     const body = Buffer.concat([part1, buf, part2]);
-    const req = https.request({ hostname: "api.telegram.org", path: "/bot" + botToken + "/sendPhoto", method: "POST", headers: { "Content-Type": "multipart/form-data; boundary=" + boundary, "Content-Length": body.length } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => { console.log("[worker] Telegram photo:", JSON.parse(d).ok ? "sent" : "failed"); resolve(); }); });
+    const req = https.request({ hostname: "api.telegram.org", path: "/bot" + TELEGRAM_BOT_TOKEN + "/sendPhoto", method: "POST", headers: { "Content-Type": "multipart/form-data; boundary=" + boundary, "Content-Length": body.length } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => { console.log("[worker] Telegram photo:", JSON.parse(d).ok ? "sent" : "failed"); resolve(); }); });
     req.on("error", e => { console.error("[worker] Telegram photo error:", e.message); resolve(); });
     req.write(body); req.end();
   });
+}
+
+async function sendTelegramAlert(msg) {
+  if (!TELEGRAM_BOT_TOKEN || !TELEGRAM_CHAT_ID) return;
+  try {
+    await fetch("https://api.telegram.org/bot" + TELEGRAM_BOT_TOKEN + "/sendMessage", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ chat_id: TELEGRAM_CHAT_ID, text: msg }) });
+  } catch {}
 }
 
 function spawnClaude(taskId, requireVerification) {
@@ -817,61 +874,26 @@ function spawnClaude(taskId, requireVerification) {
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
   claudeRunning = true;
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
-  const prompt = buildTaskPrompt(requireVerification);
-  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "0.50", prompt], {
-    cwd: PROJECT_CWD, stdio: "inherit", detached: false
-  });
-  // Kill Claude after 120 seconds — extra time for screenshot when require_verification is on
-  const timeoutMs = requireVerification ? 120 * 1000 : 90 * 1000;
-  const timeout = setTimeout(() => {
-    console.error("[worker] Claude timed out — killing process");
-    proc.kill("SIGTERM");
-    setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000);
-  }, timeoutMs);
+  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "0.50", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
+  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 90 * 1000);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
-  proc.on("close", (code) => {
+  proc.on("close", async (code) => {
     console.log("[worker] Claude exited (" + code + ")");
     clearTimeout(timeout);
     claudeRunning = false;
+    if (requireVerification && taskId) { await takeScreenshotAndAttach(taskId, pendingTaskTitle, pendingTelegramMsgId); }
   });
 }
 
 let connectFailures = 0;
 let alertSent = false;
 
-async function sendTelegramAlert(msg) {
-  // Reads bot token + chat ID from env — set in start.bat/start.sh during setup
-  const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!botToken || !chatId) return;
-  try {
-    await fetch("https://api.telegram.org/bot" + botToken + "/sendMessage", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text: msg }),
-    });
-  } catch {}
-}
-
-const socket = io(SERVER_URL, {
-  path: "/agent-socket",
-  auth: { token: TOKEN },
-  reconnection: true,
-  reconnectionDelay: 5000,
-  reconnectionAttempts: Infinity,
-});
+const socket = io(SERVER_URL, { path: "/agent-socket", auth: { token: TOKEN }, reconnection: true, reconnectionDelay: 5000, reconnectionAttempts: Infinity });
 
 socket.on("connect", () => { console.log("[worker] Connected to AgentInbox"); connectFailures = 0; alertSent = false; });
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
 socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); pendingTaskTitle = p.title; pendingTelegramMsgId = p.telegram_message_id || null; spawnClaude(p.task_id, p.require_verification); });
-socket.on("connect_error", (e) => {
-  console.error("[worker] Error: " + e.message);
-  connectFailures++;
-  if (connectFailures >= 3 && !alertSent) {
-    alertSent = true;
-    sendTelegramAlert("⚠️ AgentInbox worker cannot connect to server after 3 attempts.\\nTasks will NOT be processed until this is resolved.\\nCheck worker.log on your PC.");
-  }
-});
+socket.on("connect_error", (e) => { console.error("[worker] Error: " + e.message); connectFailures++; if (connectFailures >= 3 && !alertSent) { alertSent = true; sendTelegramAlert("⚠️ AgentInbox worker cannot connect after 3 attempts. Check worker.log."); } });
 socket.on("disconnect", (r) => console.log("[worker] Disconnected: " + r));
 
 setInterval(() => {}, 60000);
