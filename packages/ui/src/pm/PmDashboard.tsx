@@ -1486,6 +1486,14 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
     setSaved(true); setTimeout(() => setSaved(false), 2500);
   }
 
+  async function autoSaveToggle(field: "require_approval" | "require_verification", value: boolean) {
+    await fetch(`/api/projects/${project!.id}`, {
+      method: "PATCH", headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ [field]: value }),
+    });
+    await onSaved();
+  }
+
   const submitUrl = `${window.location.origin}/submit/${project.token}`;
 
   return (
@@ -1623,7 +1631,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
 
           <Field label="Approval gate" hint="Claude proposes a plan, PM must approve before any code changes">
             <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => setRequireApproval(!requireApproval)}
+              <div onClick={() => { const v = !requireApproval; setRequireApproval(v); autoSaveToggle("require_approval", v); }}
                 className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${requireApproval ? "bg-indigo-500" : "bg-slate-300"}`}>
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${requireApproval ? "translate-x-5" : "translate-x-1"}`} />
               </div>
@@ -1633,7 +1641,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
 
           <Field label="Screenshot verification" hint="After every fix Claude starts the app, opens Playwright, takes a screenshot, and attaches proof to the task">
             <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => setRequireVerification(!requireVerification)}
+              <div onClick={() => { const v = !requireVerification; setRequireVerification(v); autoSaveToggle("require_verification", v); }}
                 className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${requireVerification ? "bg-indigo-500" : "bg-slate-300"}`}>
                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${requireVerification ? "translate-x-5" : "translate-x-1"}`} />
               </div>
