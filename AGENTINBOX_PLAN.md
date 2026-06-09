@@ -1,4 +1,4 @@
-# AgentInbox — Current State (June 6, 2026)
+# AgentInbox — Current State (June 9, 2026)
 
 ## What AgentInbox Is
 
@@ -17,9 +17,10 @@ agentinbox-worker.js (running silently on developer's PC — no VS Code needed)
 Claude (woken on demand)
   → reads .mcp.json, connects to AgentInbox MCP tools
   → drains ALL pending tasks, fixes them
-  → optionally starts app + takes Playwright screenshot as proof
   → calls complete_task, exits
-  → worker resets, goes back to listening
+Worker (after Claude exits)
+  → if task had require_verification=true → starts app, takes Playwright screenshot, sends photo to Telegram
+  → resets, goes back to listening
 PM dashboard
   → sees task done with proof + screenshot in real time
 Telegram
@@ -64,11 +65,11 @@ The MCP approach ties the WebSocket listener to an interactive Claude session.
 When the developer is chatting with Claude, task processing would block.
 The standalone worker runs in a completely separate process — no conflict ever.
 
-### Lockfile pattern
-`.agentinbox-running` file written on Claude spawn, deleted on exit.
-Prevents two Claude instances running simultaneously on the same project.
-Works across processes — unlike in-memory flags.
-**Stale lockfile guard:** if the lockfile is older than 15 minutes (crash/reboot), it is automatically deleted and Claude is allowed to spawn again.
+### In-memory claudeRunning flag (worker)
+The worker uses an in-memory `claudeRunning` boolean — set true on Claude spawn, reset false on exit.
+Prevents two Claude instances within the same worker process.
+No lockfile needed — the worker is a single long-running process per project.
+The MCP package (`agentinbox-mcp`) still uses a lockfile with a 15-minute stale guard for the interactive Claude session path.
 
 ### Race prevention (atomic claim)
 `update_task_status(in_progress)` uses `WHERE status = 'pending'` — only one Claude wins if two race.
@@ -101,10 +102,13 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 
 ### agentinbox-worker.js (per-project, written during setup)
 - Persistent WebSocket connection to AgentInbox server (path: `/agent-socket`)
-- Lockfile-based debounce (`.agentinbox-running`) — safe across processes
-- Spawns `claude --dangerously-skip-permissions --print "<task prompt>"`
+- In-memory `claudeRunning` flag — prevents two Claude spawns in the same process
+- Spawns `claude --dangerously-skip-permissions --print "<task prompt>" --max-budget-usd 0.50`
 - Logs to `agentinbox.log` in project root
 - Token + project path passed via env vars in startup bat/sh — not hardcoded
+- On connect: fetches Telegram bot token + chat ID from `/api/agent/workspace` — no manual Telegram config in env vars
+- After Claude exits: if `require_verification=true` on the task, runs `npx playwright screenshot` to capture proof, sends photo to Telegram via Bot API
+- Screenshot flow: kills port → starts app (reads `## Verification` section from `CLAUDE.local.md`) → polls URL up to 20s → takes screenshot → sends to Telegram
 
 ### .mcp.json (per-project, written during setup)
 - Connects Claude to agentinbox-mcp tools when it wakes
@@ -117,7 +121,8 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 ### Setup endpoint (GET /api/setup/download)
 - Returns a plain text prompt pre-filled with the developer's workspace token + submit link
 - 11 steps: scan codebase → install socket.io-client → worker.js → .mcp.json → startup scripts → OS startup → CLAUDE.local.md → rules/ → .gitignore → start worker → report back
-- Verification section written to CLAUDE.local.md when require_verification is enabled
+- Always writes `## Verification` section to CLAUDE.local.md (auto-detects real start command + port from package.json, config files, README)
+- No manual Telegram config — worker fetches creds from server on connect
 
 ### Core Infrastructure
 - Express + Socket.io server (SQLite locally, Turso on Render)
@@ -125,7 +130,7 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 - Submission form — file upload, custom fields, priority, constellation animation
 - Auth — JWT login/signup, workspace management
 - Approval gate — per-project toggle, Claude proposes plan before touching code; PM approval emits WebSocket to wake Claude immediately
-- Screenshot verification — per-project toggle, Claude starts app + Playwright after fix
+- Screenshot verification — **per-task toggle on submission form** (not a project setting); submitter checks "Take screenshot after fix for proof" when submitting; worker takes Playwright screenshot after Claude exits and sends photo to Telegram; zero Claude tokens used for screenshots
 - Telegram per-workspace — each developer connects their own bot via PM dashboard UI
 - Two Telegram task sources: website form + direct bot message
 - Bidirectional Telegram: approve/reject/answer questions via reply, ✅ on completion
@@ -134,7 +139,7 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 
 ---
 
-## Testing Status — PASSED (Jun 5–6, 2026)
+## Testing Status — PASSED (Jun 5–9, 2026)
 
 | Test | Coverage | Result |
 |---|---|---|
@@ -145,6 +150,8 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 | Manual — Telegram bidirectional | Message bot → fix → ✅ back on Telegram | ✅ |
 | Feature submission + approval gate | Submit feature → plan proposed → PM approves → Claude implements | ✅ |
 | Task type Telegram label | ✨ New feature / 🐛 New bug / 💬 New request on Telegram | ✅ |
+| End-to-end screenshot proof | Feature task + bug task on fresh project (test-demo-app) — both received Telegram ✅ + 📸 photo | ✅ |
+| Per-task screenshot toggle | Two tasks submitted — one with screenshot, one without — each behaved correctly | ✅ |
 
 **100% production ready. First customers can onboard today.**
 
