@@ -470,10 +470,10 @@ export const taskQueries = {
     return token;
   },
 
-  getWorkspaceByToken(token: string): { id: string; name: string; plan: string } | null {
+  getWorkspaceByToken(token: string): { id: string; name: string; plan: string; telegram_bot_token: string | null; telegram_chat_id: string | null } | null {
     return db
-      .prepare("SELECT id, name, plan FROM workspaces WHERE workspace_token = ?")
-      .get(token) as { id: string; name: string; plan: string } | null;
+      .prepare("SELECT id, name, plan, telegram_bot_token, telegram_chat_id FROM workspaces WHERE workspace_token = ?")
+      .get(token) as { id: string; name: string; plan: string; telegram_bot_token: string | null; telegram_chat_id: string | null } | null;
   },
 
   rotateWorkspaceToken(workspaceId: string): string {

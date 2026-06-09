@@ -232,7 +232,7 @@ exports.taskQueries = {
     },
     getWorkspaceByToken(token) {
         return db_1.db
-            .prepare("SELECT id, name, plan FROM workspaces WHERE workspace_token = ?")
+            .prepare("SELECT id, name, plan, telegram_bot_token, telegram_chat_id FROM workspaces WHERE workspace_token = ?")
             .get(token);
     },
     rotateWorkspaceToken(workspaceId) {

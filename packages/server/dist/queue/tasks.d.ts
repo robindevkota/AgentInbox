@@ -152,6 +152,8 @@ export declare const taskQueries: {
         id: string;
         name: string;
         plan: string;
+        telegram_bot_token: string | null;
+        telegram_chat_id: string | null;
     } | null;
     rotateWorkspaceToken(workspaceId: string): string;
     getWorkspaceToken(workspaceId: string): string | null;
