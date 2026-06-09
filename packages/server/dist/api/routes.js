@@ -763,7 +763,7 @@ const TASK_PROMPT =
   "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
   "implement the feature or fix the bug in the codebase. " +
   "Call complete_task with summary_technical and summary_plain. " +
-  "Only attempt a screenshot if the task description explicitly requests one AND require_verification is true in get_task response. " +
+  "Only attempt a screenshot if require_verification is true in the get_task response. If require_verification is false, call complete_task immediately after the fix — no server, no browser, no screenshot. " +
   "If taking a screenshot: use Bash tool (NOT PowerShell) with '&' to background the server (e.g. 'npx serve . --listen 8080 &'), sleep 3, Playwright browser_navigate, browser_take_screenshot, then complete_task with screenshot_base64. " +
   "ENVIRONMENT FAILURE RULES — always follow these, no exceptions: " +
   "(1) If the app fails to start: try once on alternate port. If it fails again, call complete_task immediately without screenshot. " +
