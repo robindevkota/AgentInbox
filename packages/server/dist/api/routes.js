@@ -791,7 +791,7 @@ async function takeScreenshotAndAttach(taskId, taskTitle) {
     const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "http://localhost:8181", screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
     if (result.status !== 0 || !existsSync(screenshotPath)) { console.error("[worker] Screenshot failed"); return; }
     const buf = require("fs").readFileSync(screenshotPath);
-    if (buf[0] !== 0x89 || buf[1] !== 0x50 || buf.length < 10000) { console.error("[worker] Screenshot invalid"); return; }
+    if (buf[0] !== 0x89 || buf[1] !== 0x50 ) { console.error("[worker] Screenshot invalid"); return; }
     const screenshot_base64 = buf.toString("base64");
     await apiPost("/agent/tasks/" + taskId + "/screenshot", { screenshot_base64 });
     console.log("[worker] Screenshot attached — " + buf.length + " bytes");
@@ -1120,7 +1120,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
             if (screenshot_base64) {
                 const decoded = Buffer.from(screenshot_base64, "base64");
                 const isPng = decoded[0] === 0x89 && decoded[1] === 0x50 && decoded[2] === 0x4E && decoded[3] === 0x47;
-                if (!isPng || decoded.length < 10000) {
+                if (!isPng) {
                     console.warn(`[complete] Discarding invalid screenshot — isPng:${isPng} size:${decoded.length}b`);
                     screenshot_base64 = undefined;
                 }
@@ -1234,7 +1234,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
             // Validate PNG
             const decoded = Buffer.from(screenshot_base64, "base64");
             const isPng = decoded[0] === 0x89 && decoded[1] === 0x50 && decoded[2] === 0x4E && decoded[3] === 0x47;
-            if (!isPng || decoded.length < 10000) {
+            if (!isPng) {
                 res.status(400).json({ error: "Invalid screenshot — not a PNG or too small" });
                 return;
             }
