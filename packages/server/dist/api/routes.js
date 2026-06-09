@@ -1090,11 +1090,21 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     });
     router.post("/agent/tasks/:id/complete", requireWorkspaceToken, (req, res) => {
         try {
-            const { summary_technical, summary_plain, screenshot_base64 } = zod_1.z.object({
+            const { summary_technical, summary_plain, screenshot_base64: rawScreenshot } = zod_1.z.object({
                 summary_technical: zod_1.z.string().min(1),
                 summary_plain: zod_1.z.string().min(1),
                 screenshot_base64: zod_1.z.string().optional(),
             }).parse(req.body);
+            // Validate screenshot — must be a real PNG (min 10KB decoded) otherwise discard
+            let screenshot_base64 = rawScreenshot;
+            if (screenshot_base64) {
+                const decoded = Buffer.from(screenshot_base64, "base64");
+                const isPng = decoded[0] === 0x89 && decoded[1] === 0x50 && decoded[2] === 0x4E && decoded[3] === 0x47;
+                if (!isPng || decoded.length < 10000) {
+                    console.warn(`[complete] Discarding invalid screenshot — isPng:${isPng} size:${decoded.length}b`);
+                    screenshot_base64 = undefined;
+                }
+            }
             const result = tasks_1.taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64);
             if (!result) {
                 res.status(404).json({ error: "Task not found" });
