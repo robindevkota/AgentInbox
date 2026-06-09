@@ -815,8 +815,11 @@ const TASK_PROMPT =
   "If no pending tasks, exit.";
 
 let claudeRunning = false;
+const seenTaskIds = new Set(); // prevent duplicate spawns for same task on reconnect
 
-function spawnClaude() {
+function spawnClaude(taskId) {
+  if (taskId && seenTaskIds.has(taskId)) { console.log("[worker] Task " + taskId + " already seen — skipping duplicate"); return; }
+  if (taskId) seenTaskIds.add(taskId);
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
   claudeRunning = true;
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
@@ -860,7 +863,7 @@ const socket = io(SERVER_URL, {
 
 socket.on("connect", () => { console.log("[worker] Connected to AgentInbox"); connectFailures = 0; alertSent = false; });
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
-socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\""); spawnClaude(); });
+socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); spawnClaude(p.task_id); });
 socket.on("connect_error", (e) => {
   console.error("[worker] Error: " + e.message);
   connectFailures++;
