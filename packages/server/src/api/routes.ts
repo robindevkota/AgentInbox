@@ -874,10 +874,10 @@ function spawnClaude(taskId, requireVerification) {
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
   claudeRunning = true;
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
-  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", TASK_PROMPT], {
+  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "0.50", TASK_PROMPT], {
     cwd: PROJECT_CWD, stdio: "inherit", detached: false
   });
-  // Kill Claude after 90 seconds — prevents token burn
+  // Kill Claude after 90 seconds — hard backstop in case --max-budget-usd isn't enough
   const timeout = setTimeout(() => {
     console.error("[worker] Claude timed out after 90s — killing process");
     proc.kill("SIGTERM");
