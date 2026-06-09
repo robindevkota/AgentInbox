@@ -38,6 +38,7 @@ export function SubmitPage() {
   const [priority, setPriority] = useState<"low" | "medium" | "high">("medium");
   const [dragActive, setDragActive] = useState(false);
   const [fileName, setFileName] = useState<string | null>(null);
+  const [requireScreenshot, setRequireScreenshot] = useState(false);
 
   const titleRef = useRef<HTMLInputElement>(null);
   const descRef = useRef<HTMLTextAreaElement>(null);
@@ -116,6 +117,7 @@ export function SubmitPage() {
     if (Object.keys(customFieldValues).length > 0) {
       form.append("custom_field_values", JSON.stringify(customFieldValues));
     }
+    if (requireScreenshot) form.append("require_verification", "true");
 
     const headers: Record<string, string> = {};
     if (otpSession) headers["x-otp-session"] = otpSession;
@@ -474,6 +476,20 @@ export function SubmitPage() {
             {error}
           </div>
         )}
+
+        <label className="flex items-center gap-3 cursor-pointer select-none">
+          <div
+            onClick={() => setRequireScreenshot((v) => !v)}
+            className={`relative w-10 h-6 rounded-full transition-colors ${requireScreenshot ? "bg-indigo-500" : "bg-slate-700"}`}
+          >
+            <span
+              className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${requireScreenshot ? "translate-x-4" : ""}`}
+            />
+          </div>
+          <span className="text-sm text-slate-300">
+            Take screenshot after fix for proof
+          </span>
+        </label>
 
         <button
           type="submit"

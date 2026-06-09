@@ -192,6 +192,7 @@ export function createRouter(): Router {
             submitter_name: z.string().max(100).optional(),
             submitter_email: z.string().email().optional(),
             custom_field_values: z.record(z.string()).optional(),
+            require_verification: z.union([z.boolean(), z.string()]).optional(),
           })
           .parse(req.body);
 
@@ -248,6 +249,7 @@ export function createRouter(): Router {
           custom_field_values: body.custom_field_values
             ? JSON.stringify(body.custom_field_values)
             : undefined,
+          require_verification: body.require_verification === true || body.require_verification === "true" || body.require_verification === "1",
         });
 
         taskQueries.audit({
@@ -267,7 +269,7 @@ export function createRouter(): Router {
           description: task.description,
           submitter_name: task.submitter_name,
           has_file: !!task.file_name,
-          require_verification: project.require_verification === 1,
+          require_verification: task.require_verification === 1,
         };
 
         // Emit to connected agentinbox-mcp socket for this workspace
@@ -1041,7 +1043,6 @@ Based on your codebase scan, write CLAUDE.local.md with:
 - How to run the project locally
 - Where the main entry points are
 - Any important conventions or gotchas
-${requireVerification ? `
 Also include a Verification section. To fill it in correctly:
 1. Read package.json "scripts" — find the dev/start command (e.g. "dev": "vite", "start": "node server.js")
 2. Check vite.config.js, next.config.js, .env, .env.example, or README for the port number
@@ -1056,7 +1057,6 @@ Write the section with the REAL values you found — not placeholders:
 - URL: <actual URL with port, e.g. http://localhost:5173>
 - Login: <test credentials if login required — write ASK_DEVELOPER if not found>
 \`\`\`
-` : ""}
 ## Step 9 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
 
@@ -1149,7 +1149,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     const projects = db.prepare("SELECT id, require_approval, require_verification FROM projects WHERE workspace_id = ?").all(ws.id) as { id: string; require_approval: number; require_verification: number }[];
     const tasks = projects.flatMap((p) =>
       // getPendingTasks also recovers tasks stuck in_progress > 15 min (Claude crashed mid-task)
-      taskQueries.getPendingTasks(p.id).map((t) => ({ ...t, require_approval: p.require_approval === 1, require_verification: p.require_verification === 1 }))
+      taskQueries.getPendingTasks(p.id).map((t) => ({ ...t, require_approval: p.require_approval === 1, require_verification: t.require_verification === 1 }))
     );
     res.json(tasks);
   });
@@ -1158,7 +1158,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     const task = taskQueries.getTask(req.params.id);
     if (!task) { res.status(404).json({ error: "Task not found" }); return; }
     const project = taskQueries.getProjectById(task.project_id);
-    res.json({ ...task, require_approval: project?.require_approval === 1, require_verification: project?.require_verification === 1 });
+    res.json({ ...task, require_approval: project?.require_approval === 1, require_verification: task.require_verification === 1 });
   });
 
   router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req: Request, res: Response) => {

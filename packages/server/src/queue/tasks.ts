@@ -39,6 +39,7 @@ export interface Task {
   submitter_notified_at: number | null;
   developer_reply: string | null;
   telegram_message_id: number | null;
+  require_verification: number;
   created_at: number;
   updated_at: number;
 }
@@ -200,11 +201,12 @@ export const taskQueries = {
     file_content?: string;
     file_data?: string;
     custom_field_values?: string;
+    require_verification?: boolean;
   }): Task {
     const id = nanoid();
     db.prepare(`
-      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values, require_verification)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       data.project_id,
@@ -218,6 +220,7 @@ export const taskQueries = {
       data.file_content ?? null,
       data.file_data ?? null,
       data.custom_field_values ?? null,
+      data.require_verification ? 1 : 0,
     );
     return db.prepare("SELECT * FROM tasks WHERE id = ?").get(id) as Task;
   },
