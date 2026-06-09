@@ -2,6 +2,30 @@
 
 ---
 
+## 🧪 Demo / Test Setup (use this across sessions)
+
+| Thing | Value |
+|---|---|
+| **Account** | `demo.blog.2026@gmail.com` / `Demo@2026` |
+| **PM dashboard** | https://useagentinbox.com/pm (login with above) |
+| **Workspace** | `Test` (ID: `vdVEHk9g9OFwheNYbN5vy`) |
+| **Workspace token** | `wt_3Zji6rCAL3gozbRZ55Ven-rUH37wm-Xf` |
+| **Project** | `Blog Website` |
+| **Submit URL** | https://useagentinbox.com/submit/NiySQ9D8xbzz2qJghWaS_ThCBewHwqlO |
+| **Worker** | `d:\test-demo-app\.agentinbox\worker.js` |
+| **Project folder** | `d:\test-demo-app\` |
+| **Telegram bot** | `8956174290:AAFx-1zeDHJxmpiI59XX2q2-QYyOKHUJz4c` |
+| **Telegram chat ID** | `6121077387` |
+
+**Before each test session:**
+1. Start worker: `node "d:\test-demo-app\.agentinbox\worker.js"` — wait for `Workspace: Test` + `Telegram configured: true`
+2. Check `d:\test-demo-app\` is clean (no leftover `index.html` or spec files)
+3. Check PM dashboard tasks list is empty
+
+**This workspace is isolated from MBL** — no conflict with the production worker.
+
+---
+
 ## ✅ Done
 
 - Wake-on-task via standalone agentinbox-worker.js — no polling, zero idle tokens, no VS Code needed
