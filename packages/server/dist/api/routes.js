@@ -277,6 +277,7 @@ function createRouter() {
                 description: task.description,
                 submitter_name: task.submitter_name,
                 has_file: !!task.file_name,
+                require_verification: project.require_verification === 1,
             };
             // Emit to connected agentinbox-mcp socket for this workspace
             const workspace = db_1.db
@@ -758,27 +759,77 @@ function findClaude() {
 }
 
 const CLAUDE_PATH = findClaude();
+
+// Claude's only job: fix the code and call complete_task. Worker handles screenshots.
 const TASK_PROMPT =
   "Check AgentInbox for pending tasks using get_pending_tasks. " +
   "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
-  "implement the feature or fix the bug in the codebase. " +
-  "Call complete_task with summary_technical and summary_plain. " +
-  "Only attempt a screenshot if require_verification is true in the get_task response. If require_verification is false, call complete_task immediately after the fix — no server, no browser, no screenshot. " +
-  "If taking a screenshot: use Bash tool (NOT PowerShell) with '&' to background the server (e.g. 'npx serve . --listen 8080 &'), sleep 3, Playwright browser_navigate, browser_take_screenshot, then complete_task with screenshot_base64. " +
-  "ENVIRONMENT FAILURE RULES — always follow these, no exceptions: " +
-  "(1) If the app fails to start: try once on alternate port. If it fails again, call complete_task immediately without screenshot. " +
-  "(2) If Playwright or screenshot fails for any reason: call complete_task immediately without screenshot. Never retry more than once. " +
-  "(3) If a file attachment says '[Could not parse file]': proceed without it, note in summary_technical. " +
-  "(4) If any tool or command fails twice: stop immediately. Never loop more than 2 attempts on any single operation. " +
-  "(5) Never kill processes to free a port. Try one alternate port, then skip screenshot. " +
-  "(6) NEVER wait indefinitely for any process. If a command does not return within 10 seconds, kill it and move on. " +
-  "(7) An imperfect fix delivered is always better than a perfect fix never delivered. When in doubt, complete_task immediately. " +
+  "if the task has a file attachment call get_file to read it. " +
+  "Implement the fix or feature. " +
+  "Call complete_task with summary_technical and summary_plain. Do NOT attempt screenshots — the worker handles that. " +
+  "RULES: (1) If a file says '[Could not parse file]': proceed without it. " +
+  "(2) complete_task immediately when done. Never loop or retry more than twice on anything. " +
   "If no pending tasks, exit.";
 
 let claudeRunning = false;
 const seenTaskIds = new Set(); // prevent duplicate spawns for same task on reconnect
+let pendingTaskTitle = "";
+let pendingTelegramMsgId = null;
 
-function spawnClaude(taskId) {
+async function takeScreenshotAndAttach(taskId, taskTitle) {
+  console.log("[worker] Taking screenshot for task " + taskId);
+  const os = require("os");
+  const { spawnSync } = require("child_process");
+  const { unlinkSync } = require("fs");
+  let serverProc = null;
+  let screenshotPath = null;
+  try {
+    serverProc = spawn("npx", ["serve", PROJECT_CWD, "--listen", "8181"], { cwd: PROJECT_CWD, stdio: "ignore", detached: true, shell: true });
+    serverProc.unref();
+    await new Promise(r => setTimeout(r, 3000));
+    screenshotPath = os.tmpdir() + "/agentinbox-ss-" + Date.now() + ".png";
+    const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "http://localhost:8181", screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
+    if (result.status !== 0 || !existsSync(screenshotPath)) { console.error("[worker] Screenshot failed"); return; }
+    const buf = require("fs").readFileSync(screenshotPath);
+    if (buf[0] !== 0x89 || buf[1] !== 0x50 || buf.length < 10000) { console.error("[worker] Screenshot invalid"); return; }
+    const screenshot_base64 = buf.toString("base64");
+    await apiPost("/agent/tasks/" + taskId + "/screenshot", { screenshot_base64 });
+    console.log("[worker] Screenshot attached — " + buf.length + " bytes");
+    if (process.env.TELEGRAM_BOT_TOKEN && process.env.TELEGRAM_CHAT_ID) {
+      await sendTelegramPhoto(buf, "📸 " + taskTitle, pendingTelegramMsgId);
+    }
+  } catch (err) { console.error("[worker] Screenshot error:", err.message); }
+  finally {
+    if (serverProc && serverProc.pid) { try { process.kill(serverProc.pid, "SIGTERM"); } catch {} }
+    if (screenshotPath && existsSync(screenshotPath)) { try { unlinkSync(screenshotPath); } catch {} }
+  }
+}
+
+function apiPost(apiPath, body) {
+  const https = require("https");
+  return new Promise((resolve, reject) => {
+    const data = JSON.stringify(body);
+    const req = https.request({ hostname: new URL(SERVER_URL).hostname, path: "/api" + apiPath, method: "POST", headers: { "Content-Type": "application/json", "Content-Length": Buffer.byteLength(data), "x-workspace-token": TOKEN } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => resolve(JSON.parse(d))); });
+    req.on("error", reject); req.write(data); req.end();
+  });
+}
+
+function sendTelegramPhoto(buf, caption, replyToMessageId) {
+  const https = require("https");
+  const botToken = process.env.TELEGRAM_BOT_TOKEN;
+  const chatId = process.env.TELEGRAM_CHAT_ID;
+  return new Promise(resolve => {
+    const boundary = "----TGBoundary" + Date.now();
+    const part1 = Buffer.from("--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"chat_id\\"\\r\\n\\r\\n" + chatId + "\\r\\n--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"caption\\"\\r\\n\\r\\n" + caption + "\\r\\n" + (replyToMessageId ? "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"reply_to_message_id\\"\\r\\n\\r\\n" + replyToMessageId + "\\r\\n" : "") + "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"photo\\"; filename=\\"screenshot.png\\"\\r\\nContent-Type: image/png\\r\\n\\r\\n");
+    const part2 = Buffer.from("\\r\\n--" + boundary + "--\\r\\n");
+    const body = Buffer.concat([part1, buf, part2]);
+    const req = https.request({ hostname: "api.telegram.org", path: "/bot" + botToken + "/sendPhoto", method: "POST", headers: { "Content-Type": "multipart/form-data; boundary=" + boundary, "Content-Length": body.length } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => { console.log("[worker] Telegram photo:", JSON.parse(d).ok ? "sent" : "failed"); resolve(); }); });
+    req.on("error", e => { console.error("[worker] Telegram photo error:", e.message); resolve(); });
+    req.write(body); req.end();
+  });
+}
+
+function spawnClaude(taskId, requireVerification) {
   if (taskId && seenTaskIds.has(taskId)) { console.log("[worker] Task " + taskId + " already seen — skipping duplicate"); return; }
   if (taskId) seenTaskIds.add(taskId);
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
@@ -787,14 +838,19 @@ function spawnClaude(taskId) {
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", TASK_PROMPT], {
     cwd: PROJECT_CWD, stdio: "inherit", detached: false
   });
-  // Kill Claude after 3 minutes if it hasn't exited — prevents token burn from stuck loops
+  // Kill Claude after 90 seconds — prevents token burn
   const timeout = setTimeout(() => {
-    console.error("[worker] Claude timed out after 3 min — killing process");
+    console.error("[worker] Claude timed out after 90s — killing process");
     proc.kill("SIGTERM");
     setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000);
-  }, 3 * 60 * 1000);
+  }, 90 * 1000);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
-  proc.on("close", (code) => { console.log("[worker] Claude exited (" + code + ")"); clearTimeout(timeout); claudeRunning = false; });
+  proc.on("close", async (code) => {
+    console.log("[worker] Claude exited (" + code + ")");
+    clearTimeout(timeout);
+    claudeRunning = false;
+    if (requireVerification && taskId) { await takeScreenshotAndAttach(taskId, pendingTaskTitle); }
+  });
 }
 
 let connectFailures = 0;
@@ -824,7 +880,7 @@ const socket = io(SERVER_URL, {
 
 socket.on("connect", () => { console.log("[worker] Connected to AgentInbox"); connectFailures = 0; alertSent = false; });
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
-socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); spawnClaude(p.task_id); });
+socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); pendingTaskTitle = p.title; pendingTelegramMsgId = p.telegram_message_id || null; spawnClaude(p.task_id, p.require_verification); });
 socket.on("connect_error", (e) => {
   console.error("[worker] Error: " + e.message);
   connectFailures++;
@@ -1196,6 +1252,30 @@ VS Code does NOT need to be open. You don't need to be at your desk.
             }
             db_1.db.prepare("UPDATE tasks SET developer_reply = ?, updated_at = ? WHERE id = ?")
                 .run(reply, Math.floor(Date.now() / 1000), task.id);
+            res.json({ ok: true });
+        }
+        catch (err) {
+            res.status(400).json({ error: String(err) });
+        }
+    });
+    // Worker posts screenshot after Claude exits (worker-side screenshot approach)
+    router.post("/agent/tasks/:id/screenshot", requireWorkspaceToken, (req, res) => {
+        try {
+            const { screenshot_base64 } = zod_1.z.object({ screenshot_base64: zod_1.z.string().min(1) }).parse(req.body);
+            const task = tasks_1.taskQueries.getTask(req.params.id);
+            if (!task) {
+                res.status(404).json({ error: "Task not found" });
+                return;
+            }
+            // Validate PNG
+            const decoded = Buffer.from(screenshot_base64, "base64");
+            const isPng = decoded[0] === 0x89 && decoded[1] === 0x50 && decoded[2] === 0x4E && decoded[3] === 0x47;
+            if (!isPng || decoded.length < 10000) {
+                res.status(400).json({ error: "Invalid screenshot — not a PNG or too small" });
+                return;
+            }
+            db_1.db.prepare("UPDATE tasks SET screenshot_base64 = ?, updated_at = ? WHERE id = ?")
+                .run(screenshot_base64, Math.floor(Date.now() / 1000), task.id);
             res.json({ ok: true });
         }
         catch (err) {
