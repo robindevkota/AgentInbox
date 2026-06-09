@@ -1025,53 +1025,17 @@ Based on your codebase scan, write CLAUDE.local.md with:
 - How to run the project locally
 - Where the main entry points are
 - Any important conventions or gotchas
-${requireVerification ? `
-Also include a Verification section — find the values from package.json scripts, .env.example, README, or seed files:
-
-\`\`\`
-## Verification
-- Start command: <e.g. npm run dev>
-- URL: <e.g. http://localhost:3000>
-- Login: <test credentials if login required, e.g. admin@test.com / password123>
-- Stop command: <e.g. kill the process>
-\`\`\`
-
-If you cannot determine credentials, write "ASK_DEVELOPER" as a placeholder.
-` : ""}
 ## Step 9 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
-${requireVerification ? `
-Also create .claude/rules/verification.md with this content:
 
-\`\`\`
-# Verification rule
-
-After every fix, before calling complete_task:
-1. Read the Verification section in CLAUDE.local.md
-2. Start the app using the start command
-3. Use Playwright MCP to open the relevant page
-4. Navigate to where the fix is visible
-5. If login is required, log in using the credentials from CLAUDE.local.md
-6. Take a screenshot (browser_take_screenshot)
-7. Stop the app
-8. Call complete_task with screenshot_base64 set to the screenshot
-
-If the app cannot be started (missing deps, missing env vars):
-- Note the reason in summary_technical
-- Call complete_task without a screenshot — do NOT block the fix
-
-If the submitter attached a screenshot or file:
-- Use it to understand what the bug looks like
-- After fixing, verify the same area no longer shows the problem
-\`\`\`
-` : ""}
+Do NOT write any screenshot or verification rules — the worker handles screenshots automatically after Claude exits.
 
 ## Step 10 — Update .gitignore
 Add these lines:
 \`\`\`
 .agentinbox/
 CLAUDE.local.md
-${requireVerification ? ".claude/rules/verification.md\n" : ""}\`\`\`
+\`\`\`
 
 ## Step 11 — Start the worker now
 Launch the worker in the background using the startup script (same as what runs on boot):
