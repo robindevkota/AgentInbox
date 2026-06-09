@@ -189,11 +189,38 @@ Also good material for Show HN demo video.
 
 ---
 
+## 🔴 Tomorrow — first thing before Show HN post
+
+### Final end-to-end test on fresh blog repo (`d:\my-blog`)
+Run a clean setup using the downloaded `setup.md` to verify the new setup experience works correctly out of the box:
+- Download `setup.md` from PM dashboard and give it to Claude
+- Claude creates `.agentinbox/` folder with worker.js, start.bat, start.vbs
+- `.agentinbox/` is auto-added to `.gitignore`
+- Playwright MCP is auto-injected into `.mcp.json`
+- Worker runs in background (hidden window, auto-restart loop)
+- Submit a bug via the form → worker wakes Claude → Claude fixes → Telegram ✅
+
+Once this passes → record Show HN demo video → post.
+
+---
+
 ## 🟡 After testing passes
 
-### 1. Telegram file/image attachments
-When a developer sends a photo or document via Telegram bot, download it from Telegram's servers and store it the same way as form uploads — so Claude can read it like any other attachment.
-Currently only text messages are handled. Photos and `document` message types are silently ignored.
+### 1. Telegram config per project (not per workspace)
+Currently Telegram (bot token + chat ID) is configured at workspace level — one group for all projects. This breaks multi-project teams where each project has a different dev team and the PM is the only common member.
+
+**What to build:**
+- Move `telegram_bot_token`, `telegram_chat_id` from `workspaces` table → `projects` table
+- Each project gets its own Telegram group (bot + PM + project-specific devs)
+- PM is in all groups; devs only in their relevant project group
+- Settings UI: Telegram config moves inside project settings, project dropdown removed (implicit)
+- Poller starts per project — one interval per project that has a bot token configured
+- Notifications (task created, done, escalated) go to the project's group, not workspace group
+
+**Why:** One bot per workspace forces PM to add all devs to one group regardless of project — wrong for agency/multi-team setups.
+
+### ~~2. Telegram file/image attachments~~ ✅ Done
+Photos and documents sent via Telegram are downloaded, stored as base64, and returned as vision content blocks via `get_file` — Claude can see images directly. Tested end-to-end on MBL project.
 
 ### 2. Stripe billing
 The only thing blocking revenue.

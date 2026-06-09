@@ -117,7 +117,10 @@ export declare const taskQueries: {
     proposePlan(id: string, plan: string): Task | undefined;
     approveTask(id: string, approvedBy: string): Task | undefined;
     rejectTask(id: string, reason: string): Task | undefined;
-    completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotBase64?: string): Task | undefined;
+    completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotBase64?: string): {
+        task: Task;
+        wasAlreadyDone: boolean;
+    } | undefined;
     reopenTask(id: string): Task | undefined;
     markSubmitterNotified(id: string): void;
     addComment(taskId: string, author: string, body: string): TaskComment;

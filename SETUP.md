@@ -17,10 +17,10 @@ claude
 
 **3. Paste the downloaded prompt**
 Claude scans your codebase and writes these files automatically:
-- `agentinbox-worker.js` — the background worker
+- `.agentinbox/worker.js` — the background worker
+- `.agentinbox/start.bat` + `.agentinbox/start.vbs` — silent Windows startup
+- `.agentinbox/start.sh` — Mac/Linux startup
 - `.mcp.json` — connects Claude to AgentInbox tools
-- `agentinbox-start.bat` + `agentinbox-start.vbs` — silent Windows startup
-- `agentinbox-start.sh` — Mac/Linux startup
 - `CLAUDE.local.md` — task processing rules for your stack
 - `.claude/rules/` — codebase domain knowledge
 
@@ -66,11 +66,11 @@ Client submits bug via submission form  (or you message your Telegram bot)
 
 | File | Purpose |
 |---|---|
-| `agentinbox-worker.js` | Persistent WebSocket listener — spawns Claude on task arrival |
+| `.agentinbox/worker.js` | Persistent WebSocket listener — spawns Claude on task arrival |
+| `.agentinbox/start.bat` | Windows: starts worker with env vars |
+| `.agentinbox/start.vbs` | Windows: runs .bat silently on PC boot |
+| `.agentinbox/start.sh` | Mac/Linux: starts worker on boot |
 | `.mcp.json` | Gives Claude the AgentInbox tools (get_pending_tasks, complete_task, etc.) |
-| `agentinbox-start.bat` | Windows: starts worker with env vars |
-| `agentinbox-start.vbs` | Windows: runs .bat silently on PC boot |
-| `agentinbox-start.sh` | Mac/Linux: starts worker on boot |
 | `CLAUDE.local.md` | Task processing instructions for your stack |
 | `.claude/rules/` | Domain knowledge files so Claude understands your codebase |
 
@@ -101,13 +101,13 @@ cd your-project
 npm install socket.io-client
 
 # Run the worker permanently
-AGENTINBOX_TOKEN=wt_xxx CLAUDE_PROJECT_PATH=/path/to/project node agentinbox-worker.js
+AGENTINBOX_TOKEN=wt_xxx CLAUDE_PROJECT_PATH=/path/to/project node .agentinbox/worker.js
 ```
 
 Use `pm2` or `screen` to keep it running after you disconnect:
 ```bash
 npm install -g pm2
-AGENTINBOX_TOKEN=wt_xxx CLAUDE_PROJECT_PATH=/path/to/project pm2 start agentinbox-worker.js --name agentinbox
+AGENTINBOX_TOKEN=wt_xxx CLAUDE_PROJECT_PATH=/path/to/project pm2 start .agentinbox/worker.js --name agentinbox
 pm2 save && pm2 startup
 ```
 
@@ -120,7 +120,7 @@ pm2 save && pm2 startup
 
 Check the log file anytime:
 ```
-your-project\agentinbox.log
+your-project\.agentinbox\worker.log
 ```
 Should show:
 ```
@@ -193,18 +193,18 @@ Best for bug-fixing projects. Not needed for chat/support/analysis projects.
 ## Troubleshooting
 
 **Worker not connecting**
-- Check `agentinbox.log` for error messages
+- Check `.agentinbox\worker.log` for error messages
 - Verify your workspace token starts with `wt_`
 - Make sure Node.js is installed: `node --version`
 - Make sure `.mcp.json` is in the project root
 
 **Claude not waking on tasks**
-- Check `agentinbox.log` for `[worker] Waking Claude`
-- If `claude` is not in PATH, edit `agentinbox-worker.js` and set the full path in `findClaude()`
+- Check `.agentinbox\worker.log` for `[worker] Waking Claude`
+- If `claude` is not in PATH, edit `.agentinbox\start.bat` and set `CLAUDE_PATH=C:\path\to\claude.exe`
 
 **get_pending_tasks not found**
 - Make sure `.mcp.json` is in the project root (not a parent folder)
-- Run `node agentinbox-worker.js` manually and check for errors
+- Run `node .agentinbox\worker.js` manually and check for errors
 
 **Tasks not appearing**
 - Check PM dashboard — task may already be `in_progress`

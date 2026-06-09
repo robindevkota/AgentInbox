@@ -21,10 +21,12 @@ Open `index.html` in a browser (no build step needed).
 
 ## File structure
 ```
-index.html      ← all HTML + CSS + JS inline
+index.html      ← all HTML + CSS + JS inline — MUST be in project root, NOT in a public/ subfolder
 db.json         ← { "posts": [] }
 package.json    ← { "dependencies": { "json-server": "^0.17.4" } }
 ```
+
+IMPORTANT: Do NOT create a `public/` folder. `index.html` goes directly in the project root.
 
 ## UI requirements
 - Clean editorial design — white background, max-width 700px centered
@@ -36,13 +38,13 @@ package.json    ← { "dependencies": { "json-server": "^0.17.4" } }
 - No frameworks — plain DOM APIs only
 
 ## After building — screenshot proof (REQUIRED)
-When the build is complete, you MUST take a screenshot and attach it:
+When the build is complete, you MUST take a screenshot:
 
-1. Start json-server: `json-server db.json --port 3000`
-2. Start HTTP server: `python -m http.server 8081` (run from the project root folder)
-3. Use Playwright MCP: `browser_navigate` to `http://localhost:8081`
-4. Use Playwright MCP: `browser_take_screenshot` — save the result
-5. Read the saved screenshot file as base64
-6. Call `complete_task` with `screenshot_base64` set to the base64 string
+1. Start json-server in background: `Start-Process npx -ArgumentList "json-server","db.json","--port","3000","--static","." -WindowStyle Hidden` (Windows) or `npx json-server db.json --port 3000 --static . &` (Mac/Linux)
+2. Wait 3 seconds: `Start-Sleep 3` (Windows) or `sleep 3` (Mac/Linux)
+3. Use Playwright MCP: `browser_resize` width=1280 height=900
+4. Use Playwright MCP: `browser_navigate` to `http://localhost:3000`
+5. Use Playwright MCP: `browser_take_screenshot` type=png — base64 is in the response directly
+6. Call `complete_task` with `screenshot_base64` set to that base64 string
 
-The screenshot will appear as a photo in Telegram and as a proof card on the PM dashboard.
+Do NOT use file:// URLs — they are blocked. Do NOT use python. Always use http://localhost.
