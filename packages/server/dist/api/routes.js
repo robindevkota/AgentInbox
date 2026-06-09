@@ -1003,13 +1003,19 @@ Based on your codebase scan, write CLAUDE.local.md with:
 - Where the main entry points are
 - Any important conventions or gotchas
 ${requireVerification ? `
-Also include a Verification section — find the values from package.json scripts, .env.example, README, or seed files:
+Also include a Verification section. To fill it in correctly:
+1. Read package.json "scripts" — find the dev/start command (e.g. "dev": "vite", "start": "node server.js")
+2. Check vite.config.js, next.config.js, .env, .env.example, or README for the port number
+3. Check for seed/fixture files or README for test login credentials
+4. If port is not found anywhere, default to 3000
+
+Write the section with the REAL values you found — not placeholders:
 
 \`\`\`
 ## Verification
-- Start: <e.g. npm run dev>
-- URL: <e.g. http://localhost:3000>
-- Login: <test credentials if login required, e.g. admin@test.com / password123 — write ASK_DEVELOPER if unknown>
+- Start: <actual command, e.g. npm run dev>
+- URL: <actual URL with port, e.g. http://localhost:5173>
+- Login: <test credentials if login required — write ASK_DEVELOPER if not found>
 \`\`\`
 ` : ""}
 ## Step 9 — Write codebase rules
