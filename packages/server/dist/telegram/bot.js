@@ -98,18 +98,28 @@ async function _send(botToken, chatId, text, replyToMessageId) {
 async function _sendPhoto(botToken, chatId, screenshotBase64, caption, replyToMessageId) {
     try {
         const buf = Buffer.from(screenshotBase64, "base64");
-        const formData = new FormData();
-        formData.append("chat_id", chatId);
-        formData.append("caption", caption);
-        formData.append("parse_mode", "HTML");
+        // Use multipart/form-data with boundary — Node.js Blob+FormData doesn't reliably attach filename
+        const boundary = "----TGBoundary" + Date.now();
+        const CRLF = "\r\n";
+        const parts = [];
+        const field = (name, value) => Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="${name}"${CRLF}${CRLF}${value}${CRLF}`);
+        parts.push(field("chat_id", chatId));
+        parts.push(field("caption", caption));
+        parts.push(field("parse_mode", "HTML"));
         if (replyToMessageId)
-            formData.append("reply_to_message_id", String(replyToMessageId));
-        formData.append("photo", new Blob([buf], { type: "image/png" }), "screenshot.png");
-        const res = await fetch(`${apiUrl(botToken)}/sendPhoto`, { method: "POST", body: formData });
+            parts.push(field("reply_to_message_id", String(replyToMessageId)));
+        parts.push(Buffer.from(`--${boundary}${CRLF}Content-Disposition: form-data; name="photo"; filename="screenshot.png"${CRLF}Content-Type: image/png${CRLF}${CRLF}`));
+        parts.push(buf);
+        parts.push(Buffer.from(`${CRLF}--${boundary}--${CRLF}`));
+        const body = Buffer.concat(parts);
+        const res = await fetch(`${apiUrl(botToken)}/sendPhoto`, {
+            method: "POST",
+            headers: { "Content-Type": `multipart/form-data; boundary=${boundary}` },
+            body,
+        });
         if (!res.ok) {
             const err = await res.text();
             console.error(`[telegram] sendPhoto failed: ${res.status} ${err}`);
-            // Fallback — send text with note that screenshot failed to upload
             await _send(botToken, chatId, caption + "\n\n<i>(screenshot upload failed)</i>", replyToMessageId);
         }
     }
