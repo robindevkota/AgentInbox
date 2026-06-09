@@ -28,6 +28,7 @@ export interface Task {
     submitter_notified_at: number | null;
     developer_reply: string | null;
     telegram_message_id: number | null;
+    require_verification: number;
     created_at: number;
     updated_at: number;
 }
@@ -109,6 +110,7 @@ export declare const taskQueries: {
         file_content?: string;
         file_data?: string;
         custom_field_values?: string;
+        require_verification?: boolean;
     }): Task;
     getTask(id: string): Task | undefined;
     getPendingTasks(projectId?: string): Task[];

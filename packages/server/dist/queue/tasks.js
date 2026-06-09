@@ -55,9 +55,9 @@ exports.taskQueries = {
     createTask(data) {
         const id = (0, nanoid_1.nanoid)();
         db_1.db.prepare(`
-      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, data.project_id, data.title, data.description, data.priority ?? "medium", data.submitter_name ?? null, data.submitter_email ?? null, data.file_path ?? null, data.file_name ?? null, data.file_content ?? null, data.file_data ?? null, data.custom_field_values ?? null);
+      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values, require_verification)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, data.project_id, data.title, data.description, data.priority ?? "medium", data.submitter_name ?? null, data.submitter_email ?? null, data.file_path ?? null, data.file_name ?? null, data.file_content ?? null, data.file_data ?? null, data.custom_field_values ?? null, data.require_verification ? 1 : 0);
         return db_1.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
     },
     getTask(id) {
