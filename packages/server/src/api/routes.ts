@@ -792,8 +792,9 @@ const os = require("os");
 const TOKEN = process.env.AGENTINBOX_TOKEN || "${wsToken}";
 const SERVER_URL = "https://useagentinbox.com";
 const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || path.resolve(__dirname, "..");
-const TELEGRAM_BOT_TOKEN = process.env.TELEGRAM_BOT_TOKEN;
-const TELEGRAM_CHAT_ID = process.env.TELEGRAM_CHAT_ID;
+
+let TELEGRAM_BOT_TOKEN = null;
+let TELEGRAM_CHAT_ID = null;
 
 function findClaude() {
   try { execSync("claude --version", { stdio: "ignore" }); return "claude"; } catch {}
@@ -929,7 +930,21 @@ let alertSent = false;
 
 const socket = io(SERVER_URL, { path: "/agent-socket", auth: { token: TOKEN }, reconnection: true, reconnectionDelay: 5000, reconnectionAttempts: Infinity });
 
-socket.on("connect", () => { console.log("[worker] Connected to AgentInbox"); connectFailures = 0; alertSent = false; });
+socket.on("connect", () => {
+  console.log("[worker] Connected to AgentInbox");
+  connectFailures = 0; alertSent = false;
+  https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/workspace", headers: { "x-workspace-token": TOKEN } }, res => {
+    let d = ""; res.on("data", c => d += c);
+    res.on("end", () => {
+      try {
+        const ws = JSON.parse(d);
+        TELEGRAM_BOT_TOKEN = ws.telegram_bot_token || null;
+        TELEGRAM_CHAT_ID = ws.telegram_chat_id || null;
+        console.log("[worker] Telegram configured:", !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID));
+      } catch {}
+    });
+  }).on("error", () => {});
+});
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
 socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); pendingTaskTitle = p.title; pendingTelegramMsgId = p.telegram_message_id || null; spawnClaude(p.task_id, p.require_verification); });
 socket.on("connect_error", (e) => { console.error("[worker] Error: " + e.message); connectFailures++; if (connectFailures >= 3 && !alertSent) { alertSent = true; sendTelegramAlert("⚠️ AgentInbox worker cannot connect after 3 attempts. Check worker.log."); } });
@@ -1118,7 +1133,13 @@ VS Code does NOT need to be open. You don't need to be at your desk.
 
   router.get("/agent/workspace", requireWorkspaceToken, (req: Request, res: Response) => {
     const ws = (req as any).agentWorkspace;
-    res.json({ workspace_id: ws.id, workspace_name: ws.name, plan: ws.plan });
+    res.json({
+      workspace_id: ws.id,
+      workspace_name: ws.name,
+      plan: ws.plan,
+      telegram_bot_token: ws.telegram_bot_token || null,
+      telegram_chat_id: ws.telegram_chat_id || null,
+    });
   });
 
   router.get("/agent/tasks/pending", requireWorkspaceToken, (req: Request, res: Response) => {
