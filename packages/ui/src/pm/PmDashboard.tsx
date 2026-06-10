@@ -1648,16 +1648,6 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
               <span className="text-sm text-slate-300">{requireApproval ? "Required" : "Disabled"}</span>
             </label>
           </Field>
-
-          <Field label="Screenshot verification" hint="After every fix Claude starts the app, opens Playwright, takes a screenshot, and attaches proof to the task">
-            <label className="flex items-center gap-3 cursor-pointer">
-              <div onClick={() => { const v = !requireVerification; setRequireVerification(v); autoSaveToggle("require_verification", v); }}
-                className={`relative w-10 h-6 rounded-full transition-colors cursor-pointer ${requireVerification ? "bg-indigo-500" : "bg-slate-300"}`}>
-                <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${requireVerification ? "translate-x-5" : "translate-x-1"}`} />
-              </div>
-              <span className="text-sm text-slate-300">{requireVerification ? "Enabled" : "Disabled"}</span>
-            </label>
-          </Field>
         </div>
 
         {/* Custom fields */}
