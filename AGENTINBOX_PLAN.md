@@ -1,4 +1,4 @@
-# AgentInbox — Current State (June 9, 2026)
+# AgentInbox — Current State (June 10, 2026)
 
 ## What AgentInbox Is
 
@@ -131,6 +131,7 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 - Auth — JWT login/signup, workspace management
 - Approval gate — per-project toggle, Claude proposes plan before touching code; PM approval emits WebSocket to wake Claude immediately
 - Screenshot verification — **per-task toggle on submission form** (not a project setting); submitter checks "Take screenshot after fix for proof" when submitting; worker takes Playwright screenshot after Claude exits and sends photo to Telegram; zero Claude tokens used for screenshots
+- **Telegram screenshot verification toggle** — PM dashboard → Settings → Telegram → "Take screenshot after fix for Telegram tasks"; when ON, every task created from a Telegram message automatically gets `require_verification=true`; stored as `telegram_screenshot_verification` on the workspace; no need to touch the form or add flags manually
 - Telegram per-workspace — each developer connects their own bot via PM dashboard UI
 - Two Telegram task sources: website form + direct bot message
 - Bidirectional Telegram: approve/reject/answer questions via reply, ✅ on completion
@@ -152,6 +153,7 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 | Task type Telegram label | ✨ New feature / 🐛 New bug / 💬 New request on Telegram | ✅ |
 | End-to-end screenshot proof | Feature task + bug task on fresh project (test-demo-app) — both received Telegram ✅ + 📸 photo | ✅ |
 | Per-task screenshot toggle | Two tasks submitted — one with screenshot, one without — each behaved correctly | ✅ |
+| Telegram screenshot toggle | PM dashboard toggle ON → Telegram message → task created with require_verification=true → screenshot photo sent back | ✅ |
 
 **100% production ready. First customers can onboard today.**
 
@@ -215,6 +217,13 @@ One bot per workspace — by design. Sharing a bot across workspaces causes both
 
 ### Configure via PM dashboard
 PM dashboard → Settings → Telegram → enter bot token, chat ID, default project
+
+#### Screenshot verification for Telegram tasks
+Toggle: "Take screenshot after fix for Telegram tasks"
+- When ON: every task created from a Telegram message gets `require_verification=true` automatically
+- Worker fires Playwright screenshot after Claude exits, sends photo back to Telegram
+- Stored as `telegram_screenshot_verification` on the workspace (DB column, auto-migrated)
+- Web form tasks have their own separate per-task toggle — these are independent
 
 ---
 
