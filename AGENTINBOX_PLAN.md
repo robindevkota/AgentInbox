@@ -197,9 +197,12 @@ Server runs on port 3001. UI served from `ui-dist/`.
 Source 1: Website submission form
   → task created → Telegram: "🐛 New bug" / "✨ New feature" / "💬 New request" → Claude wakes
   (label depends on Bug / Feature / Other selected in the form)
+  → file/image attachments supported — stored on task, Claude reads them
 
 Source 2: You message the Telegram bot (non-reply message)
   → task created from your message → Telegram: "⚡ Task created" → Claude wakes
+  → photo or document attached to message → downloaded and stored on task — Claude reads it
+  → caption + file supported (caption = description, file = attachment)
 ```
 
 Only messages from the configured chat ID are accepted — no one else can trigger tasks.
