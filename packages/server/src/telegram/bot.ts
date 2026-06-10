@@ -235,7 +235,7 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
           db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, task.id);
         }
 
-        emitTaskCreated(ws.workspaceId, { task_id: task.id, title: task.title, project_id: ws.projectId });
+        emitTaskCreated(ws.workspaceId, { task_id: task.id, title: task.title, project_id: ws.projectId, require_verification: tgConfig.screenshot_verification, telegram_message_id: msgId || null });
         if (process.env.TRIGGER_CLAUDE === "true") triggerClaude();
         continue;
       }
