@@ -1384,6 +1384,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
   const [tgBotToken, setTgBotToken]   = useState("");
   const [tgChatId, setTgChatId]       = useState("");
   const [tgProjectId, setTgProjectId] = useState("");
+  const [tgScreenshot, setTgScreenshot] = useState(false);
   const [tgSaved, setTgSaved]         = useState(false);
 
   useEffect(() => {
@@ -1397,6 +1398,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
         setTgBotToken(d.bot_token || "");
         setTgChatId(d.chat_id || "");
         setTgProjectId(d.project_id || "");
+        setTgScreenshot(!!d.screenshot_verification);
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -1406,7 +1408,7 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
     await fetch(`/api/workspaces/${workspaceId}/telegram`, {
       method: "PATCH",
       headers: { ...authHeaders, "Content-Type": "application/json" },
-      body: JSON.stringify({ bot_token: tgBotToken || null, chat_id: tgChatId || null, project_id: tgProjectId || null }),
+      body: JSON.stringify({ bot_token: tgBotToken || null, chat_id: tgChatId || null, project_id: tgProjectId || null, screenshot_verification: tgScreenshot }),
     });
     setTgSaved(true);
     setTimeout(() => setTgSaved(false), 2500);
@@ -1598,6 +1600,14 @@ function SettingsView({ selectedProject, projects, authHeaders, workspaceId, onS
               ))}
             </select>
           </Field>
+
+          <label className="flex items-center gap-3 cursor-pointer select-none">
+            <div onClick={() => setTgScreenshot(v => !v)}
+              className={`relative w-10 h-6 rounded-full transition-colors ${tgScreenshot ? "bg-indigo-500" : "bg-slate-700"}`}>
+              <span className={`absolute top-1 left-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${tgScreenshot ? "translate-x-4" : ""}`} />
+            </div>
+            <span className="text-sm text-slate-300">Take screenshot after fix for Telegram tasks</span>
+          </label>
 
           <button onClick={saveTelegram}
             className="bg-indigo-500 hover:bg-indigo-600 text-white font-semibold px-5 py-2 rounded-xl text-sm transition-colors">

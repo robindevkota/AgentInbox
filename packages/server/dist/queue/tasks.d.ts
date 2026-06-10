@@ -163,8 +163,9 @@ export declare const taskQueries: {
         bot_token: string | null;
         chat_id: string | null;
         project_id: string | null;
+        screenshot_verification: boolean;
     };
-    setTelegramConfig(workspaceId: string, botToken: string | null, chatId: string | null, projectId: string | null): void;
+    setTelegramConfig(workspaceId: string, botToken: string | null, chatId: string | null, projectId: string | null, screenshotVerification?: boolean): void;
     getAllWorkspacesWithTelegram(): {
         id: string;
         telegram_bot_token: string;

@@ -249,17 +249,18 @@ exports.taskQueries = {
     // ── Telegram per-workspace config ─────────────────────────────────────────
     getTelegramConfig(workspaceId) {
         const row = db_1.db
-            .prepare("SELECT telegram_bot_token, telegram_chat_id, telegram_project_id FROM workspaces WHERE id = ?")
+            .prepare("SELECT telegram_bot_token, telegram_chat_id, telegram_project_id, telegram_screenshot_verification FROM workspaces WHERE id = ?")
             .get(workspaceId);
         return {
             bot_token: row?.telegram_bot_token ?? null,
             chat_id: row?.telegram_chat_id ?? null,
             project_id: row?.telegram_project_id ?? null,
+            screenshot_verification: row?.telegram_screenshot_verification === 1,
         };
     },
-    setTelegramConfig(workspaceId, botToken, chatId, projectId) {
-        db_1.db.prepare("UPDATE workspaces SET telegram_bot_token = ?, telegram_chat_id = ?, telegram_project_id = ? WHERE id = ?")
-            .run(botToken, chatId, projectId, workspaceId);
+    setTelegramConfig(workspaceId, botToken, chatId, projectId, screenshotVerification) {
+        db_1.db.prepare("UPDATE workspaces SET telegram_bot_token = ?, telegram_chat_id = ?, telegram_project_id = ?, telegram_screenshot_verification = ? WHERE id = ?")
+            .run(botToken, chatId, projectId, screenshotVerification ? 1 : 0, workspaceId);
     },
     getAllWorkspacesWithTelegram() {
         return db_1.db

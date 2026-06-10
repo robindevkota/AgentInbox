@@ -710,8 +710,8 @@ export function createRouter(): Router {
 
   // PATCH Telegram config for workspace
   router.patch("/workspaces/:workspaceId/telegram", requireAuth, (req: Request, res: Response) => {
-    const { bot_token, chat_id, project_id } = req.body;
-    taskQueries.setTelegramConfig(req.params.workspaceId, bot_token || null, chat_id || null, project_id || null);
+    const { bot_token, chat_id, project_id, screenshot_verification } = req.body;
+    taskQueries.setTelegramConfig(req.params.workspaceId, bot_token || null, chat_id || null, project_id || null, !!screenshot_verification);
     // Restart poller with new config
     const { refreshPollerForWorkspace } = require("../telegram/bot");
     refreshPollerForWorkspace(req.params.workspaceId);

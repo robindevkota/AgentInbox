@@ -219,12 +219,14 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
         const project = taskQueries.getProjectById(ws.projectId);
         if (!project) continue;
 
+        const tgConfig = taskQueries.getTelegramConfig(ws.workspaceId);
         const task = taskQueries.createTask({
           project_id: ws.projectId,
           title: intent.title || (messageText.length > 80 ? messageText.slice(0, 77) + "..." : messageText),
           description: messageText,
           priority: "medium",
           submitter_name: "Developer (Telegram)",
+          require_verification: tgConfig.screenshot_verification,
           ...(attachment ? { file_name: attachment.name, file_data: attachment.data, file_content: attachment.content } : {}),
         });
 

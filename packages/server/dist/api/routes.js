@@ -673,8 +673,8 @@ function createRouter() {
     });
     // PATCH Telegram config for workspace
     router.patch("/workspaces/:workspaceId/telegram", tokens_1.requireAuth, (req, res) => {
-        const { bot_token, chat_id, project_id } = req.body;
-        tasks_1.taskQueries.setTelegramConfig(req.params.workspaceId, bot_token || null, chat_id || null, project_id || null);
+        const { bot_token, chat_id, project_id, screenshot_verification } = req.body;
+        tasks_1.taskQueries.setTelegramConfig(req.params.workspaceId, bot_token || null, chat_id || null, project_id || null, !!screenshot_verification);
         // Restart poller with new config
         const { refreshPollerForWorkspace } = require("../telegram/bot");
         refreshPollerForWorkspace(req.params.workspaceId);

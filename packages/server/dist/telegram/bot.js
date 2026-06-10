@@ -206,12 +206,14 @@ async function fetchUpdatesForWorkspace(ws) {
                 const project = tasks_1.taskQueries.getProjectById(ws.projectId);
                 if (!project)
                     continue;
+                const tgConfig = tasks_1.taskQueries.getTelegramConfig(ws.workspaceId);
                 const task = tasks_1.taskQueries.createTask({
                     project_id: ws.projectId,
                     title: intent.title || (messageText.length > 80 ? messageText.slice(0, 77) + "..." : messageText),
                     description: messageText,
                     priority: "medium",
                     submitter_name: "Developer (Telegram)",
+                    require_verification: tgConfig.screenshot_verification,
                     ...(attachment ? { file_name: attachment.name, file_data: attachment.data, file_content: attachment.content } : {}),
                 });
                 const msgId = await _send(ws.botToken, ws.chatId, `⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`, msg.message_id);

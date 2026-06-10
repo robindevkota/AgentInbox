@@ -152,6 +152,7 @@ const migrations = {
     "workspaces.telegram_project_id": "ALTER TABLE workspaces ADD COLUMN telegram_project_id TEXT",
     "projects.require_verification": "ALTER TABLE projects ADD COLUMN require_verification INTEGER NOT NULL DEFAULT 0",
     "tasks.require_verification": "ALTER TABLE tasks ADD COLUMN require_verification INTEGER NOT NULL DEFAULT 0",
+    "workspaces.telegram_screenshot_verification": "ALTER TABLE workspaces ADD COLUMN telegram_screenshot_verification INTEGER NOT NULL DEFAULT 0",
 };
 for (const [key, sql] of Object.entries(migrations)) {
     const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);
