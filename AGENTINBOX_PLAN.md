@@ -108,7 +108,8 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 - Token + project path passed via env vars in startup bat/sh — not hardcoded
 - On connect: fetches Telegram bot token + chat ID from `/api/agent/workspace` — no manual Telegram config in env vars
 - After Claude exits: if `require_verification=true` on the task, runs `npx playwright screenshot` to capture proof, sends photo to Telegram via Bot API
-- Screenshot flow: kills port → starts app (reads `## Verification` section from `CLAUDE.local.md`) → polls URL up to 20s → takes screenshot → sends to Telegram
+- Screenshot flow: kills port → starts app (reads `## Verification` section from `CLAUDE.local.md`) → polls URL up to 20s → auto-detects HTML file (prefers `index.html`, falls back to any `.html` in root) → takes screenshot → **kills serve process tree with `taskkill /F /T /PID`** → sends to Telegram
+- Serve process kill: uses `taskkill /F /T` (full process tree) — `SIGTERM` on Windows does not cascade to child processes, leaving zombie serve windows on port 3000
 
 ### .mcp.json (per-project, written during setup)
 - Connects Claude to agentinbox-mcp tools when it wakes
@@ -120,7 +121,7 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 
 ### Setup endpoint (GET /api/setup/download)
 - Returns a plain text prompt pre-filled with the developer's workspace token + submit link
-- 11 steps: scan codebase → install socket.io-client → worker.js → .mcp.json → startup scripts → OS startup → CLAUDE.local.md → rules/ → .gitignore → start worker → report back
+- 12 steps: scan codebase → install socket.io-client → worker.js → .mcp.json → startup scripts → OS startup → CLAUDE.local.md → rules/ → .gitignore → start worker immediately (no reboot needed) → report back
 - Always writes `## Verification` section to CLAUDE.local.md (auto-detects real start command + port from package.json, config files, README)
 - No manual Telegram config — worker fetches creds from server on connect
 
