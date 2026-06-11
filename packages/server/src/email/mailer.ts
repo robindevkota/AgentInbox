@@ -1,26 +1,26 @@
 import nodemailer from "nodemailer";
 import type { Task, Project } from "../queue/tasks";
 
-function createTransport() {
-  const host = process.env.SMTP_HOST;
-  if (!host) return null;
+const FROM = process.env.EMAIL_FROM || "AgentInbox <onboarding@resend.dev>";
 
-  return nodemailer.createTransport({
+export async function send(to: string, subject: string, html: string) {
+  const resendKey = process.env.RESEND_API_KEY;
+  if (resendKey) {
+    await fetch("https://api.resend.com/emails", {
+      method: "POST",
+      headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ from: FROM, to, subject, html }),
+    });
+    return;
+  }
+  const host = process.env.SMTP_HOST;
+  if (!host) return;
+  const transport = nodemailer.createTransport({
     host,
     port: parseInt(process.env.SMTP_PORT || "587", 10),
     secure: process.env.SMTP_PORT === "465",
-    auth: {
-      user: process.env.SMTP_USER,
-      pass: process.env.SMTP_PASS,
-    },
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
   });
-}
-
-const FROM = process.env.EMAIL_FROM || "AgentInbox <noreply@agentinbox.io>";
-
-export async function send(to: string, subject: string, html: string) {
-  const transport = createTransport();
-  if (!transport) return; // silently skip if SMTP not configured
   await transport.sendMail({ from: FROM, to, subject, html });
 }
 

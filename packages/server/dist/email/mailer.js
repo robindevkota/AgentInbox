@@ -9,25 +9,26 @@ exports.sendTaskCompleted = sendTaskCompleted;
 exports.sendApprovalRequest = sendApprovalRequest;
 exports.sendEscalation = sendEscalation;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-function createTransport() {
+const FROM = process.env.EMAIL_FROM || "AgentInbox <onboarding@resend.dev>";
+async function send(to, subject, html) {
+    const resendKey = process.env.RESEND_API_KEY;
+    if (resendKey) {
+        await fetch("https://api.resend.com/emails", {
+            method: "POST",
+            headers: { "Authorization": `Bearer ${resendKey}`, "Content-Type": "application/json" },
+            body: JSON.stringify({ from: FROM, to, subject, html }),
+        });
+        return;
+    }
     const host = process.env.SMTP_HOST;
     if (!host)
-        return null;
-    return nodemailer_1.default.createTransport({
+        return;
+    const transport = nodemailer_1.default.createTransport({
         host,
         port: parseInt(process.env.SMTP_PORT || "587", 10),
         secure: process.env.SMTP_PORT === "465",
-        auth: {
-            user: process.env.SMTP_USER,
-            pass: process.env.SMTP_PASS,
-        },
+        auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
-}
-const FROM = process.env.EMAIL_FROM || "AgentInbox <noreply@agentinbox.io>";
-async function send(to, subject, html) {
-    const transport = createTransport();
-    if (!transport)
-        return; // silently skip if SMTP not configured
     await transport.sendMail({ from: FROM, to, subject, html });
 }
 async function sendOtp(email, otp, projectName) {
