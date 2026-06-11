@@ -727,6 +727,7 @@ function DashboardScreen({
         <div className="px-3 py-3 border-t border-white/5 space-y-0.5">
           <NavBtn active={view === "stats"} onClick={() => setView("stats")}>Usage stats</NavBtn>
           <NavBtn active={view === "settings"} onClick={() => setView("settings")}>Settings</NavBtn>
+          <NavBtn active={view === "feedback"} onClick={() => setView("feedback")}>💬 Feedback</NavBtn>
           <a
             href="/playground"
             target="_blank"
@@ -825,6 +826,12 @@ function DashboardScreen({
                 setView("tasks");
               }}
             />
+          </div>
+        )}
+
+        {view === "feedback" && (
+          <div className="flex-1 overflow-y-auto p-8">
+            <FeedbackView authHeaders={authHeaders()} />
           </div>
         )}
 
@@ -1804,5 +1811,76 @@ function NavBtn({ active, onClick, children }: { active: boolean; onClick: () =>
       }`}>
       {children}
     </button>
+  );
+}
+
+function FeedbackView({ authHeaders }: { authHeaders: Record<string, string> }) {
+  const [category, setCategory] = useState("General");
+  const [message, setMessage] = useState("");
+  const [status, setStatus] = useState<"idle" | "sending" | "done" | "error">("idle");
+
+  async function submit() {
+    if (!message.trim()) return;
+    setStatus("sending");
+    try {
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { ...authHeaders, "Content-Type": "application/json" },
+        body: JSON.stringify({ category, message }),
+      });
+      setStatus(res.ok ? "done" : "error");
+    } catch {
+      setStatus("error");
+    }
+  }
+
+  if (status === "done") return (
+    <div className="max-w-lg">
+      <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-8 text-center">
+        <div className="text-3xl mb-3">✅</div>
+        <p className="text-white font-semibold mb-1">Thanks for your feedback!</p>
+        <p className="text-slate-400 text-sm">We'll get back to you soon.</p>
+        <button onClick={() => { setMessage(""); setStatus("idle"); }} className="mt-4 text-xs text-slate-500 hover:text-slate-300 transition-colors">Send another</button>
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="max-w-lg">
+      <h2 className="text-xl font-bold text-white mb-1">Feedback</h2>
+      <p className="text-slate-400 text-sm mb-6">Having issues with setup? Got a question or suggestion? Let us know.</p>
+
+      <div className="space-y-4">
+        <div>
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Category</label>
+          <div className="flex gap-2 flex-wrap">
+            {["General", "Setup issue", "Bug", "Feature request", "Question"].map(c => (
+              <button key={c} onClick={() => setCategory(c)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${category === c ? "bg-indigo-500 text-white" : "bg-white/5 text-slate-400 hover:bg-white/10"}`}>
+                {c}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div>
+          <label className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 block">Message</label>
+          <textarea
+            value={message}
+            onChange={e => setMessage(e.target.value)}
+            rows={6}
+            placeholder="Describe your issue, question, or suggestion..."
+            className="w-full bg-[#1a1d2e] border border-[#2a2d3e] rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none focus:border-indigo-500 resize-none"
+          />
+        </div>
+
+        <button onClick={submit} disabled={!message.trim() || status === "sending"}
+          className="bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white text-sm font-semibold px-6 py-2.5 rounded-xl transition-colors">
+          {status === "sending" ? "Sending..." : "Send feedback"}
+        </button>
+
+        {status === "error" && <p className="text-red-400 text-sm">Something went wrong. Try again.</p>}
+      </div>
+    </div>
   );
 }

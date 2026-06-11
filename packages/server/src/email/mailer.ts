@@ -18,7 +18,7 @@ function createTransport() {
 
 const FROM = process.env.EMAIL_FROM || "AgentInbox <noreply@agentinbox.io>";
 
-async function send(to: string, subject: string, html: string) {
+export async function send(to: string, subject: string, html: string) {
   const transport = createTransport();
   if (!transport) return; // silently skip if SMTP not configured
   await transport.sendMail({ from: FROM, to, subject, html });

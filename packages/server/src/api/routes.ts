@@ -76,6 +76,28 @@ export function createRouter(): Router {
 
   router.get("/health", (_req, res) => res.json({ ok: true }));
 
+  // POST /feedback — authenticated, emails robin@useagentinbox.com
+  router.post("/feedback", requireAuth, async (req: Request, res: Response) => {
+    const { message, category } = req.body || {};
+    if (!message?.trim()) { res.status(400).json({ error: "Message required" }); return; }
+    const userEmail = (req as any).user?.email || "unknown";
+    const subject = `[AgentInbox Feedback] ${category || "General"} from ${userEmail}`;
+    const html = `
+      <div style="font-family:sans-serif;max-width:560px;margin:0 auto;padding:32px">
+        <h2 style="margin:0 0 8px">New Feedback</h2>
+        <p style="color:#64748b;margin:0 0 4px;font-size:13px">From: <strong>${userEmail}</strong></p>
+        <p style="color:#64748b;margin:0 0 24px;font-size:13px">Category: <strong>${category || "General"}</strong></p>
+        <div style="background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:16px">
+          <p style="margin:0;color:#334155;white-space:pre-wrap">${message.trim()}</p>
+        </div>
+      </div>`;
+    try {
+      const mailer = await import("../email/mailer");
+      await mailer.send("robin@useagentinbox.com", subject, html);
+    } catch {}
+    res.json({ ok: true });
+  });
+
   // ── Public: project info + Tier 2 OTP ───────────────────────────────────
 
   // GET project info by token (for submission form header)
