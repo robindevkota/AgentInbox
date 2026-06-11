@@ -1,4 +1,4 @@
-# AgentInbox — Current State (June 10, 2026)
+# AgentInbox — Current State (June 11, 2026)
 
 ## What AgentInbox Is
 
@@ -138,6 +138,7 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 - Bidirectional Telegram: approve/reject/answer questions via reply, ✅ on completion
 - Task type selector on submission form — Bug / Feature / Other; Telegram shows ✨/🐛/💬 accordingly
 - Playground — animation + chat live demos (conversion tool)
+- **Feedback page** — PM dashboard sidebar → 💬 Feedback → category selector + message → POST `/api/feedback` → Resend sends from `feedback@useagentinbox.com` → Cloudflare Email Routing forwards to Robin's Gmail
 
 ---
 

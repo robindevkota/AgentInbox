@@ -61,6 +61,7 @@ Or just say **"clean up"** to Claude Code and it will do both automatically.
 - Task type selector on submission form — Bug / Feature / Other prepends [TYPE] to description
 - Telegram shows ✨ New feature / 🐛 New bug / 💬 New request based on task type
 - Approval wake fix — PM clicking Approve now emits WebSocket, Claude resumes immediately
+- Feedback page — PM dashboard sidebar → 💬 Feedback → emails feedback@useagentinbox.com via Resend + Cloudflare Email Routing → Robin's Gmail (Jun 11, 2026)
 
 ---
 
