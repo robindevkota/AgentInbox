@@ -825,10 +825,17 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
     const parts = startCmd.split(" ");
     appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true, detached: true });
     appProc.unref();
+    // Find the HTML file to screenshot — prefer index.html, fallback to any .html in root
+    const htmlFiles = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
+    let screenshotUrl = url;
+    if (htmlFiles.length > 0 && !htmlFiles.includes("index.html")) {
+      screenshotUrl = url.replace(/\/$/, "") + "/" + htmlFiles[0];
+      console.log("[worker] No index.html — screenshotting " + htmlFiles[0]);
+    }
     const ready = await waitForUrl(url, 20000);
     if (!ready) { console.error("[worker] App not ready at " + url + " — skipping screenshot"); return; }
     screenshotPath = path.join(os.tmpdir(), "agentinbox-ss-" + Date.now() + ".png");
-    const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "--wait-for-timeout=2000", url, screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
+    const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "--wait-for-timeout=2000", screenshotUrl, screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
     if (result.status !== 0 || !existsSync(screenshotPath)) { console.error("[worker] Screenshot failed"); return; }
     const buf = fs.readFileSync(screenshotPath);
     if (buf[0] !== 0x89 || buf[1] !== 0x50) { console.error("[worker] Not a PNG"); return; }
@@ -839,7 +846,7 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
     if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) { await sendTelegramPhoto(buf, "📸 " + taskTitle, telegramMsgId); }
   } catch (err) { console.error("[worker] Screenshot error:", err.message); }
   finally {
-    if (appProc && appProc.pid) { try { process.kill(appProc.pid, "SIGTERM"); } catch {} }
+    if (appProc && appProc.pid) { try { spawnSync("taskkill", ["/F", "/T", "/PID", String(appProc.pid)], { shell: false }); } catch {} }
     if (screenshotPath && existsSync(screenshotPath)) { try { unlinkSync(screenshotPath); } catch {} }
   }
 }
@@ -877,8 +884,8 @@ function spawnClaude(taskId, requireVerification) {
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
   claudeRunning = true;
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
-  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "0.50", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
-  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 90 * 1000);
+  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "2.00", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
+  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 5 * 60 * 1000);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
   proc.on("close", async (code) => {
     console.log("[worker] Claude exited (" + code + ")");
