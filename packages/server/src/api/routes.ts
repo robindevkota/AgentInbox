@@ -93,7 +93,7 @@ export function createRouter(): Router {
       </div>`;
     try {
       const mailer = await import("../email/mailer");
-      await mailer.send("feedback@useagentinbox.com", subject, html);
+      await mailer.send("robindevkta0@gmail.com", subject, html);
     } catch {}
     res.json({ ok: true });
   });

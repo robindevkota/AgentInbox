@@ -121,7 +121,7 @@ function createRouter() {
       </div>`;
         try {
             const mailer = await Promise.resolve().then(() => __importStar(require("../email/mailer")));
-            await mailer.send("feedback@useagentinbox.com", subject, html);
+            await mailer.send("robindevkta0@gmail.com", subject, html);
         }
         catch { }
         res.json({ ok: true });
