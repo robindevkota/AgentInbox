@@ -18,9 +18,25 @@
 | **Telegram chat ID** | `6121077387` |
 
 **Before each test session:**
-1. Start worker: `node "d:\test-demo-app\.agentinbox\worker.js"` — wait for `Workspace: Test` + `Telegram configured: true`
-2. Check `d:\test-demo-app\` is clean (no leftover `index.html` or spec files)
+1. Start worker: run `d:\test-demo-app\.agentinbox\start.bat` — wait for `Workspace: Test` + `Telegram configured: true`
+2. Check `d:\test-demo-app\` is clean (no leftover html/txt/jpg files)
 3. Check PM dashboard tasks list is empty
+
+**After each test (cleanup):**
+
+Delete all tasks via API:
+```powershell
+$JWT = (Invoke-RestMethod -Method Post -Uri "https://useagentinbox.com/api/auth/login" -ContentType "application/json" -Body '{"email":"demo.blog.2026@gmail.com","password":"Demo@2026"}').token
+$tasks = (Invoke-RestMethod -Uri "https://useagentinbox.com/api/projects/t6rPLKeewxfQTSC_bTZsI/tasks" -Headers @{Authorization="Bearer $JWT"})
+$tasks | ForEach-Object { Invoke-RestMethod -Method Delete -Uri "https://useagentinbox.com/api/tasks/$($_.id)" -Headers @{Authorization="Bearer $JWT"} }
+```
+
+Clean codebase:
+```powershell
+Remove-Item -Force "d:\test-demo-app\*.html","d:\test-demo-app\*.txt","d:\test-demo-app\*.jpg","d:\test-demo-app\*.png","d:\test-demo-app\*.md" -Exclude "CLAUDE.local.md" -ErrorAction SilentlyContinue
+```
+
+Or just say **"clean up"** to Claude Code and it will do both automatically.
 
 **This workspace is isolated from MBL** — no conflict with the production worker.
 
