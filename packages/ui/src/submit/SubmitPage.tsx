@@ -606,6 +606,11 @@ function Shell({
       {/* Right panel — dark form */}
       <div className="flex-1 flex items-start md:items-center justify-center px-6 py-12 overflow-y-auto bg-[#0a0c12]">
         <div className="w-full max-w-lg">
+          {localStorage.getItem("auth_token") && (
+            <a href="/pm" className="inline-flex items-center gap-1.5 text-slate-500 hover:text-slate-300 text-xs mb-6 transition-colors">
+              <span>←</span> PM Dashboard
+            </a>
+          )}
           {children}
         </div>
       </div>

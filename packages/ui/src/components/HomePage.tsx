@@ -644,7 +644,7 @@ export function HomePage() {
             <span className="text-white font-extrabold text-xl tracking-tight">AgentInbox</span>
           </div>
           <div className="flex items-center gap-3">
-            <a href="/login" className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
+            <a href={localStorage.getItem("auth_token") ? "/pm" : "/login"} className="text-slate-400 hover:text-white text-sm transition-colors">Sign in</a>
             <a href="/signup" className="bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold px-4 py-2 rounded-lg transition-colors"
               style={{ boxShadow: "0 0 20px rgba(99,102,241,0.4)" }}>
               Get started free →
