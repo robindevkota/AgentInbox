@@ -9,7 +9,7 @@ exports.sendTaskCompleted = sendTaskCompleted;
 exports.sendApprovalRequest = sendApprovalRequest;
 exports.sendEscalation = sendEscalation;
 const nodemailer_1 = __importDefault(require("nodemailer"));
-const FROM = process.env.EMAIL_FROM || "AgentInbox <onboarding@resend.dev>";
+const FROM = process.env.EMAIL_FROM || "AgentInbox <feedback@useagentinbox.com>";
 async function send(to, subject, html) {
     const resendKey = process.env.RESEND_API_KEY;
     if (resendKey) {
