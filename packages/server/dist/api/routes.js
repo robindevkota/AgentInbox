@@ -912,7 +912,7 @@ function spawnClaude(taskId, requireVerification) {
   claudeRunning = true;
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "2.00", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
-  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 5 * 60 * 1000);
+  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 10 * 60 * 1000);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
   proc.on("close", async (code) => {
     console.log("[worker] Claude exited (" + code + ")");
