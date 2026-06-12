@@ -837,6 +837,7 @@ const TASK_PROMPT =
   "if the task has a file attachment call get_file to read it. " +
   "Implement the fix or feature. " +
   "Call complete_task with summary_technical and summary_plain. " +
+  "If you built or modified a UI (web page, app), also pass verification_url — the local URL where the worker should take a screenshot (e.g. http://localhost:3000 or http://localhost:3000/result.html). Do NOT take screenshots yourself. " +
   "RULES: (1) If a file says '[Could not parse file]': proceed without it. " +
   "(2) complete_task immediately when done. Never loop or retry more than twice on anything. " +
   "If no pending tasks, exit.";
@@ -880,13 +881,15 @@ async function waitForUrl(url, timeoutMs) {
 async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawnedAt) {
   const verification = readVerification();
   if (!verification) { console.log("[worker] No Verification in CLAUDE.local.md — skipping screenshot"); return; }
-  // Skip if task already has a screenshot (idempotent — safe to call after worker restart)
+  // Fetch task: check idempotency + read verification_url hint Claude left us
+  let verificationUrlHint = null;
   try {
     const taskRes = await new Promise((resolve) => {
       https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/tasks/" + taskId, headers: { "x-workspace-token": TOKEN } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } }); }).on("error", () => resolve(null));
     });
     if (taskRes && taskRes.screenshot_base64) { console.log("[worker] Task already has screenshot — skipping"); return; }
     if (taskRes && taskRes.status !== "done") { console.log("[worker] Task status is " + taskRes.status + " — skipping screenshot"); return; }
+    if (taskRes && taskRes.verification_url) { verificationUrlHint = taskRes.verification_url; console.log("[worker] Using verification_url from Claude: " + verificationUrlHint); }
   } catch {}
   const { startCmd, url } = verification;
   console.log("[worker] Screenshot: starting app — " + startCmd);
@@ -910,19 +913,23 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawned
     const parts = startCmd.split(" ");
     appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true });
     await waitForUrl(url, 20000);
-    // Screenshot the most recently modified HTML file (30-min window to avoid ancient files)
-    const allHtml = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
-    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
-    const recentHtml = allHtml
-      .map((f: string) => ({ name: f, mtime: fs.statSync(path.join(PROJECT_CWD, f)).mtimeMs }))
-      .filter((f: {name: string; mtime: number}) => f.mtime >= thirtyMinutesAgo)
-      .sort((a: {mtime: number}, b: {mtime: number}) => b.mtime - a.mtime);
-    if (recentHtml.length === 0) { console.log("[worker] No HTML files modified in last 30 min — skipping screenshot"); return; }
-    const htmlTarget = recentHtml[0].name;
-    console.log("[worker] Screenshotting most recent HTML: " + htmlTarget);
-    let screenshotUrl = url;
-    if (htmlTarget !== "index.html") {
-      screenshotUrl = url.replace(/\/$/, "") + "/" + htmlTarget;
+    // Use verification_url hint from Claude if provided — exact URL, no guessing
+    // Falls back to 30-min window on most-recently-modified HTML (for HTML-only projects)
+    let screenshotUrl;
+    if (verificationUrlHint) {
+      screenshotUrl = verificationUrlHint;
+      console.log("[worker] Screenshot URL from Claude hint: " + screenshotUrl);
+    } else {
+      const allHtml = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
+      const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+      const recentHtml = allHtml
+        .map((f: string) => ({ name: f, mtime: fs.statSync(path.join(PROJECT_CWD, f)).mtimeMs }))
+        .filter((f: {name: string; mtime: number}) => f.mtime >= thirtyMinutesAgo)
+        .sort((a: {mtime: number}, b: {mtime: number}) => b.mtime - a.mtime);
+      if (recentHtml.length === 0) { console.log("[worker] No HTML files modified in last 30 min — skipping screenshot"); return; }
+      const htmlTarget = recentHtml[0].name;
+      console.log("[worker] Screenshotting most recent HTML (fallback): " + htmlTarget);
+      screenshotUrl = htmlTarget === "index.html" ? url : url.replace(/\/$/, "") + "/" + htmlTarget;
     }
     const ready = await waitForUrl(screenshotUrl, 10000);
     if (!ready) { console.error("[worker] File not ready at " + screenshotUrl + " — skipping screenshot"); return; }
@@ -1283,10 +1290,11 @@ VS Code does NOT need to be open. You don't need to be at your desk.
 
   router.post("/agent/tasks/:id/complete", requireWorkspaceToken, (req: Request, res: Response) => {
     try {
-      const { summary_technical, summary_plain, screenshot_base64: rawScreenshot } = z.object({
+      const { summary_technical, summary_plain, screenshot_base64: rawScreenshot, verification_url } = z.object({
         summary_technical: z.string().min(1),
         summary_plain: z.string().min(1),
         screenshot_base64: z.string().optional(),
+        verification_url: z.string().url().optional(),
       }).parse(req.body);
       // Validate screenshot — must be a real PNG (min 10KB decoded) otherwise discard
       let screenshot_base64 = rawScreenshot;
@@ -1298,7 +1306,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
           screenshot_base64 = undefined;
         }
       }
-      const result = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64);
+      const result = taskQueries.completeTask(req.params.id, summary_technical, summary_plain, undefined, screenshot_base64, verification_url);
       if (!result) { res.status(404).json({ error: "Task not found" }); return; }
       const { task: updated, wasAlreadyDone } = result;
       // Only notify once — suppress Telegram + PM push if task was already done (duplicate complete_task call)

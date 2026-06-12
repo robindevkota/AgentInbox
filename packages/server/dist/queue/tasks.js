@@ -121,15 +121,15 @@ exports.taskQueries = {
         db_1.db.prepare("UPDATE tasks SET status = 'pending', rejected_at = ?, rejected_reason = ?, updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), reason, (0, db_1.nowUnix)(), id);
         return exports.taskQueries.getTask(id);
     },
-    completeTask(id, summaryTechnical, summaryPlain, prLink, screenshotBase64) {
+    completeTask(id, summaryTechnical, summaryPlain, prLink, screenshotBase64, verificationUrl) {
         const before = exports.taskQueries.getTask(id);
         if (!before)
             return undefined;
         const wasAlreadyDone = before.status === "done";
         db_1.db.prepare(`
-      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, updated_at = ?
+      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, verification_url = ?, updated_at = ?
       WHERE id = ?
-    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, (0, db_1.nowUnix)(), id);
+    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, verificationUrl ?? null, (0, db_1.nowUnix)(), id);
         const task = exports.taskQueries.getTask(id);
         return { task, wasAlreadyDone };
     },

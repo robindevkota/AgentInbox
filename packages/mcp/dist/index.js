@@ -70,6 +70,7 @@ function isTaskClaudeRunning() {
 const TASK_PROMPT = "Check AgentInbox for pending tasks using get_pending_tasks. " +
     "For each pending task: call update_task_status(in_progress), call get_task for full details, " +
     "fix the issue in the codebase, then call complete_task with a technical summary and plain-English summary. " +
+    "If you built or modified a UI, also pass verification_url — the local URL to screenshot (e.g. http://localhost:3000). Do NOT take screenshots yourself. " +
     "If you use ask_developer or propose_plan and need to poll for a reply: poll get_task every 30s, " +
     "but give up after 5 minutes maximum — if no reply, proceed with best judgment and note it in summary_technical. " +
     "Never poll indefinitely. " +
@@ -191,11 +192,11 @@ async function updateTaskStatus(id, status) {
         throw new Error(`update_task_status failed: ${res.status}`);
     return res.json();
 }
-async function completeTask(id, summaryTechnical, summaryPlain, screenshotBase64) {
+async function completeTask(id, summaryTechnical, summaryPlain, screenshotBase64, verificationUrl) {
     const res = await fetch(`${SERVER_URL}/api/agent/tasks/${id}/complete`, {
         method: "POST",
         headers: { "Content-Type": "application/json", "x-workspace-token": TOKEN },
-        body: JSON.stringify({ summary_technical: summaryTechnical, summary_plain: summaryPlain, screenshot_base64: screenshotBase64 }),
+        body: JSON.stringify({ summary_technical: summaryTechnical, summary_plain: summaryPlain, screenshot_base64: screenshotBase64, verification_url: verificationUrl }),
     });
     if (!res.ok)
         throw new Error(`complete_task failed: ${res.status}`);
@@ -290,6 +291,7 @@ server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
                     summary_technical: { type: "string", description: "Technical summary for PM (file changed, line number, etc)" },
                     summary_plain: { type: "string", description: "Plain English summary for the client" },
                     screenshot_base64: { type: "string", description: "Optional base64 PNG screenshot as proof" },
+                    verification_url: { type: "string", description: "Optional URL for the worker to screenshot as proof (e.g. http://localhost:3000/result.html). Use this instead of screenshot_base64 — the worker handles Playwright, not Claude." },
                 },
                 required: ["id", "summary_technical", "summary_plain"],
             },
@@ -370,7 +372,7 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
                 result = await updateTaskStatus(args.id, args.status);
                 break;
             case "complete_task":
-                result = await completeTask(args.id, args.summary_technical, args.summary_plain, args.screenshot_base64);
+                result = await completeTask(args.id, args.summary_technical, args.summary_plain, args.screenshot_base64, args.verification_url);
                 break;
             case "escalate_task":
                 result = await escalateTask(args.id, args.reason);

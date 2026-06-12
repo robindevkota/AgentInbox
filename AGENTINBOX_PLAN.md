@@ -1,4 +1,4 @@
-# AgentInbox — Current State (June 11, 2026)
+# AgentInbox — Current State (June 12, 2026 — updated)
 
 ## What AgentInbox Is
 
@@ -24,7 +24,8 @@ Worker (after Claude exits)
 PM dashboard
   → sees task done with proof + screenshot in real time
 Telegram
-  → ⚡ on submit, ✅ on complete
+  → ⚡ on submit, 📸 single photo with screenshot on complete (when require_verification=true)
+  → ⚡ on submit, ✅ text on complete (when require_verification=false)
 ```
 
 **Zero polling. Zero idle tokens. VS Code does not need to be open.**
@@ -84,6 +85,20 @@ The server tracks only the **latest** agent socket per workspace in memory.
 `emitTaskCreated` sends to that one socket only — not the whole room.
 Prevents N VS Code sessions × M tasks = N×M Claude spawns.
 
+### Screenshot verification (require_verification=true)
+When a project has screenshot verification enabled:
+- Worker starts the app (from `CLAUDE.local.md` → `## Verification` → `Start:` and `URL:`)
+- Kills the server by **port** in `finally` (not PID) — reliable on Windows where npx spawns via cmd.exe
+- Server sends **no** Telegram text on `complete_task` when `require_verification=true` — worker sends the single photo instead
+- Claude timeout: **10 minutes** (complex tasks like landing page builds need the full window)
+
+**Screenshot hardening (Jun 12, 2026):**
+- **30-minute window + newest first** — picks the most recently modified HTML file within last 30 min, not a fixed `spawnedAt` time. Correctly handles consecutive tasks (Task 2's file is newer than Task 1's).
+- **Idempotent** — before taking screenshot, checks if task already has `screenshot_base64`. Skips if yes. Safe to call after worker restart mid-task — no duplicate Telegram photos.
+- **Workspace flag** — `/api/agent/workspace` now returns `screenshot_verification`. Worker reads it on every connect as `SCREENSHOT_VERIFICATION`. Screenshot runs after Claude exits if `require_verification=true` on the task OR if the workspace flag is true — whichever applies.
+- **Project inheritance** — tasks created via API/form now inherit `require_verification=1` from the project if not explicitly set in the submission body. Previously only Telegram tasks got it automatically.
+- **Safe worker restart** — `start.bat` writes `worker.pid` on startup, and on restart only kills that specific PID instead of `taskkill /F /IM node.exe /T` (which was killing IDE extensions and breaking Claude mid-task).
+
 ### Poll loop cap
 `ask_developer` and `propose_plan` poll loops are capped at 5 minutes in the TASK_PROMPT.
 After 5 minutes with no reply, Claude proceeds with best judgment and notes it in summary_technical.
@@ -106,10 +121,11 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 - Spawns `claude --dangerously-skip-permissions --print "<task prompt>" --max-budget-usd 0.50`
 - Logs to `agentinbox.log` in project root
 - Token + project path passed via env vars in startup bat/sh — not hardcoded
-- On connect: fetches Telegram bot token + chat ID from `/api/agent/workspace` — no manual Telegram config in env vars
-- After Claude exits: if `require_verification=true` on the task, runs `npx playwright screenshot` to capture proof, sends photo to Telegram via Bot API
-- Screenshot flow: kills port → starts app (reads `## Verification` section from `CLAUDE.local.md`) → polls URL up to 20s → auto-detects HTML file (prefers `index.html`, falls back to any `.html` in root) → takes screenshot → **kills serve process tree with `taskkill /F /T /PID`** → sends to Telegram
-- Serve process kill: uses `taskkill /F /T` (full process tree) — `SIGTERM` on Windows does not cascade to child processes, leaving zombie serve windows on port 3000
+- On connect: fetches Telegram bot token + chat ID + `screenshot_verification` flag from `/api/agent/workspace`
+- After Claude exits: takes screenshot if task has `require_verification=true` OR workspace `SCREENSHOT_VERIFICATION=true`
+- Screenshot flow: idempotent check (skip if already has screenshot) → kills port → starts app → polls URL up to 20s → picks **most recently modified HTML file within 30 min** → takes screenshot → kills serve by port → sends photo to Telegram
+- Serve process kill: uses `taskkill /F /T` (full process tree) — `SIGTERM` on Windows does not cascade to child processes
+- `worker.pid` written on startup so `start.bat` kills only this worker on restart — not all node processes
 
 ### .mcp.json (per-project, written during setup)
 - Connects Claude to agentinbox-mcp tools when it wakes
@@ -156,6 +172,7 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 | End-to-end screenshot proof | Feature task + bug task on fresh project (test-demo-app) — both received Telegram ✅ + 📸 photo | ✅ |
 | Per-task screenshot toggle | Two tasks submitted — one with screenshot, one without — each behaved correctly | ✅ |
 | Telegram screenshot toggle | PM dashboard toggle ON → Telegram message → task created with require_verification=true → screenshot photo sent back | ✅ |
+| Consecutive tasks — correct screenshot per task | Task 1 (blue-star.html) → Task 2 (orange-triangle.html) submitted immediately after — each task received screenshot of its own output, not the previous task's | ✅ Jun 12 |
 
 **100% production ready. First customers can onboard today.**
 
@@ -168,6 +185,16 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 | Task stuck in `in_progress` forever | Claude crashes after `update_task_status(in_progress)` but before `complete_task`; task invisible to next spawn | `get_pending_tasks` resets and returns `in_progress` tasks older than 15 min |
 | Race — two Claudes on same task | No atomic claim; both see `pending`, both work in parallel, duplicate Telegram notifications | `update_task_status(in_progress)` uses `WHERE status = 'pending'` — only one wins; loser gets HTTP 409 |
 | `ask_developer` / `propose_plan` infinite token burn | TASK_PROMPT told Claude to poll every 30s with no timeout | TASK_PROMPT now caps poll loops at 5 minutes |
+
+## Screenshot Pipeline Fixes — Applied (Jun 12, 2026)
+
+| Scenario | Root Cause | Fix |
+|---|---|---|
+| Wrong screenshot sent (previous task's file) | `spawnedAt` filter was too strict — new worker spawned after restart had a later `spawnedAt` than files written by previous Claude | 30-minute window + newest-first sort — picks most recently modified HTML within last 30 min, not fixed `spawnedAt` |
+| start.bat kills IDE extensions + breaks Claude mid-task | `taskkill /F /IM node.exe /T` kills ALL node processes on the machine | PID file written on worker start; start.bat reads and kills only that PID on restart |
+| Screenshot skipped for API/form submissions | Task `require_verification` defaulted to false for web form; only Telegram tasks inherited project setting | Routes.ts now sets `require_verification = true` if project has `require_verification = 1`, regardless of submission source |
+| Screenshot skipped after worker restart | Worker restarted mid-task with fresh in-memory state; new process had `SCREENSHOT_VERIFICATION = false` | `/api/agent/workspace` now returns `screenshot_verification`; worker reads it on every connect as fallback |
+| Duplicate Telegram photos after worker restart mid-screenshot | Worker crashed after attaching screenshot but before Telegram send; on restart, screenshot triggered again | Idempotent check at start of `takeScreenshotAndAttach` — skips if task already has `screenshot_base64` |
 
 ---
 

@@ -29,6 +29,7 @@ export interface Task {
     developer_reply: string | null;
     telegram_message_id: number | null;
     require_verification: number;
+    verification_url: string | null;
     created_at: number;
     updated_at: number;
 }
@@ -119,7 +120,7 @@ export declare const taskQueries: {
     proposePlan(id: string, plan: string): Task | undefined;
     approveTask(id: string, approvedBy: string): Task | undefined;
     rejectTask(id: string, reason: string): Task | undefined;
-    completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotBase64?: string): {
+    completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotBase64?: string, verificationUrl?: string): {
         task: Task;
         wasAlreadyDone: boolean;
     } | undefined;

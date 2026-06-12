@@ -40,6 +40,7 @@ export interface Task {
   developer_reply: string | null;
   telegram_message_id: number | null;
   require_verification: number;
+  verification_url: string | null;
   created_at: number;
   updated_at: number;
 }
@@ -309,14 +310,15 @@ export const taskQueries = {
     summaryPlain: string,
     prLink?: string,
     screenshotBase64?: string,
+    verificationUrl?: string,
   ): { task: Task; wasAlreadyDone: boolean } | undefined {
     const before = taskQueries.getTask(id);
     if (!before) return undefined;
     const wasAlreadyDone = before.status === "done";
     db.prepare(`
-      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, updated_at = ?
+      UPDATE tasks SET status = 'done', summary_technical = ?, summary_plain = ?, pr_link = ?, screenshot_base64 = ?, verification_url = ?, updated_at = ?
       WHERE id = ?
-    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, nowUnix(), id);
+    `).run(summaryTechnical, summaryPlain, prLink ?? null, screenshotBase64 ?? null, verificationUrl ?? null, nowUnix(), id);
     const task = taskQueries.getTask(id)!;
     return { task, wasAlreadyDone };
   },
