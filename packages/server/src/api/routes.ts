@@ -875,7 +875,7 @@ async function waitForUrl(url, timeoutMs) {
   return false;
 }
 
-async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
+async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawnedAt) {
   const verification = readVerification();
   if (!verification) { console.log("[worker] No Verification in CLAUDE.local.md — skipping screenshot"); return; }
   const { startCmd, url } = verification;
@@ -886,9 +886,12 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
     const parts = startCmd.split(" ");
     appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true });
     await waitForUrl(url, 20000);
-    // Read HTML files AFTER server is ready (Claude may have just written them)
-    const htmlFiles = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
-    if (htmlFiles.length === 0) { console.log("[worker] No HTML files found — skipping screenshot"); return; }
+    // Only screenshot HTML files written DURING THIS TASK (newer than spawnedAt)
+    const allHtml = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
+    const htmlFiles = spawnedAt
+      ? allHtml.filter((f: string) => fs.statSync(path.join(PROJECT_CWD, f)).mtimeMs >= spawnedAt - 5000)
+      : allHtml;
+    if (htmlFiles.length === 0) { console.log("[worker] No new HTML files from this task — skipping screenshot"); return; }
     let screenshotUrl = url;
     if (!htmlFiles.includes("index.html")) {
       screenshotUrl = url.replace(/\/$/, "") + "/" + htmlFiles[0];
@@ -954,6 +957,7 @@ function spawnClaude(taskId, requireVerification) {
   if (taskId) seenTaskIds.add(taskId);
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
   claudeRunning = true;
+  const spawnedAt = Date.now();
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "2.00", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
   const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 10 * 60 * 1000);
@@ -962,7 +966,7 @@ function spawnClaude(taskId, requireVerification) {
     console.log("[worker] Claude exited (" + code + ")");
     clearTimeout(timeout);
     claudeRunning = false;
-    if (requireVerification && taskId) { await takeScreenshotAndAttach(taskId, pendingTaskTitle, pendingTelegramMsgId); }
+    if (requireVerification && taskId) { await takeScreenshotAndAttach(taskId, pendingTaskTitle, pendingTelegramMsgId, spawnedAt); }
   });
 }
 
