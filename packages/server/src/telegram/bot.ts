@@ -222,6 +222,10 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
         if (!project) continue;
 
         const tgConfig = taskQueries.getTelegramConfig(ws.workspaceId);
+        // Deduplicate — same Telegram message can arrive twice if server restarts mid-poll
+        const existing = db.prepare("SELECT id FROM tasks WHERE telegram_origin_message_id = ?").get(msg.message_id);
+        if (existing) continue;
+
         const task = taskQueries.createTask({
           project_id: ws.projectId,
           title: intent.title || (messageText.length > 80 ? messageText.slice(0, 77) + "..." : messageText),
@@ -231,6 +235,7 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
           require_verification: tgConfig.screenshot_verification,
           ...(attachment ? { file_name: attachment.name, file_data: attachment.data, file_content: attachment.content } : {}),
         });
+        db.prepare("UPDATE tasks SET telegram_origin_message_id = ? WHERE id = ?").run(msg.message_id, task.id);
 
         const msgId = await _send(ws.botToken, ws.chatId, `⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`, msg.message_id);
         if (msgId) {
@@ -290,13 +295,13 @@ function startPollerForWorkspace(workspaceId: string, botToken: string, chatId: 
   if (activePollers.has(workspaceId)) return;
   const ws: WorkspaceTelegram = { workspaceId, botToken, chatId, projectId, lastUpdateId: 0 };
   pollerState.set(workspaceId, ws);
-  // Fast-forward offset before starting interval — delay first poll until we know the latest update_id
+  // Fast-forward offset on startup so we don't reprocess old messages after a restart
   getLatestUpdateId(botToken).then(latestId => {
     ws.lastUpdateId = latestId;
     console.log(`[telegram] Poller for ${workspaceId} starting at update_id ${latestId}`);
-    const interval = setInterval(() => fetchUpdatesForWorkspace(ws), 3000);
-    activePollers.set(workspaceId, interval);
   });
+  const interval = setInterval(() => fetchUpdatesForWorkspace(ws), 3000);
+  activePollers.set(workspaceId, interval);
   console.log(`[telegram] Started poller for workspace ${workspaceId}`);
 }
 
