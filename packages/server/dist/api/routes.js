@@ -1226,7 +1226,10 @@ VS Code does NOT need to be open. You don't need to be at your desk.
                     summary_plain,
                     has_screenshot: !!screenshot_base64,
                 });
-                (0, bot_1.notifyTaskDone)(updated.id, updated.title).catch(() => { });
+                // Skip Telegram text message when require_verification=true — worker sends the photo after screenshotting
+                if (!updated.require_verification) {
+                    (0, bot_1.notifyTaskDone)(updated.id, updated.title).catch(() => { });
+                }
             }
             res.json(updated);
         }
