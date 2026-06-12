@@ -1026,6 +1026,8 @@ Replace PROJECT_PATH with the actual absolute path of this project root.
 set AGENTINBOX_TOKEN=${wsToken}
 set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
+taskkill /F /IM node.exe /T > nul 2>&1
+timeout /t 2 /nobreak > nul
 cd /d PROJECT_PATH\\.agentinbox
 :loop
 node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
