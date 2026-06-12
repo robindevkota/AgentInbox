@@ -290,13 +290,13 @@ function startPollerForWorkspace(workspaceId: string, botToken: string, chatId: 
   if (activePollers.has(workspaceId)) return;
   const ws: WorkspaceTelegram = { workspaceId, botToken, chatId, projectId, lastUpdateId: 0 };
   pollerState.set(workspaceId, ws);
-  // Fast-forward offset on startup so we don't reprocess old messages after a restart
+  // Fast-forward offset before starting interval — delay first poll until we know the latest update_id
   getLatestUpdateId(botToken).then(latestId => {
     ws.lastUpdateId = latestId;
     console.log(`[telegram] Poller for ${workspaceId} starting at update_id ${latestId}`);
+    const interval = setInterval(() => fetchUpdatesForWorkspace(ws), 3000);
+    activePollers.set(workspaceId, interval);
   });
-  const interval = setInterval(() => fetchUpdatesForWorkspace(ws), 3000);
-  activePollers.set(workspaceId, interval);
   console.log(`[telegram] Started poller for workspace ${workspaceId}`);
 }
 
