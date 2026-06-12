@@ -178,8 +178,9 @@ async function fetchUpdatesForWorkspace(ws) {
                 // Detect attached file — photo or document
                 let attachment = null;
                 if (msg.photo) {
-                    // photo is array — last entry is highest resolution
-                    const fileId = msg.photo[msg.photo.length - 1].file_id;
+                    // Pick second-highest res — readable for Claude but avoids 2560px context blowout
+                    const photos = msg.photo;
+                    const fileId = (photos.length >= 2 ? photos[photos.length - 2] : photos[photos.length - 1]).file_id;
                     attachment = await _downloadTelegramFile(ws.botToken, fileId);
                     if (attachment)
                         attachment.name = "photo.jpg";
