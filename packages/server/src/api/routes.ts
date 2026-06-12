@@ -820,6 +820,7 @@ const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || path.resolve(__dirname, "
 
 let TELEGRAM_BOT_TOKEN = null;
 let TELEGRAM_CHAT_ID = null;
+let SCREENSHOT_VERIFICATION = false;
 
 function findClaude() {
   try { execSync("claude --version", { stdio: "ignore" }); return "claude"; } catch {}
@@ -992,7 +993,8 @@ function spawnClaude(taskId, requireVerification) {
     console.log("[worker] Claude exited (" + code + ")");
     clearTimeout(timeout);
     claudeRunning = false;
-    if (requireVerification && taskId) { await takeScreenshotAndAttach(taskId, pendingTaskTitle, pendingTelegramMsgId, spawnedAt); }
+    const shouldScreenshot = (requireVerification || SCREENSHOT_VERIFICATION) && taskId;
+    if (shouldScreenshot) { await takeScreenshotAndAttach(taskId, pendingTaskTitle, pendingTelegramMsgId, spawnedAt); }
   });
 }
 
@@ -1011,7 +1013,9 @@ socket.on("connect", () => {
         const ws = JSON.parse(d);
         TELEGRAM_BOT_TOKEN = ws.telegram_bot_token || null;
         TELEGRAM_CHAT_ID = ws.telegram_chat_id || null;
+        SCREENSHOT_VERIFICATION = !!ws.screenshot_verification;
         console.log("[worker] Telegram configured:", !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID));
+        if (SCREENSHOT_VERIFICATION) console.log("[worker] Screenshot verification: enabled");
       } catch {}
     });
   }).on("error", () => {});
@@ -1233,12 +1237,14 @@ VS Code does NOT need to be open. You don't need to be at your desk.
 
   router.get("/agent/workspace", requireWorkspaceToken, (req: Request, res: Response) => {
     const ws = (req as any).agentWorkspace;
+    const tgCfg = taskQueries.getTelegramConfig(ws.id);
     res.json({
       workspace_id: ws.id,
       workspace_name: ws.name,
       plan: ws.plan,
       telegram_bot_token: ws.telegram_bot_token || null,
       telegram_chat_id: ws.telegram_chat_id || null,
+      screenshot_verification: tgCfg.screenshot_verification,
     });
   });
 
