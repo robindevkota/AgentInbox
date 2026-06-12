@@ -1259,6 +1259,14 @@ VS Code does NOT need to be open. You don't need to be at your desk.
         }
         res.json({ file_name: task.file_name, file_content: task.file_content, file_data: task.file_data, media_type: task.file_name?.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? "image/jpeg" : undefined });
     });
+    router.delete("/agent/tasks/:id", requireWorkspaceToken, (req, res) => {
+        const deleted = tasks_1.taskQueries.deleteTask(req.params.id);
+        if (!deleted) {
+            res.status(404).json({ error: "Task not found" });
+            return;
+        }
+        res.json({ ok: true });
+    });
     router.post("/agent/tasks/:id/status", requireWorkspaceToken, (req, res) => {
         try {
             const { status } = zod_1.z.object({ status: zod_1.z.enum(["in_progress", "blocked", "failed"]) }).parse(req.body);
