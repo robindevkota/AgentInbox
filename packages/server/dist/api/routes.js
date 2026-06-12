@@ -844,6 +844,17 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawned
   if (!verification) { console.log("[worker] No Verification in CLAUDE.local.md — skipping screenshot"); return; }
   const { startCmd, url } = verification;
   console.log("[worker] Screenshot: starting app — " + startCmd);
+  // Kill anything on port before spawning fresh server (Claude may have left its own npx serve running)
+  try {
+    const port = new URL(url).port || "80";
+    const netstat = spawnSync("cmd", ["/c", "netstat -ano | findstr :" + port], { shell: false, encoding: "utf8" });
+    for (const line of (netstat.stdout || "").split("\n")) {
+      if (!line.includes("LISTENING")) continue;
+      const pid = line.trim().split(/\s+/).pop();
+      if (pid && /^\d+$/.test(pid) && pid !== "0") { try { spawnSync("taskkill", ["/F", "/T", "/PID", pid], { shell: false }); } catch {} }
+    }
+  } catch {}
+  await new Promise(r => setTimeout(r, 1000));
   let appProc = null;
   let screenshotPath = null;
   try {
