@@ -986,22 +986,50 @@ async function sendTelegramAlert(msg) {
   } catch {}
 }
 
+function checkAndSpawnNext() {
+  https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/tasks/pending", headers: { "x-workspace-token": TOKEN } }, res => {
+    let d = ""; res.on("data", c => d += c);
+    res.on("end", () => {
+      try {
+        const tasks = JSON.parse(d);
+        if (tasks && tasks.length > 0) {
+          const t = tasks[0];
+          console.log("[worker] Next pending task: \\"" + t.title + "\\" (" + t.id + ")");
+          pendingTaskTitle = t.title || "";
+          pendingTelegramMsgId = t.telegram_message_id || null;
+          spawnClaude(t.id, t.require_verification);
+        } else {
+          console.log("[worker] No more pending tasks — waiting for next event");
+        }
+      } catch {}
+    });
+  }).on("error", () => {});
+}
+
 function spawnClaude(taskId, requireVerification) {
   if (taskId && seenTaskIds.has(taskId)) { console.log("[worker] Task " + taskId + " already seen — skipping duplicate"); return; }
   if (taskId) seenTaskIds.add(taskId);
-  if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
+  if (claudeRunning) { console.log("[worker] Claude already running — task " + taskId + " will be picked up after current task completes"); return; }
   claudeRunning = true;
   const spawnedAt = Date.now();
-  console.log("[worker] Waking Claude in " + PROJECT_CWD);
+  const thisTaskId = taskId;
+  const thisTaskTitle = pendingTaskTitle;
+  const thisTelegramMsgId = pendingTelegramMsgId;
+  console.log("[worker] Waking Claude for task: \\"" + thisTaskTitle + "\\" (" + thisTaskId + ")");
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "2.00", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
   const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 10 * 60 * 1000);
-  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; });
-  proc.on("close", async (code) => {
-    console.log("[worker] Claude exited (" + code + ")");
+  proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; checkAndSpawnNext(); });
+  proc.on("close", (code) => {
+    console.log("[worker] Claude exited (" + code + ") for task " + thisTaskId);
     clearTimeout(timeout);
     claudeRunning = false;
-    const shouldScreenshot = (requireVerification || SCREENSHOT_VERIFICATION) && taskId;
-    if (shouldScreenshot) { await takeScreenshotAndAttach(taskId, pendingTaskTitle, pendingTelegramMsgId, spawnedAt); }
+    // Fire screenshot in background — does NOT block next task from starting
+    const shouldScreenshot = (requireVerification || SCREENSHOT_VERIFICATION) && thisTaskId;
+    if (shouldScreenshot) {
+      takeScreenshotAndAttach(thisTaskId, thisTaskTitle, thisTelegramMsgId, spawnedAt).catch(err => console.error("[worker] Screenshot error:", err.message));
+    }
+    // Immediately check for next pending task — runs in parallel with screenshot above
+    checkAndSpawnNext();
   });
 }
 
@@ -1026,22 +1054,8 @@ socket.on("connect", () => {
       } catch {}
     });
   }).on("error", () => {});
-  // Fetch pending tasks on reconnect — pick up any tasks missed during disconnect
-  https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/tasks/pending", headers: { "x-workspace-token": TOKEN } }, res => {
-    let d = ""; res.on("data", c => d += c);
-    res.on("end", () => {
-      try {
-        const tasks = JSON.parse(d);
-        if (tasks && tasks.length > 0) {
-          console.log("[worker] " + tasks.length + " pending task(s) found on reconnect — waking Claude");
-          const t = tasks[0];
-          pendingTaskTitle = t.title || "";
-          pendingTelegramMsgId = t.telegram_message_id || null;
-          spawnClaude(t.id, t.require_verification);
-        }
-      } catch {}
-    });
-  }).on("error", () => {});
+  // Pick up any tasks missed during disconnect
+  checkAndSpawnNext();
 });
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
 socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); pendingTaskTitle = p.title; pendingTelegramMsgId = p.telegram_message_id || null; spawnClaude(p.task_id, p.require_verification); });
