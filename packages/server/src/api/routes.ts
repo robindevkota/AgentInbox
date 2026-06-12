@@ -886,15 +886,17 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
     const parts = startCmd.split(" ");
     appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true, detached: true });
     appProc.unref();
-    // Find the HTML file to screenshot — prefer index.html, fallback to any .html in root
+    await waitForUrl(url, 20000);
+    // Read HTML files AFTER server is ready (Claude may have just written them)
     const htmlFiles = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
+    if (htmlFiles.length === 0) { console.log("[worker] No HTML files found — skipping screenshot"); return; }
     let screenshotUrl = url;
-    if (htmlFiles.length > 0 && !htmlFiles.includes("index.html")) {
+    if (!htmlFiles.includes("index.html")) {
       screenshotUrl = url.replace(/\/$/, "") + "/" + htmlFiles[0];
       console.log("[worker] No index.html — screenshotting " + htmlFiles[0]);
     }
-    const ready = await waitForUrl(url, 20000);
-    if (!ready) { console.error("[worker] App not ready at " + url + " — skipping screenshot"); return; }
+    const ready = await waitForUrl(screenshotUrl, 10000);
+    if (!ready) { console.error("[worker] File not ready at " + screenshotUrl + " — skipping screenshot"); return; }
     screenshotPath = path.join(os.tmpdir(), "agentinbox-ss-" + Date.now() + ".png");
     const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "--wait-for-timeout=2000", screenshotUrl, screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
     if (result.status !== 0 || !existsSync(screenshotPath)) { console.error("[worker] Screenshot failed"); return; }
@@ -997,6 +999,8 @@ socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + 
 socket.on("connect_error", (e) => { console.error("[worker] Error: " + e.message); connectFailures++; if (connectFailures >= 3 && !alertSent) { alertSent = true; sendTelegramAlert("⚠️ AgentInbox worker cannot connect after 3 attempts. Check worker.log."); } });
 socket.on("disconnect", (r) => console.log("[worker] Disconnected: " + r));
 
+// Ping every 25s to keep Render WebSocket alive (Render closes idle connections at ~30s)
+setInterval(() => { if (socket.connected) socket.emit("ping"); }, 25000);
 setInterval(() => {}, 60000);
 console.log("[worker] Starting...");
 \`\`\`
