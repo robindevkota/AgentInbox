@@ -27,6 +27,8 @@ function initSocketServer(httpServer) {
     io = new socket_io_1.Server(httpServer, {
         cors: { origin: "*", methods: ["GET", "POST"] },
         path: "/agent-socket",
+        pingInterval: 10000,
+        pingTimeout: 5000,
     });
     io.use((socket, next) => {
         const token = socket.handshake.auth.token || socket.handshake.query.token;

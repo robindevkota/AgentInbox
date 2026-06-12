@@ -26,6 +26,8 @@ export function initSocketServer(httpServer: HttpServer): SocketServer {
   io = new SocketServer(httpServer, {
     cors: { origin: "*", methods: ["GET", "POST"] },
     path: "/agent-socket",
+    pingInterval: 10000,
+    pingTimeout: 5000,
   });
 
   io.use((socket: Socket, next) => {
