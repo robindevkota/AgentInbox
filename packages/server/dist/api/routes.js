@@ -848,8 +848,7 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
   let screenshotPath = null;
   try {
     const parts = startCmd.split(" ");
-    appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true, detached: true });
-    appProc.unref();
+    appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true });
     await waitForUrl(url, 20000);
     // Read HTML files AFTER server is ready (Claude may have just written them)
     const htmlFiles = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
