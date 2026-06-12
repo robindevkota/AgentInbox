@@ -975,6 +975,22 @@ socket.on("connect", () => {
       } catch {}
     });
   }).on("error", () => {});
+  // Fetch pending tasks on reconnect — pick up any tasks missed during disconnect
+  https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/tasks/pending", headers: { "x-workspace-token": TOKEN } }, res => {
+    let d = ""; res.on("data", c => d += c);
+    res.on("end", () => {
+      try {
+        const tasks = JSON.parse(d);
+        if (tasks && tasks.length > 0) {
+          console.log("[worker] " + tasks.length + " pending task(s) found on reconnect — waking Claude");
+          const t = tasks[0];
+          pendingTaskTitle = t.title || "";
+          pendingTelegramMsgId = t.telegram_message_id || null;
+          spawnClaude(t.id, t.require_verification);
+        }
+      } catch {}
+    });
+  }).on("error", () => {});
 });
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
 socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); pendingTaskTitle = p.title; pendingTelegramMsgId = p.telegram_message_id || null; spawnClaude(p.task_id, p.require_verification); });
