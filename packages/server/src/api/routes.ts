@@ -973,7 +973,7 @@ function spawnClaude(taskId, requireVerification) {
 let connectFailures = 0;
 let alertSent = false;
 
-const socket = io(SERVER_URL, { path: "/agent-socket", auth: { token: TOKEN }, reconnection: true, reconnectionDelay: 5000, reconnectionAttempts: Infinity });
+const socket = io(SERVER_URL, { path: "/agent-socket", auth: { token: TOKEN }, transports: ["websocket"], reconnection: true, reconnectionDelay: 5000, reconnectionAttempts: Infinity });
 
 socket.on("connect", () => {
   console.log("[worker] Connected to AgentInbox");
