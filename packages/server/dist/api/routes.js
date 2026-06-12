@@ -875,13 +875,7 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
     // Kill by port — more reliable than PID on Windows where npx spawns child processes via cmd.exe
     try {
       const port = new URL(url).port || "80";
-      const netstat = spawnSync("cmd", ["/c", `, netstat;
-        -ano | findstr;
-        $;
-        {
-            port;
-        }
-        `], { shell: false, encoding: "utf8" });
+      const netstat = spawnSync("cmd", ["/c", "netstat -ano | findstr :" + port], { shell: false, encoding: "utf8" });
       for (const line of (netstat.stdout || "").split("\n")) {
         if (!line.includes("LISTENING")) continue;
         const pid = line.trim().split(/\s+/).pop();
