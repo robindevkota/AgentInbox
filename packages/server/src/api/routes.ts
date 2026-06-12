@@ -271,7 +271,8 @@ export function createRouter(): Router {
           custom_field_values: body.custom_field_values
             ? JSON.stringify(body.custom_field_values)
             : undefined,
-          require_verification: body.require_verification === true || body.require_verification === "true" || body.require_verification === "1",
+          // Inherit project's require_verification when not explicitly set in the submission body
+          require_verification: body.require_verification === true || body.require_verification === "true" || body.require_verification === "1" || project.require_verification === 1,
         });
 
         taskQueries.audit({
@@ -878,6 +879,14 @@ async function waitForUrl(url, timeoutMs) {
 async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawnedAt) {
   const verification = readVerification();
   if (!verification) { console.log("[worker] No Verification in CLAUDE.local.md — skipping screenshot"); return; }
+  // Skip if task already has a screenshot (idempotent — safe to call after worker restart)
+  try {
+    const taskRes = await new Promise((resolve) => {
+      https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/tasks/" + taskId, headers: { "x-workspace-token": TOKEN } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => { try { resolve(JSON.parse(d)); } catch { resolve(null); } }); }).on("error", () => resolve(null));
+    });
+    if (taskRes && taskRes.screenshot_base64) { console.log("[worker] Task already has screenshot — skipping"); return; }
+    if (taskRes && taskRes.status !== "done") { console.log("[worker] Task status is " + taskRes.status + " — skipping screenshot"); return; }
+  } catch {}
   const { startCmd, url } = verification;
   console.log("[worker] Screenshot: starting app — " + startCmd);
   // Kill anything on port before spawning fresh server (Claude may have left its own npx serve running)
@@ -900,16 +909,19 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawned
     const parts = startCmd.split(" ");
     appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true });
     await waitForUrl(url, 20000);
-    // Only screenshot HTML files written DURING THIS TASK (newer than spawnedAt)
+    // Screenshot the most recently modified HTML file (30-min window to avoid ancient files)
     const allHtml = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
-    const htmlFiles = spawnedAt
-      ? allHtml.filter((f: string) => fs.statSync(path.join(PROJECT_CWD, f)).mtimeMs >= spawnedAt - 5000)
-      : allHtml;
-    if (htmlFiles.length === 0) { console.log("[worker] No new HTML files from this task — skipping screenshot"); return; }
+    const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
+    const recentHtml = allHtml
+      .map((f: string) => ({ name: f, mtime: fs.statSync(path.join(PROJECT_CWD, f)).mtimeMs }))
+      .filter((f: {name: string; mtime: number}) => f.mtime >= thirtyMinutesAgo)
+      .sort((a: {mtime: number}, b: {mtime: number}) => b.mtime - a.mtime);
+    if (recentHtml.length === 0) { console.log("[worker] No HTML files modified in last 30 min — skipping screenshot"); return; }
+    const htmlTarget = recentHtml[0].name;
+    console.log("[worker] Screenshotting most recent HTML: " + htmlTarget);
     let screenshotUrl = url;
-    if (!htmlFiles.includes("index.html")) {
-      screenshotUrl = url.replace(/\/$/, "") + "/" + htmlFiles[0];
-      console.log("[worker] No index.html — screenshotting " + htmlFiles[0]);
+    if (htmlTarget !== "index.html") {
+      screenshotUrl = url.replace(/\/$/, "") + "/" + htmlTarget;
     }
     const ready = await waitForUrl(screenshotUrl, 10000);
     if (!ready) { console.error("[worker] File not ready at " + screenshotUrl + " — skipping screenshot"); return; }
@@ -1028,6 +1040,8 @@ socket.on("disconnect", (r) => console.log("[worker] Disconnected: " + r));
 // Ping every 25s to keep Render WebSocket alive (Render closes idle connections at ~30s)
 setInterval(() => { if (socket.connected) socket.emit("ping"); }, 25000);
 setInterval(() => {}, 60000);
+// Write PID so start.bat can kill only this process on restart (not all node processes)
+try { require("fs").writeFileSync(require("path").join(__dirname, "worker.pid"), String(process.pid)); } catch {}
 console.log("[worker] Starting...");
 \`\`\`
 
@@ -1062,9 +1076,16 @@ Replace PROJECT_PATH with the actual absolute path of this project root.
 set AGENTINBOX_TOKEN=${wsToken}
 set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
-taskkill /F /IM node.exe /T > nul 2>&1
-timeout /t 2 /nobreak > nul
 cd /d PROJECT_PATH\\.agentinbox
+
+:: Kill only the previous worker (not all node processes — other IDEs/tools use node too)
+if exist worker.pid (
+  set /p PREV_PID=<worker.pid
+  del worker.pid > nul 2>&1
+  taskkill /F /T /PID %PREV_PID% > nul 2>&1
+  timeout /t 2 /nobreak > nul
+)
+
 :loop
 node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
 timeout /t 5 /nobreak > nul
