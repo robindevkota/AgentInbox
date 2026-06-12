@@ -62,6 +62,8 @@ Or just say **"clean up"** to Claude Code and it will do both automatically.
 - Telegram shows ✨ New feature / 🐛 New bug / 💬 New request based on task type
 - Approval wake fix — PM clicking Approve now emits WebSocket, Claude resumes immediately
 - Feedback page — PM dashboard sidebar → 💬 Feedback → emails feedback@useagentinbox.com via Resend + Cloudflare Email Routing → Robin's Gmail (Jun 11, 2026)
+- Screenshot verification fixes (Jun 12, 2026) — no more "Hello World": kill server by port not PID, read HTML files after Claude exits, skip if no HTML, 10min Claude timeout, single Telegram photo (no double message)
+- Screenshot pipeline hardening (Jun 12, 2026) — consecutive tasks send correct screenshots: 30-min window picks newest HTML, workspace screenshot_verification flag in /agent/workspace, worker uses it as fallback, idempotent check skips already-screenshotted tasks, start.bat kills only worker PID not all node processes, project-level require_verification inherited by API/form submissions
 
 ---
 
