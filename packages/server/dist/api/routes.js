@@ -933,6 +933,12 @@ function spawnClaude(taskId, requireVerification) {
   if (claudeRunning) { console.log("[worker] Claude already running — will re-check on exit"); return; }
   claudeRunning = true;
   const spawnedAt = Date.now();
+  // Remove HTML files from previous tasks so screenshot only captures this task's output
+  try {
+    fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html")).forEach((f: string) => {
+      try { fs.unlinkSync(path.join(PROJECT_CWD, f)); } catch {}
+    });
+  } catch {}
   console.log("[worker] Waking Claude in " + PROJECT_CWD);
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "2.00", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
   const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 10 * 60 * 1000);
