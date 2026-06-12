@@ -190,8 +190,10 @@ async function fetchUpdatesForWorkspace(ws: WorkspaceTelegram): Promise<void> {
         // Detect attached file — photo or document
         let attachment: { data: string; name: string; content: string } | null = null;
         if (msg.photo) {
-          // photo is array — last entry is highest resolution
-          const fileId = msg.photo[msg.photo.length - 1].file_id;
+          // photo is array sorted by size — pick medium res (≤800px) to keep base64 small for Claude
+          const sorted = [...msg.photo].sort((a: any, b: any) => a.file_size - b.file_size);
+          const medium = sorted.find((p: any) => p.width <= 800) || sorted[Math.floor(sorted.length / 2)] || sorted[sorted.length - 1];
+          const fileId = medium.file_id;
           attachment = await _downloadTelegramFile(ws.botToken, fileId);
           if (attachment) attachment.name = "photo.jpg";
         } else if (msg.document) {
