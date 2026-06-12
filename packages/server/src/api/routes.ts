@@ -908,7 +908,16 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId) {
     if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) { await sendTelegramPhoto(buf, "📸 " + taskTitle, telegramMsgId); }
   } catch (err) { console.error("[worker] Screenshot error:", err.message); }
   finally {
-    if (appProc && appProc.pid) { try { spawnSync("taskkill", ["/F", "/T", "/PID", String(appProc.pid)], { shell: false }); } catch {} }
+    // Kill by port — more reliable than PID on Windows where npx spawns child processes via cmd.exe
+    try {
+      const port = new URL(url).port || "80";
+      const netstat = spawnSync("cmd", ["/c", `netstat -ano | findstr :${port}`], { shell: false, encoding: "utf8" });
+      for (const line of (netstat.stdout || "").split("\n")) {
+        if (!line.includes("LISTENING")) continue;
+        const pid = line.trim().split(/\s+/).pop();
+        if (pid && /^\d+$/.test(pid) && pid !== "0") { try { spawnSync("taskkill", ["/F", "/T", "/PID", pid], { shell: false }); } catch {} }
+      }
+    } catch {}
     if (screenshotPath && existsSync(screenshotPath)) { try { unlinkSync(screenshotPath); } catch {} }
   }
 }
