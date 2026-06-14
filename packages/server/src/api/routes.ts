@@ -1282,7 +1282,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     const projects = db.prepare("SELECT id, require_approval, require_verification FROM projects WHERE workspace_id = ?").all(ws.id) as { id: string; require_approval: number; require_verification: number }[];
     const tasks = projects.flatMap((p) =>
       // getPendingTasks also recovers tasks stuck in_progress > 15 min (Claude crashed mid-task)
-      taskQueries.getPendingTasks(p.id).map((t) => ({ ...t, require_approval: p.require_approval === 1, require_verification: t.require_verification === 1 }))
+      taskQueries.getPendingTasks(p.id).map(({ file_data, screenshot_base64, ...t }) => ({ ...t, has_file: !!file_data, require_approval: p.require_approval === 1, require_verification: t.require_verification === 1 }))
     );
     res.json(tasks);
   });
@@ -1291,7 +1291,8 @@ VS Code does NOT need to be open. You don't need to be at your desk.
     const task = taskQueries.getTask(req.params.id);
     if (!task) { res.status(404).json({ error: "Task not found" }); return; }
     const project = taskQueries.getProjectById(task.project_id);
-    res.json({ ...task, require_approval: project?.require_approval === 1, require_verification: task.require_verification === 1 });
+    const { file_data, screenshot_base64, ...taskSafe } = task;
+    res.json({ ...taskSafe, has_file: !!file_data, require_approval: project?.require_approval === 1, require_verification: task.require_verification === 1 });
   });
 
   router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req: Request, res: Response) => {
