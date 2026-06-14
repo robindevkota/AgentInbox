@@ -1019,7 +1019,7 @@ function spawnClaude(taskId, requireVerification) {
   const thisTelegramMsgId = pendingTelegramMsgId;
   console.log("[worker] Waking Claude for task: \\"" + thisTaskTitle + "\\" (" + thisTaskId + ")");
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "2.00", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
-  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 10 * 60 * 1000);
+  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); try { spawnSync("taskkill", ["/F", "/T", "/PID", String(proc.pid)], { shell: false }); } catch {} if (thisTaskId) { apiPost("/agent/tasks/" + thisTaskId + "/status", { status: "failed" }).catch(() => {}); } }, 5 * 60 * 1000);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; checkAndSpawnNext(); });
   proc.on("close", (code) => {
     console.log("[worker] Claude exited (" + code + ") for task " + thisTaskId);
