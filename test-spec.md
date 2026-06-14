@@ -19,16 +19,10 @@ Create a single `index.html` file in the project root that displays "Hello World
 </html>
 ```
 
-## Screenshot proof (REQUIRED)
-1. Write index.html to project root
-2. Use the Bash tool to start a background server: `npx serve . --listen 8080 &`
-3. Wait 3 seconds: `sleep 3`
-4. Use Playwright MCP: `browser_resize` width=1280 height=900
-5. Use Playwright MCP: `browser_navigate` to `http://localhost:8080`
-6. Use Playwright MCP: `browser_take_screenshot` type=png — base64 is in the tool response
-7. Call `complete_task` with `screenshot_base64` set to that base64
+## Screenshot
+The worker handles screenshots automatically after you exit.
+Pass the URL to your file in `complete_task` as `verification_url` and the worker will serve and screenshot it.
 
-IMPORTANT:
-- Use Bash tool for steps 2 and 3 (not PowerShell)
-- Do NOT use file:// URLs — Playwright blocks them
-- The base64 comes directly from browser_take_screenshot response — do not read any file
+Example: `complete_task(id, summary_technical, summary_plain, verification_url="http://localhost:3000/index.html")`
+
+Do NOT start any server or take screenshots yourself.

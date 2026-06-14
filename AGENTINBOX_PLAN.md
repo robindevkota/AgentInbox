@@ -1,4 +1,4 @@
-# AgentInbox — Current State (June 12, 2026 — updated)
+# AgentInbox — Current State (June 14, 2026 — updated)
 
 ## What AgentInbox Is
 
@@ -14,13 +14,13 @@ AgentInbox server (hosted on Render)
 agentinbox-worker.js (running silently on developer's PC — no VS Code needed)
   → receives push instantly — no polling
   → spawns: claude --dangerously-skip-permissions --print "check agent inbox..."
-Claude (woken on demand)
+Claude (woken on demand, one task per spawn)
   → reads .mcp.json, connects to AgentInbox MCP tools
-  → drains ALL pending tasks, fixes them
-  → calls complete_task, exits
+  → claims one task, fixes it, calls complete_task (with verification_url if UI built), exits
 Worker (after Claude exits)
-  → if task had require_verification=true → starts app, takes Playwright screenshot, sends photo to Telegram
-  → resets, goes back to listening
+  → screenshot fires in background if require_verification=true
+  → immediately calls checkAndSpawnNext() — picks up next pending task in parallel
+  → repeats until queue is empty
 PM dashboard
   → sees task done with proof + screenshot in real time
 Telegram
@@ -66,15 +66,51 @@ The MCP approach ties the WebSocket listener to an interactive Claude session.
 When the developer is chatting with Claude, task processing would block.
 The standalone worker runs in a completely separate process — no conflict ever.
 
-### In-memory claudeRunning flag (worker)
-The worker uses an in-memory `claudeRunning` boolean — set true on Claude spawn, reset false on exit.
-Prevents two Claude instances within the same worker process.
-No lockfile needed — the worker is a single long-running process per project.
+### One-Claude-per-task (worker)
+Each task gets its own Claude spawn — Claude processes one task, calls `complete_task`, exits.
+
+```
+Task 1 arrives → spawn Claude → fix task1 → complete_task(verification_url) → Claude exits
+  → screenshot task1 fires in background (non-blocking)
+  → checkAndSpawnNext() immediately fetches next pending task
+  → Task 2 pending → spawn Claude for task2 (parallel with task1 screenshot)
+  → Task 2 done → screenshot task2, check for task3...
+```
+
+Benefits:
+- Every task gets its own screenshot — no more "only last task gets screenshotted"
+- Every task gets its own 10-min timeout — 5 tasks never hit a shared timeout
+- Priority order preserved — server returns highest priority task first on each `checkAndSpawnNext()` call
+- `claudeRunning` flag still prevents two Claudes in same process
+
+The worker uses in-memory `claudeRunning` boolean — no lockfile needed.
 The MCP package (`agentinbox-mcp`) still uses a lockfile with a 15-minute stale guard for the interactive Claude session path.
+
+### Safety guards — Claude never picks a completed task
+
+Three independent layers prevent a done task from being processed twice:
+
+| Guard | Where | What it does |
+|---|---|---|
+| `seenTaskIds` Set | Worker in-memory | Prevents duplicate socket events for the same task — `checkAndSpawnNext` passes `null` taskId so legitimate retries are never blocked |
+| Atomic claim | `tasks.ts updateStatus` | `WHERE status = 'pending'` — if task is already `in_progress` or `done`, DB update changes 0 rows, returns 409 to Claude |
+| `getPendingTasks` filter | `tasks.ts` | Only returns `status = 'pending'` OR `in_progress > 15min` — `done` tasks never appear in the list |
+
+Claude calling `complete_task` on an already-done task is also safe — `wasAlreadyDone` flag suppresses duplicate Telegram notifications.
+
+### Worker auto-restart (no manual input ever)
+`start.bat` runs an infinite loop — if `worker.js` crashes or exits for any reason, it restarts automatically in 5 seconds:
+```bat
+:loop
+node worker.js >> worker.log 2>&1
+timeout /t 5 /nobreak > nul
+goto loop
+```
+On PC boot: `agentinbox-start.vbs` (Windows) / launchd plist (Mac) launches `start.bat` silently. Developer never needs to touch a terminal.
 
 ### Race prevention (atomic claim)
 `update_task_status(in_progress)` uses `WHERE status = 'pending'` — only one Claude wins if two race.
-The server returns HTTP 409 to the loser; Claude should skip the task and move to the next.
+The server returns HTTP 409 to the loser; Claude skips and moves to the next task.
 
 ### Stuck task recovery
 `get_pending_tasks` also returns tasks stuck in `in_progress` for over 15 minutes (Claude crashed mid-task).
@@ -90,7 +126,7 @@ When a project has screenshot verification enabled:
 - Worker starts the app (from `CLAUDE.local.md` → `## Verification` → `Start:` and `URL:`)
 - Kills the server by **port** in `finally` (not PID) — reliable on Windows where npx spawns via cmd.exe
 - Server sends **no** Telegram text on `complete_task` when `require_verification=true` — worker sends the single photo instead
-- Claude timeout: **10 minutes** (complex tasks like landing page builds need the full window)
+- Claude timeout: **5 minutes** — uses `taskkill /F /T /PID` (SIGTERM is ignored on Windows); task marked `failed` on timeout
 
 **Screenshot hardening (Jun 12, 2026):**
 - **30-minute window + newest first** — picks the most recently modified HTML file within last 30 min, not a fixed `spawnedAt` time. Correctly handles consecutive tasks (Task 2's file is newer than Task 1's).
@@ -98,6 +134,14 @@ When a project has screenshot verification enabled:
 - **Workspace flag** — `/api/agent/workspace` now returns `screenshot_verification`. Worker reads it on every connect as `SCREENSHOT_VERIFICATION`. Screenshot runs after Claude exits if `require_verification=true` on the task OR if the workspace flag is true — whichever applies.
 - **Project inheritance** — tasks created via API/form now inherit `require_verification=1` from the project if not explicitly set in the submission body. Previously only Telegram tasks got it automatically.
 - **Safe worker restart** — `start.bat` writes `worker.pid` on startup, and on restart only kills that specific PID instead of `taskkill /F /IM node.exe /T` (which was killing IDE extensions and breaking Claude mid-task).
+
+**`verification_url` — Claude tells worker what to screenshot (Jun 12, 2026):**
+- Claude calls `complete_task(id, ..., verification_url="http://localhost:3000/result.html")`
+- Worker reads `verification_url` from the task after Claude exits — screenshots that exact URL, no guessing
+- Works for any stack: React (`http://localhost:3000`), Flask (`http://localhost:5000`), static HTML, anything with a URL
+- Falls back to 30-min HTML scan if `verification_url` is not set (backwards-compatible for HTML-only projects)
+- Zero extra Claude tokens — Claude just passes a string, worker does all the Playwright work
+- `verification_url` stored in DB (`tasks.verification_url` column, auto-migrated); visible in task API response
 
 ### Poll loop cap
 `ask_developer` and `propose_plan` poll loops are capped at 5 minutes in the TASK_PROMPT.
@@ -118,26 +162,29 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 ### agentinbox-worker.js (per-project, written during setup)
 - Persistent WebSocket connection to AgentInbox server (path: `/agent-socket`)
 - In-memory `claudeRunning` flag — prevents two Claude spawns in the same process
-- Spawns `claude --dangerously-skip-permissions --print "<task prompt>" --max-budget-usd 0.50`
+- **One task per Claude spawn** — Claude fixes one task and exits; `checkAndSpawnNext()` immediately picks up the next
+- Spawns `claude --dangerously-skip-permissions --print "<task prompt>" --max-budget-usd 3.00`
 - Logs to `agentinbox.log` in project root
 - Token + project path passed via env vars in startup bat/sh — not hardcoded
 - On connect: fetches Telegram bot token + chat ID + `screenshot_verification` flag from `/api/agent/workspace`
 - After Claude exits: takes screenshot if task has `require_verification=true` OR workspace `SCREENSHOT_VERIFICATION=true`
-- Screenshot flow: idempotent check (skip if already has screenshot) → kills port → starts app → polls URL up to 20s → picks **most recently modified HTML file within 30 min** → takes screenshot → kills serve by port → sends photo to Telegram
+- Screenshot flow: idempotent check → kills port → starts app → polls URL → uses **`verification_url` from task if Claude set it** (exact URL), falls back to most recently modified HTML within 30 min → takes screenshot → kills serve → sends photo to Telegram
 - Serve process kill: uses `taskkill /F /T` (full process tree) — `SIGTERM` on Windows does not cascade to child processes
 - `worker.pid` written on startup so `start.bat` kills only this worker on restart — not all node processes
 
 ### .mcp.json (per-project, written during setup)
 - Connects Claude to agentinbox-mcp tools when it wakes
+- Uses `node node_modules/agentinbox-mcp/dist/index.js` — NOT `npx -y agentinbox-mcp`
+- Local install avoids npm registry hit on every Claude spawn (was causing MCP cold-start hang)
 - Required for get_pending_tasks, complete_task, etc. to work
 
 ### agentinbox-mcp (v0.1.5 — published on npm)
 - 9 MCP tools: get_pending_tasks, get_task, get_file, update_task_status, complete_task, escalate_task, propose_plan, ask_developer, notify_developer
-- complete_task accepts screenshot_base64 for proof attachment
+- complete_task accepts optional `verification_url` (worker screenshots it) and `screenshot_base64` (direct proof attachment)
 
 ### Setup endpoint (GET /api/setup/download)
 - Returns a plain text prompt pre-filled with the developer's workspace token + submit link
-- 12 steps: scan codebase → install socket.io-client → worker.js → .mcp.json → startup scripts → OS startup → CLAUDE.local.md → rules/ → .gitignore → start worker immediately (no reboot needed) → report back
+- 11 steps: scan codebase → install socket.io-client → worker.js → `npm install agentinbox-mcp --save` → .mcp.json (local node path) → startup scripts → OS startup → CLAUDE.local.md → rules/ → .gitignore → start worker immediately (no reboot needed) → report back
 - Always writes `## Verification` section to CLAUDE.local.md (auto-detects real start command + port from package.json, config files, README)
 - No manual Telegram config — worker fetches creds from server on connect
 
@@ -173,6 +220,9 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 | Per-task screenshot toggle | Two tasks submitted — one with screenshot, one without — each behaved correctly | ✅ |
 | Telegram screenshot toggle | PM dashboard toggle ON → Telegram message → task created with require_verification=true → screenshot photo sent back | ✅ |
 | Consecutive tasks — correct screenshot per task | Task 1 (blue-star.html) → Task 2 (orange-triangle.html) submitted immediately after — each task received screenshot of its own output, not the previous task's | ✅ Jun 12 |
+| Text/MD task via Telegram | Message bot with text → Claude wakes, reads task, completes in ~60s | ✅ Jun 14 |
+| File attachment task via Telegram | Attach spec.md → Claude reads file via get_file, builds to spec, exits clean | ✅ Jun 14 |
+| Image task via Telegram | Send screenshot → Claude reads image as vision block via get_file, builds matching page | ✅ Jun 14 |
 
 **100% production ready. First customers can onboard today.**
 
@@ -185,6 +235,16 @@ After 5 minutes with no reply, Claude proceeds with best judgment and notes it i
 | Task stuck in `in_progress` forever | Claude crashes after `update_task_status(in_progress)` but before `complete_task`; task invisible to next spawn | `get_pending_tasks` resets and returns `in_progress` tasks older than 15 min |
 | Race — two Claudes on same task | No atomic claim; both see `pending`, both work in parallel, duplicate Telegram notifications | `update_task_status(in_progress)` uses `WHERE status = 'pending'` — only one wins; loser gets HTTP 409 |
 | `ask_developer` / `propose_plan` infinite token burn | TASK_PROMPT told Claude to poll every 30s with no timeout | TASK_PROMPT now caps poll loops at 5 minutes |
+
+## Pipeline Fixes — Applied (Jun 14, 2026)
+
+| Scenario | Root Cause | Fix |
+|---|---|---|
+| Task 2 silently dropped when Claude busy | `checkAndSpawnNext()` passed task2_id to `spawnClaude()` — hit `seenTaskIds` block from earlier socket event | `checkAndSpawnNext()` now passes `null` taskId — dedup only guards socket events, not retries |
+| MCP cold-start hang on every Claude spawn | `.mcp.json` used `npx -y agentinbox-mcp` — npm registry hit per spawn; slow network = infinite hang | Setup now installs `agentinbox-mcp` locally + uses `node node_modules/...` path in `.mcp.json` |
+| Worker timeout never fired on Windows | `proc.kill("SIGTERM")` is ignored by Windows | Timeout now uses `taskkill /F /T /PID` to kill full process tree; timeout reduced 10min → 5min |
+| Image tasks always hung / crashed silently | `get_task` returned full task object including `file_data` (raw base64 image ~18KB); blob overflowed MCP stdio pipe | Strip `file_data` and `screenshot_base64` from `get_task` + `get_pending_tasks`; Claude calls `get_file` separately which returns a proper vision block |
+| Telegram photo too low-res for Claude to read UI | Picking `photos[length-2]` (second-highest) — often 800px, too blurry for UI details | Now picks highest-res photo ≤ 1280px — sharp enough for Claude, avoids 2560px context blowout |
 
 ## Screenshot Pipeline Fixes — Applied (Jun 12, 2026)
 

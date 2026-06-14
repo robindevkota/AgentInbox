@@ -91,8 +91,8 @@ function buildMcpConfig(token) {
     return {
         mcpServers: {
             agentinbox: {
-                command: "npx",
-                args: ["-y", "agentinbox-mcp"],
+                command: "node",
+                args: ["node_modules/agentinbox-mcp/dist/index.js"],
                 env: { AGENTINBOX_TOKEN: token },
             },
         },
@@ -961,7 +961,9 @@ function checkAndSpawnNext() {
           console.log("[worker] Next pending task: \\"" + t.title + "\\" (" + t.id + ")");
           pendingTaskTitle = t.title || "";
           pendingTelegramMsgId = t.telegram_message_id || null;
-          spawnClaude(t.id, t.require_verification);
+          // Don't pass taskId — avoids seenTaskIds blocking a legitimate retry.
+          // Claude picks up all pending tasks via get_pending_tasks in the prompt.
+          spawnClaude(null, t.require_verification);
         } else {
           console.log("[worker] No more pending tasks — waiting for next event");
         }
@@ -981,7 +983,7 @@ function spawnClaude(taskId, requireVerification) {
   const thisTelegramMsgId = pendingTelegramMsgId;
   console.log("[worker] Waking Claude for task: \\"" + thisTaskTitle + "\\" (" + thisTaskId + ")");
   const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "2.00", TASK_PROMPT], { cwd: PROJECT_CWD, stdio: "inherit", detached: false });
-  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); proc.kill("SIGTERM"); setTimeout(() => { try { proc.kill("SIGKILL"); } catch {} }, 5000); }, 10 * 60 * 1000);
+  const timeout = setTimeout(() => { console.error("[worker] Claude timed out — killing"); try { spawnSync("taskkill", ["/F", "/T", "/PID", String(proc.pid)], { shell: false }); } catch {} if (thisTaskId) { apiPost("/agent/tasks/" + thisTaskId + "/status", { status: "failed" }).catch(() => {}); } }, 5 * 60 * 1000);
   proc.on("error", (err) => { console.error("[worker] Failed: " + err.message); clearTimeout(timeout); claudeRunning = false; checkAndSpawnNext(); });
   proc.on("close", (code) => {
     console.log("[worker] Claude exited (" + code + ") for task " + thisTaskId);
@@ -1034,7 +1036,13 @@ try { require("fs").writeFileSync(require("path").join(__dirname, "worker.pid"),
 console.log("[worker] Starting...");
 \`\`\`
 
-## Step 5 — Write .mcp.json in the project root
+## Step 5 — Install agentinbox-mcp locally
+Run this in the project root so Claude can start the MCP server instantly without a network call on every task.
+\`\`\`
+npm install agentinbox-mcp --save
+\`\`\`
+
+## Step 6 — Write .mcp.json in the project root
 This lets Claude call AgentInbox tools and take screenshots when it wakes up.
 If .mcp.json already exists, merge the new servers in — do not overwrite existing entries.
 
@@ -1042,8 +1050,8 @@ If .mcp.json already exists, merge the new servers in — do not overwrite exist
 {
   "mcpServers": {
     "agentinbox": {
-      "command": "npx",
-      "args": ["-y", "agentinbox-mcp"],
+      "command": "node",
+      "args": ["node_modules/agentinbox-mcp/dist/index.js"],
       "env": {
         "AGENTINBOX_TOKEN": "${wsToken}"
       }
@@ -1056,7 +1064,7 @@ If .mcp.json already exists, merge the new servers in — do not overwrite exist
 }
 \`\`\`
 
-## Step 6 — Write the startup scripts inside .agentinbox/
+## Step 7 — Write the startup scripts inside .agentinbox/
 Replace PROJECT_PATH with the actual absolute path of this project root.
 
 **Windows — write .agentinbox/start.bat:**
@@ -1100,7 +1108,7 @@ while true; do
 done
 \`\`\`
 
-## Step 7 — Add to system startup
+## Step 8 — Add to system startup
 
 **Windows:** Run this PowerShell command:
 \`\`\`
@@ -1123,7 +1131,7 @@ EOF
 launchctl load ~/Library/LaunchAgents/com.agentinbox.worker.plist
 \`\`\`
 
-## Step 8 — Write CLAUDE.local.md in the project root
+## Step 9 — Write CLAUDE.local.md in the project root
 Based on your codebase scan, write CLAUDE.local.md with:
 - What this project does (1 sentence)
 - Stack and key folders
@@ -1144,7 +1152,7 @@ Write the section with the REAL values you found — not placeholders:
 - URL: <actual URL with port, e.g. http://localhost:5173>
 - Login: <test credentials if login required — write ASK_DEVELOPER if not found>
 \`\`\`
-## Step 9 — Write codebase rules
+## Step 10 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
 
 Do NOT write any screenshot or verification rules — the worker handles screenshots automatically after Claude exits.
@@ -1239,7 +1247,7 @@ VS Code does NOT need to be open. You don't need to be at your desk.
         const projects = db_1.db.prepare("SELECT id, require_approval, require_verification FROM projects WHERE workspace_id = ?").all(ws.id);
         const tasks = projects.flatMap((p) => 
         // getPendingTasks also recovers tasks stuck in_progress > 15 min (Claude crashed mid-task)
-        tasks_1.taskQueries.getPendingTasks(p.id).map((t) => ({ ...t, require_approval: p.require_approval === 1, require_verification: t.require_verification === 1 })));
+        tasks_1.taskQueries.getPendingTasks(p.id).map(({ file_data, screenshot_base64, ...t }) => ({ ...t, has_file: !!file_data, require_approval: p.require_approval === 1, require_verification: t.require_verification === 1 })));
         res.json(tasks);
     });
     router.get("/agent/tasks/:id", requireWorkspaceToken, (req, res) => {
@@ -1249,7 +1257,8 @@ VS Code does NOT need to be open. You don't need to be at your desk.
             return;
         }
         const project = tasks_1.taskQueries.getProjectById(task.project_id);
-        res.json({ ...task, require_approval: project?.require_approval === 1, require_verification: task.require_verification === 1 });
+        const { file_data, screenshot_base64, ...taskSafe } = task;
+        res.json({ ...taskSafe, has_file: !!file_data, require_approval: project?.require_approval === 1, require_verification: task.require_verification === 1 });
     });
     router.get("/agent/tasks/:id/file", requireWorkspaceToken, (req, res) => {
         const task = tasks_1.taskQueries.getTask(req.params.id);
