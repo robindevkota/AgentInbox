@@ -63,8 +63,8 @@ function buildMcpConfig(token: string): object {
   return {
     mcpServers: {
       agentinbox: {
-        command: "npx",
-        args: ["-y", "agentinbox-mcp"],
+        command: "node",
+        args: ["node_modules/agentinbox-mcp/dist/index.js"],
         env: { AGENTINBOX_TOKEN: token },
       },
     },
@@ -1072,7 +1072,13 @@ try { require("fs").writeFileSync(require("path").join(__dirname, "worker.pid"),
 console.log("[worker] Starting...");
 \`\`\`
 
-## Step 5 — Write .mcp.json in the project root
+## Step 5 — Install agentinbox-mcp locally
+Run this in the project root so Claude can start the MCP server instantly without a network call on every task.
+\`\`\`
+npm install agentinbox-mcp --save
+\`\`\`
+
+## Step 6 — Write .mcp.json in the project root
 This lets Claude call AgentInbox tools and take screenshots when it wakes up.
 If .mcp.json already exists, merge the new servers in — do not overwrite existing entries.
 
@@ -1080,8 +1086,8 @@ If .mcp.json already exists, merge the new servers in — do not overwrite exist
 {
   "mcpServers": {
     "agentinbox": {
-      "command": "npx",
-      "args": ["-y", "agentinbox-mcp"],
+      "command": "node",
+      "args": ["node_modules/agentinbox-mcp/dist/index.js"],
       "env": {
         "AGENTINBOX_TOKEN": "${wsToken}"
       }
@@ -1094,7 +1100,7 @@ If .mcp.json already exists, merge the new servers in — do not overwrite exist
 }
 \`\`\`
 
-## Step 6 — Write the startup scripts inside .agentinbox/
+## Step 7 — Write the startup scripts inside .agentinbox/
 Replace PROJECT_PATH with the actual absolute path of this project root.
 
 **Windows — write .agentinbox/start.bat:**
@@ -1138,7 +1144,7 @@ while true; do
 done
 \`\`\`
 
-## Step 7 — Add to system startup
+## Step 8 — Add to system startup
 
 **Windows:** Run this PowerShell command:
 \`\`\`
@@ -1161,7 +1167,7 @@ EOF
 launchctl load ~/Library/LaunchAgents/com.agentinbox.worker.plist
 \`\`\`
 
-## Step 8 — Write CLAUDE.local.md in the project root
+## Step 9 — Write CLAUDE.local.md in the project root
 Based on your codebase scan, write CLAUDE.local.md with:
 - What this project does (1 sentence)
 - Stack and key folders
@@ -1182,7 +1188,7 @@ Write the section with the REAL values you found — not placeholders:
 - URL: <actual URL with port, e.g. http://localhost:5173>
 - Login: <test credentials if login required — write ASK_DEVELOPER if not found>
 \`\`\`
-## Step 9 — Write codebase rules
+## Step 10 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
 
 Do NOT write any screenshot or verification rules — the worker handles screenshots automatically after Claude exits.
