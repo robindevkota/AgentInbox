@@ -997,7 +997,9 @@ function checkAndSpawnNext() {
           console.log("[worker] Next pending task: \\"" + t.title + "\\" (" + t.id + ")");
           pendingTaskTitle = t.title || "";
           pendingTelegramMsgId = t.telegram_message_id || null;
-          spawnClaude(t.id, t.require_verification);
+          // Don't pass taskId — avoids seenTaskIds blocking a legitimate retry.
+          // Claude picks up all pending tasks via get_pending_tasks in the prompt.
+          spawnClaude(null, t.require_verification);
         } else {
           console.log("[worker] No more pending tasks — waiting for next event");
         }
