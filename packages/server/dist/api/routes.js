@@ -1165,23 +1165,25 @@ CLAUDE.local.md
 \`\`\`
 
 ## Step 11 — Start the worker now
-Launch the worker in the background using the startup script (same as what runs on boot):
+IMPORTANT: Launch via start.bat (NOT node worker.js directly) — start.bat handles auto-restart and logging.
 
 On Windows — run this PowerShell command:
-  Start-Process wscript.exe -ArgumentList (Resolve-Path ".agentinbox/start.vbs").Path
+  Start-Process cmd.exe -ArgumentList '/c .agentinbox\\start.bat' -WindowStyle Hidden
 
 On Mac/Linux — run:
   bash .agentinbox/start.sh &
 
-Wait 3 seconds then check the log to confirm it connected:
+Wait 5 seconds then check the log to confirm it connected:
 
 On Windows:
-  Start-Sleep 3; Get-Content .agentinbox/worker.log -Tail 5
+  Start-Sleep 5; Get-Content .agentinbox/worker.log -Tail 5
 
 On Mac/Linux:
-  sleep 3 && tail -5 .agentinbox/worker.log
+  sleep 5 && tail -5 .agentinbox/worker.log
 
-You should see: [worker] Connected to AgentInbox
+You MUST see: [worker] Connected to AgentInbox
+If you don't see it, run the check again after 5 more seconds.
+Do NOT report success unless you see the Connected line in worker.log.
 The worker now runs silently in the background and will auto-restart on every PC boot.
 
 ## Step 12 — Report back
