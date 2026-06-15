@@ -860,6 +860,34 @@ function readVerification() {
   return { startCmd: startMatch[1].trim(), url: urlMatch[1].trim() };
 }
 
+function normalizeUrl(url) {
+  return url.replace(/localhost/g, "127.0.0.1");
+}
+
+function isPortAlive(url) {
+  return new Promise(resolve => {
+    const http = require("http");
+    const mod = url.startsWith("https") ? https : http;
+    const req = mod.get(normalizeUrl(url), res => { res.resume(); resolve(true); });
+    req.on("error", () => resolve(false));
+    req.setTimeout(1500, () => { req.destroy(); resolve(false); });
+  });
+}
+
+let devServerProc = null;
+
+async function startDevServer() {
+  const verification = readVerification();
+  if (!verification) return;
+  const { startCmd, url } = verification;
+  if (await isPortAlive(url)) { console.log("[worker] Dev server already up at " + url); return; }
+  console.log("[worker] Starting dev server: " + startCmd);
+  const parts = startCmd.split(" ");
+  devServerProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true, detached: true });
+  devServerProc.unref();
+  console.log("[worker] Dev server started (PID " + devServerProc.pid + ") — waiting for port...");
+}
+
 async function waitForUrl(url, timeoutMs) {
   const http = require("http");
   const deadline = Date.now() + timeoutMs;
@@ -867,7 +895,7 @@ async function waitForUrl(url, timeoutMs) {
     try {
       await new Promise((resolve, reject) => {
         const mod = url.startsWith("https") ? https : http;
-        const req = mod.get(url, res => { res.resume(); resolve(); });
+        const req = mod.get(normalizeUrl(url), res => { res.resume(); resolve(); });
         req.on("error", reject);
         req.setTimeout(1000, () => { req.destroy(); reject(new Error("timeout")); });
       });
@@ -891,28 +919,14 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawned
     if (taskRes && taskRes.status !== "done") { console.log("[worker] Task status is " + taskRes.status + " — skipping screenshot"); return; }
     if (taskRes && taskRes.verification_url) { verificationUrlHint = taskRes.verification_url; console.log("[worker] Using verification_url from Claude: " + verificationUrlHint); }
   } catch {}
-  const { startCmd, url } = verification;
-  console.log("[worker] Screenshot: starting app — " + startCmd);
-  // Kill anything on port before spawning fresh server (Claude may have left its own npx serve running)
-  try {
-    const port = new URL(url).port || "80";
-    const netstat = spawnSync("cmd", ["/c", "netstat -ano | findstr :" + port], { shell: false, encoding: "utf8" });
-    for (const line of (netstat.stdout || "").split("\n")) {
-      if (!line.includes("LISTENING")) continue;
-      const pid = line.trim().split(/\s+/).pop();
-      if (pid && /^\d+$/.test(pid) && pid !== "0") {
-        console.log("[worker] Killing stale server PID " + pid + " on port " + port);
-        try { spawnSync("taskkill", ["/F", "/T", "/PID", pid], { shell: false }); } catch {}
-      }
-    }
-  } catch {}
-  await new Promise(r => setTimeout(r, 2000));
-  let appProc = null;
+  const { url } = verification;
+  console.log("[worker] Screenshot: waiting for dev server at " + url);
+  if (!(await isPortAlive(url))) { await startDevServer(); }
+  const serverReady = await waitForUrl(url, 90000);
+  if (!serverReady) { console.error("[worker] Dev server not ready after 90s — skipping screenshot"); return; }
   let screenshotPath = null;
   try {
-    const parts = startCmd.split(" ");
-    appProc = spawn(parts[0], parts.slice(1), { cwd: PROJECT_CWD, stdio: "ignore", shell: true });
-    await waitForUrl(url, 20000);
+    await new Promise(r => setTimeout(r, 2000));
     // Use verification_url hint from Claude if provided — exact URL, no guessing
     // Falls back to 30-min window on most-recently-modified HTML (for HTML-only projects)
     let screenshotUrl;
@@ -934,7 +948,14 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawned
     const ready = await waitForUrl(screenshotUrl, 10000);
     if (!ready) { console.error("[worker] File not ready at " + screenshotUrl + " — skipping screenshot"); return; }
     screenshotPath = path.join(os.tmpdir(), "agentinbox-ss-" + Date.now() + ".png");
-    const result = spawnSync("npx", ["playwright", "screenshot", "--browser=chromium", "--wait-for-timeout=2000", screenshotUrl, screenshotPath], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
+    const playwrightCmd = [
+      path.join(PROJECT_CWD, "node_modules", ".bin", "playwright.cmd"),
+      path.join(PROJECT_CWD, "royal-suites", "node_modules", ".bin", "playwright.cmd"),
+    ].find(p => existsSync(p));
+    const ssArgs = ["screenshot", "--browser=chromium", "--wait-for-timeout=2000", normalizeUrl(screenshotUrl), screenshotPath];
+    const result = playwrightCmd
+      ? spawnSync('"' + playwrightCmd + '"', ssArgs, { cwd: PROJECT_CWD, timeout: 30000, shell: true })
+      : spawnSync("npx", ["playwright", ...ssArgs], { cwd: PROJECT_CWD, timeout: 30000, shell: true });
     if (result.status !== 0 || !existsSync(screenshotPath)) { console.error("[worker] Screenshot failed"); return; }
     const buf = fs.readFileSync(screenshotPath);
     if (buf[0] !== 0x89 || buf[1] !== 0x50) { console.error("[worker] Not a PNG"); return; }
@@ -945,16 +966,6 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawned
     if (TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID) { await sendTelegramPhoto(buf, "📸 " + taskTitle, telegramMsgId); }
   } catch (err) { console.error("[worker] Screenshot error:", err.message); }
   finally {
-    // Kill by port — more reliable than PID on Windows where npx spawns child processes via cmd.exe
-    try {
-      const port = new URL(url).port || "80";
-      const netstat = spawnSync("cmd", ["/c", "netstat -ano | findstr :" + port], { shell: false, encoding: "utf8" });
-      for (const line of (netstat.stdout || "").split("\n")) {
-        if (!line.includes("LISTENING")) continue;
-        const pid = line.trim().split(/\s+/).pop();
-        if (pid && /^\d+$/.test(pid) && pid !== "0") { try { spawnSync("taskkill", ["/F", "/T", "/PID", pid], { shell: false }); } catch {} }
-      }
-    } catch {}
     if (screenshotPath && existsSync(screenshotPath)) { try { unlinkSync(screenshotPath); } catch {} }
   }
 }
@@ -1051,6 +1062,7 @@ socket.on("connect", () => {
         SCREENSHOT_VERIFICATION = !!ws.screenshot_verification;
         console.log("[worker] Telegram configured:", !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID));
         if (SCREENSHOT_VERIFICATION) console.log("[worker] Screenshot verification: enabled");
+        startDevServer().catch(() => {});
       } catch {}
     });
   }).on("error", () => {});
