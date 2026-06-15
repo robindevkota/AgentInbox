@@ -1109,13 +1109,24 @@ set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
 cd /d PROJECT_PATH\\.agentinbox
 
-:: Kill only the previous worker (not all node processes — other IDEs/tools use node too)
+:: Kill previous bat loop (prevents duplicate loops on re-launch)
+if exist bat.pid (
+  set /p BAT_PID=<bat.pid
+  del bat.pid > nul 2>&1
+  taskkill /F /T /PID %BAT_PID% > nul 2>&1
+  timeout /t 2 /nobreak > nul
+)
+
+:: Kill previous node worker
 if exist worker.pid (
   set /p PREV_PID=<worker.pid
   del worker.pid > nul 2>&1
   taskkill /F /T /PID %PREV_PID% > nul 2>&1
-  timeout /t 2 /nobreak > nul
+  timeout /t 1 /nobreak > nul
 )
+
+:: Write THIS cmd.exe PID as bat loop lock
+powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \\"ProcessId=$pid\\").ParentProcessId | Out-File -FilePath 'bat.pid' -Encoding ascii -NoNewline"
 
 :loop
 node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
