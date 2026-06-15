@@ -961,9 +961,7 @@ function checkAndSpawnNext() {
           console.log("[worker] Next pending task: \\"" + t.title + "\\" (" + t.id + ")");
           pendingTaskTitle = t.title || "";
           pendingTelegramMsgId = t.telegram_message_id || null;
-          // Don't pass taskId — avoids seenTaskIds blocking a legitimate retry.
-          // Claude picks up all pending tasks via get_pending_tasks in the prompt.
-          spawnClaude(null, t.require_verification);
+          spawnClaude(t.id, t.require_verification, true);
         } else {
           console.log("[worker] No more pending tasks — waiting for next event");
         }
@@ -972,8 +970,8 @@ function checkAndSpawnNext() {
   }).on("error", () => {});
 }
 
-function spawnClaude(taskId, requireVerification) {
-  if (taskId && seenTaskIds.has(taskId)) { console.log("[worker] Task " + taskId + " already seen — skipping duplicate"); return; }
+function spawnClaude(taskId, requireVerification, skipSeenCheck) {
+  if (!skipSeenCheck && taskId && seenTaskIds.has(taskId)) { console.log("[worker] Task " + taskId + " already seen — skipping duplicate"); return; }
   if (taskId) seenTaskIds.add(taskId);
   if (claudeRunning) { console.log("[worker] Claude already running — task " + taskId + " will be picked up after current task completes"); return; }
   claudeRunning = true;
