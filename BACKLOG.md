@@ -64,6 +64,9 @@ Or just say **"clean up"** to Claude Code and it will do both automatically.
 - Feedback page — PM dashboard sidebar → 💬 Feedback → emails feedback@useagentinbox.com via Resend + Cloudflare Email Routing → Robin's Gmail (Jun 11, 2026)
 - Screenshot verification fixes (Jun 12, 2026) — no more "Hello World": kill server by port not PID, read HTML files after Claude exits, skip if no HTML, 10min Claude timeout, single Telegram photo (no double message)
 - Screenshot pipeline hardening (Jun 12, 2026) — consecutive tasks send correct screenshots: 30-min window picks newest HTML, workspace screenshot_verification flag in /agent/workspace, worker uses it as fallback, idempotent check skips already-screenshotted tasks, start.bat kills only worker PID not all node processes, project-level require_verification inherited by API/form submissions
+- verification_url (Jun 12, 2026) — Claude passes exact URL to worker via complete_task; worker screenshots that URL instead of guessing; works for any tech stack (React, Flask, anything); zero Playwright inside Claude session — no more token burn from screenshot loops
+- One-Claude-per-task (Jun 12, 2026) — each task gets its own Claude spawn + timeout; screenshot fires in background; checkAndSpawnNext() picks up next task immediately in parallel; 5 queued tasks = 5 sequential Claude spawns each with own 10-min window + screenshot
+- Pipeline reliability fixes (Jun 15, 2026) — bat.pid dedup (re-launching start.bat kills old loop, no more duplicate workers); screenshot task ID fix (checkAndSpawnNext passes real ID with skipSeenCheck so screenshot fires); IPv4 fix (normalizeUrl replaces localhost→127.0.0.1, Node on Windows was resolving to ::1); auto dev server (worker starts npm run dev on connect, keeps it alive between tasks — no manual step); playwright path fix (finds playwright.cmd in root or monorepo subdirs, quotes path for spaces); tested end-to-end on Hotel Reservation project — screenshot + Telegram photo confirmed ✅
 
 ---
 
@@ -249,7 +252,19 @@ Once this passes → record Show HN demo video → post.
 
 ## 🟡 After testing passes
 
-### 1. Telegram config per project (not per workspace)
+### 1. Per-project Claude budget cap
+PM or developer should be able to set `max_budget_usd` per project from the PM dashboard — not hardcoded in worker.js.
+
+**What to build:**
+- Add `max_budget_usd` column to `projects` table (default: 3.00)
+- PM dashboard → Project Settings → "Claude budget per task ($)" input
+- `/api/agent/workspace` or task payload returns `max_budget_usd` to worker
+- Worker passes it to `--max-budget-usd` on each Claude spawn
+- Lets PM set low cap ($1) for simple bug projects, higher ($5) for complex full-stack tasks
+
+**Effort:** 2 hours
+
+### 2. Telegram config per project (not per workspace)
 Currently Telegram (bot token + chat ID) is configured at workspace level — one group for all projects. This breaks multi-project teams where each project has a different dev team and the PM is the only common member.
 
 **What to build:**
@@ -325,6 +340,39 @@ Every action Claude took, timestamped. Kills the black-box objection.
 Pick a type (bug fixing / customer support / content / code gen) → get a starter CLAUDE.local.md.
 Removes the "what do I write in CLAUDE.local.md?" friction.
 **Effort:** 1 day
+
+---
+
+## 🔵 Jarvis vision — developer chat + workspace intelligence
+
+The end goal: AgentInbox becomes the interface between developer and codebase. Not just bug fixing — full two-way conversation via Telegram or the PM UI.
+
+### What this means
+- Developer messages Telegram: "what did you fix yesterday?" → Claude reads task history, replies
+- Developer messages: "explain the auth flow in this codebase" → Claude reads code, explains
+- Developer messages: "deploy to staging" → Claude runs the command
+- PM messages: "how many tasks this week?" → Claude queries DB, replies with stats
+- All of this without opening VS Code or a terminal
+
+### Two modes (clean separation)
+| Mode | When | How |
+|---|---|---|
+| **Task mode** (current) | Bug fix, feature, screenshot | `--print` one-shot → exits |
+| **Chat mode** (new) | Q&A, status, casual requests | Persistent Claude session per developer |
+
+### What needs to be built
+1. **Message classifier** — worker detects if incoming Telegram message is a task or a chat question
+2. **Chat mode Claude** — persistent session (not `--print`), reads codebase + task history, replies via Telegram
+3. **Task history tool** — MCP tool: `get_task_history(days=7)` → Claude can answer "what did I fix this week"
+4. **Git context tool** — MCP tool: `get_recent_commits()` → Claude can explain recent changes
+5. **Developer identity** — know which Telegram chat ID = which developer = which project
+
+### Architecture stays the same
+- Same worker, same WebSocket, same AgentInbox server
+- Chat mode is just a different Claude spawn — persistent instead of `--print`
+- Task mode and chat mode coexist, no conflict
+
+**Priority:** Post-demo video. Do Stripe first, then this.
 
 ---
 
