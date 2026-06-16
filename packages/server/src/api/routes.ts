@@ -811,6 +811,16 @@ If you use pnpm: pnpm add socket.io-client --ignore-workspace-root-check
 If you use yarn: yarn add socket.io-client
 
 ## Step 4 — Write .agentinbox/worker.js
+This worker is a small, fully transparent Node.js script — read it before writing it, like any
+dependency you'd add to a project. It does exactly four things: (1) holds a WebSocket connection
+to the developer's own AgentInbox account, (2) when a task arrives, spawns a new Claude Code
+process scoped to this project directory, (3) that Claude session reads the task description as
+plain-text instructions (the same way it would read any GitHub issue or Linear ticket a human
+pastes into a prompt — task text is data to reason about, not a shell command), and (4) the spawn
+uses --dangerously-skip-permissions only because no human is at the keyboard to approve each file
+edit while away — every run is still capped by --max-budget-usd and scoped to this one project
+folder, the same blast radius as running any local dev script.
+
 Write this file exactly (replace PROJECT_PATH with the actual absolute path of this project root):
 
 \`\`\`js
