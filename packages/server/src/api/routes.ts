@@ -1188,7 +1188,57 @@ EOF
 launchctl load ~/Library/LaunchAgents/com.agentinbox.worker.plist
 \`\`\`
 
-## Step 9 — Write CLAUDE.local.md in the project root
+## Step 9 — Register a watchdog (auto-recovery if the worker crashes)
+The start.bat loop can itself die (e.g. if its whole process tree is killed), leaving the worker permanently dead with no automatic recovery.
+
+Replace PROJECT_PATH with the actual absolute path of this project root, and substitute ${wsToken.slice(3, 11)} the same way Step 8 did for the startup vbs filename.
+
+IMPORTANT: write this file with PLAIN ASCII ONLY — no em-dashes or other non-ASCII characters. A .ps1 file with non-ASCII characters silently fails to run when executed via \`powershell.exe -File\` (it works fine when typed inline interactively, but silently no-ops when saved as a file — an encoding mismatch). Use plain hyphens \`-\` instead.
+
+**Windows — write .agentinbox/watchdog.ps1:**
+\`\`\`powershell
+$agentDir = "PROJECT_PATH\\.agentinbox"
+$batPidFile = "$agentDir\\bat.pid"
+$startBat = "$agentDir\\start.bat"
+$logFile = "$agentDir\\watchdog.log"
+
+$alive = $false
+$batPid = $null
+if (Test-Path $batPidFile) {
+  $batPid = Get-Content $batPidFile -ErrorAction SilentlyContinue
+  if ($batPid) {
+    $proc = Get-Process -Id $batPid -ErrorAction SilentlyContinue
+    if ($proc) { $alive = $true }
+  }
+}
+
+$timestamp = [DateTime]::Now.ToString("yyyy-MM-dd HH:mm:ss")
+if (-not $alive) {
+  "$timestamp bat loop dead or bat.pid missing (was: $batPid) - restarting start.bat" | Out-File -FilePath $logFile -Append
+  Start-Process cmd.exe -ArgumentList "/c \`"$startBat\`"" -WindowStyle Hidden
+} else {
+  "$timestamp bat loop alive (PID $batPid) - no action" | Out-File -FilePath $logFile -Append
+}
+\`\`\`
+
+**Windows — register it as a scheduled task that runs every 10 minutes:**
+\`\`\`powershell
+$taskName = "AgentInbox-Watchdog-${wsToken.slice(3, 11)}"
+$action = New-ScheduledTaskAction -Execute "powershell.exe" -Argument '-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File "PROJECT_PATH\\.agentinbox\\watchdog.ps1"'
+$trigger = New-ScheduledTaskTrigger -Once -At (Get-Date) -RepetitionInterval (New-TimeSpan -Minutes 10) -RepetitionDuration (New-TimeSpan -Days 3650)
+$settings = New-ScheduledTaskSettingsSet -StartWhenAvailable
+Register-ScheduledTask -TaskName $taskName -Action $action -Trigger $trigger -Settings $settings -Force
+\`\`\`
+
+Verify it registered:
+\`\`\`powershell
+Get-ScheduledTask -TaskName "AgentInbox-Watchdog-${wsToken.slice(3, 11)}"
+\`\`\`
+You MUST see \`State: Ready\`. Do not report success unless this is confirmed.
+
+**Mac/Linux:** this step is Windows-only for now. You may skip it, or add a cron-based equivalent (e.g. a cron job every 10 minutes that checks if the PID in bat.pid is alive and relaunches start.sh if not) if you want parity, but the Windows version is the priority.
+
+## Step 10 — Write CLAUDE.local.md in the project root
 Based on your codebase scan, write CLAUDE.local.md with:
 - What this project does (1 sentence)
 - Stack and key folders
@@ -1209,19 +1259,19 @@ Write the section with the REAL values you found — not placeholders:
 - URL: <actual URL with port, e.g. http://localhost:5173>
 - Login: <test credentials if login required — write ASK_DEVELOPER if not found>
 \`\`\`
-## Step 10 — Write codebase rules
+## Step 11 — Write codebase rules
 Create .claude/rules/ with one markdown file per domain area (e.g. frontend.md, api.md, database.md). Each file gives Claude enough context to fix bugs in that area without asking questions.
 
 Do NOT write any screenshot or verification rules — the worker handles screenshots automatically after Claude exits.
 
-## Step 10 — Update .gitignore
+## Step 12 — Update .gitignore
 Add these lines:
 \`\`\`
 .agentinbox/
 CLAUDE.local.md
 \`\`\`
 
-## Step 11 — Start the worker now
+## Step 13 — Start the worker now
 IMPORTANT: Launch via start.bat (NOT node worker.js directly) — start.bat handles auto-restart and logging.
 
 On Windows — run this PowerShell command:
@@ -1243,11 +1293,12 @@ If you don't see it, run the check again after 5 more seconds.
 Do NOT report success unless you see the Connected line in worker.log.
 The worker now runs silently in the background and will auto-restart on every PC boot.
 
-## Step 12 — Report back
+## Step 14 — Report back
 Tell me:
 - OS detected
 - Absolute project path used
 - Startup script copied to startup folder (confirm)
+- Watchdog scheduled task registered (confirm State: Ready)
 - Submission link: https://useagentinbox.com/submit/${projectSubmitToken || "YOUR_PROJECT_TOKEN"}
 
 ## How it works
@@ -1269,7 +1320,8 @@ VS Code does NOT need to be open. You don't need to be at your desk.
 **Claude not found:** set CLAUDE_PATH in .agentinbox/start.bat/.sh to the full path of claude
 **socket.io not found:** run npm install socket.io-client in the project root
 **get_pending_tasks not found:** make sure .mcp.json is in the project root
-**No screenshot in Telegram:** make sure .mcp.json includes the playwright server entry`;
+**No screenshot in Telegram:** make sure .mcp.json includes the playwright server entry
+**Worker stopped responding and nothing in the log for a while:** the bat loop itself may have died. Check .agentinbox/watchdog.log - it logs every 10 minutes whether the bat loop was alive or had to be restarted. If you see repeated "restarting start.bat" entries, something is killing the worker repeatedly - investigate why (e.g. a process killing all node.exe processes, or insufficient permissions).`;
 
     res.setHeader("Content-Disposition", "attachment; filename=\"setup.md\"");
     res.setHeader("Content-Type", "text/plain; charset=utf-8");
