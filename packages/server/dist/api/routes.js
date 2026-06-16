@@ -1211,7 +1211,7 @@ The start.bat loop can itself die (e.g. if its whole process tree is killed), le
 
 Replace PROJECT_PATH with the actual absolute path of this project root, and substitute ${wsToken.slice(3, 11)} the same way Step 8 did for the startup vbs filename.
 
-IMPORTANT: write this file with PLAIN ASCII ONLY — no em-dashes or other non-ASCII characters. A .ps1 file with non-ASCII characters silently fails to run when executed via \`powershell.exe -File\` (it works fine when typed inline interactively, but silently no-ops when saved as a file — an encoding mismatch). Use plain hyphens \`-\` instead.
+Write this file with plain ASCII (plain hyphens instead of em-dashes) — non-ASCII characters in a saved .ps1 file have caused encoding-related failures in past testing on Windows. After writing it, run it once manually and confirm watchdog.log actually gets created before registering the scheduled task, so you catch any issue immediately instead of assuming it works.
 
 **Windows — write .agentinbox/watchdog.ps1:**
 \`\`\`powershell
