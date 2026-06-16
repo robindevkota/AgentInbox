@@ -102,6 +102,57 @@ is now proven end-to-end on two independent stacks (Node/Next.js and Python/Flas
 remains code-reviewed only, not live-tested (no Mac available). A third stack or a Mac test would further
 de-risk launch, but the core pipeline mechanics are no longer a major unknown.
 
+## 🔴 Critical finding — true "one-go" clean-room test exposed 3 fatal bugs (Jun 16, 2026)
+
+Every test above (Hotel Reservation, Flask) succeeded because worker.js was hand-written from an
+already-correct reference file. Asked directly "does it work in one go for a brand new developer" —
+the honest answer was no, untested. Ran a genuine clean-room test: brand new folder
+(`d:\test-clean-room`), brand new minimal Express app, brand new AgentInbox project, downloaded the
+real `setup.md` via the actual `/api/setup/download` endpoint, and followed it literally — copy-pasted
+the downloaded worker.js content verbatim instead of hand-writing it. This found three real,
+previously-undiscovered bugs, two of them fatal:
+
+1. **Syntax error — worker.js would not even parse.** `url.replace(/\/$/, "")` inside the TS template
+   literal used single-escaped `\/`, which template literals don't treat as an escape — the backslash
+   silently vanished, corrupting the regex to `//$/ ` and producing a JavaScript syntax error. Verified
+   with `node --check` on the literal extracted template output. **Any developer who copy-pasted the
+   downloaded worker.js exactly as instructed would have had a worker that crashes immediately on
+   `node worker.js`,** with no indication why.
+2. **Syntax error — leaked TypeScript into plain JS output.** Four parameter type annotations
+   (`(f: string) =>`, `(a: {mtime: number}, b: {mtime: number}) =>`) in the HTML-fallback screenshot
+   branch leaked verbatim from the `.ts` source into the JS template literal output — valid TypeScript,
+   invalid JavaScript. Same fatal "won't parse" outcome, in a different code path (the one that fires
+   when Claude doesn't pass `verification_url`).
+3. **Cross-project task leakage — found by accident mid-test.** Submitted a task to the new Clean Room
+   project; it was instead picked up and worked on by the *Flask test project's worker*, because both
+   projects share the same workspace token. Root cause, two bugs: (a) `emitTaskCreated`/`latestAgentSocket`
+   in `socket/manager.ts` routed by `workspaceId` only — a workspace with 2+ projects can only ever wake
+   whichever worker connected most recently, orphaning every other project's worker; (b) workers had zero
+   concept of "which project am I" — only the workspace token — so `checkAndSpawnNext()` and the published
+   `agentinbox-mcp` package's `get_pending_tasks()` queried *all* pending tasks workspace-wide with no
+   project filter. **Claude's own judgment caught the mismatch this time** (it noticed the task described
+   `index.js`/port 4000 but found a Flask app on port 5000, and self-escalated instead of fabricating an
+   unrelated Node app inside the Flask repo) — but the underlying routing bug is real and would not always
+   be caught so gracefully. This directly undermines the Starter/Growth/Pro pricing tiers, which are all
+   priced by number of projects per workspace — multi-project workspaces were never actually correctly
+   routable until this fix.
+
+Also found in passing: `/setup/download?projectToken=...` was silently ignored entirely — every setup
+download defaulted to the workspace's first-created project regardless of which project was actually
+requested via the query param.
+
+**All four fixed and pushed** (regex escaping, stripped type annotations, project-scoped socket routing +
+`AGENTINBOX_PROJECT_ID` threaded through worker.js/start.bat/.mcp.json/socket handshake, `projectToken`
+query param now respected). Published `agentinbox-mcp@0.1.8` with the `get_pending_tasks` project
+scoping — **existing installs (Hotel Reservation, Flask, MBL) need to reinstall the npm package to pick
+up the fix.**
+
+**This is the central lesson from today: every prior "tested and passed" claim — including the ones
+earlier in this same session — was true only for the specific narrow thing actually exercised. The
+moment a genuinely fresh, literal, unmodified path was tested, three fatal-or-serious bugs surfaced
+immediately.** Re-running the literal clean-room test after these fixes (in progress) is the only way to
+get a real answer on whether "works in one go" is true now.
+
 ---
 
 ## ✅ Pre-launch testing — PASSED (Jun 5, 2026)
