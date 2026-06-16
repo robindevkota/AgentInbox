@@ -1,6 +1,6 @@
 {
   "name": "agentinbox-mcp",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "description": "MCP server for AgentInbox — connects your Claude agent to your AgentInbox workspace via WebSocket.",
   "keywords": [
     "mcp",
@@ -26,7 +26,7 @@
   "scripts": {
     "build": "tsc",
     "dev": "tsx watch src/index.ts",
-    "prepublishOnly": "pnpm run build"
+    "prepublishOnly": "npm run build"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.0.0",

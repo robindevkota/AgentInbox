@@ -782,16 +782,35 @@ export function createRouter(): Router {
       }
     }
 
-    // Resolve project submit token + require_verification + Telegram config if JWT provided
+    // Resolve which project this worker is for: ?projectToken= takes priority (explicit choice),
+    // otherwise fall back to the workspace's first project (only correct when there's exactly one).
+    // A worker MUST be bound to one specific project_id — without it, task.created events can't
+    // be routed correctly and a workspace with 2+ projects will misroute tasks between workers.
+    const queryProjectToken = req.query.projectToken as string | undefined;
+    let projectId: string | null = null;
     let projectSubmitToken: string | null = null;
     let requireVerification = false;
     let telegramBotToken: string | null = null;
     let telegramChatId: string | null = null;
-    if (jwt) {
+
+    if (queryProjectToken) {
+      const proj = db.prepare("SELECT id, token, require_verification, workspace_id FROM projects WHERE token = ?").get(queryProjectToken) as { id: string; token: string; require_verification: number; workspace_id: string } | undefined;
+      if (proj) {
+        projectId = proj.id;
+        projectSubmitToken = proj.token;
+        requireVerification = proj.require_verification === 1;
+        const ws = db.prepare("SELECT telegram_bot_token, telegram_chat_id FROM workspaces WHERE id = ?").get(proj.workspace_id) as { telegram_bot_token: string | null; telegram_chat_id: string | null } | undefined;
+        if (ws) {
+          telegramBotToken = ws.telegram_bot_token;
+          telegramChatId = ws.telegram_chat_id;
+        }
+      }
+    } else if (jwt) {
       const payload = verifyToken(jwt);
       if (payload) {
-        const proj = db.prepare("SELECT token, require_verification FROM projects WHERE workspace_id = ? ORDER BY created_at ASC LIMIT 1").get(payload.workspaceId) as { token: string; require_verification: number } | undefined;
+        const proj = db.prepare("SELECT id, token, require_verification FROM projects WHERE workspace_id = ? ORDER BY created_at ASC LIMIT 1").get(payload.workspaceId) as { id: string; token: string; require_verification: number } | undefined;
         if (proj) {
+          projectId = proj.id;
           projectSubmitToken = proj.token;
           requireVerification = proj.require_verification === 1;
         }
@@ -857,6 +876,7 @@ const https = require("https");
 const os = require("os");
 
 const TOKEN = process.env.AGENTINBOX_TOKEN || "${wsToken}";
+const PROJECT_ID = process.env.AGENTINBOX_PROJECT_ID || "${projectId || ""}";
 const SERVER_URL = "https://useagentinbox.com";
 const PROJECT_CWD = process.env.CLAUDE_PROJECT_PATH || path.resolve(__dirname, "..");
 
@@ -1040,7 +1060,8 @@ async function sendTelegramAlert(msg) {
 }
 
 function checkAndSpawnNext() {
-  https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/tasks/pending", headers: { "x-workspace-token": TOKEN } }, res => {
+  const pendingPath = "/api/agent/tasks/pending" + (PROJECT_ID ? "?project_id=" + encodeURIComponent(PROJECT_ID) : "");
+  https.get({ hostname: new URL(SERVER_URL).hostname, path: pendingPath, headers: { "x-workspace-token": TOKEN } }, res => {
     let d = ""; res.on("data", c => d += c);
     res.on("end", () => {
       try {
@@ -1089,7 +1110,7 @@ function spawnClaude(taskId, requireVerification, skipSeenCheck) {
 let connectFailures = 0;
 let alertSent = false;
 
-const socket = io(SERVER_URL, { path: "/agent-socket", auth: { token: TOKEN }, transports: ["websocket"], reconnection: true, reconnectionDelay: 5000, reconnectionAttempts: Infinity });
+const socket = io(SERVER_URL, { path: "/agent-socket", auth: { token: TOKEN, project_id: PROJECT_ID || undefined }, transports: ["websocket"], reconnection: true, reconnectionDelay: 5000, reconnectionAttempts: Infinity });
 
 function refreshWorkspaceConfig(isFirstFetch) {
   return new Promise((resolve) => {
@@ -1154,7 +1175,8 @@ If .mcp.json already exists, merge the new servers in — do not overwrite exist
       "command": "node",
       "args": ["node_modules/agentinbox-mcp/dist/index.js"],
       "env": {
-        "AGENTINBOX_TOKEN": "${wsToken}"
+        "AGENTINBOX_TOKEN": "${wsToken}",
+        "AGENTINBOX_PROJECT_ID": "${projectId || ""}"
       }
     },
     "playwright": {
@@ -1172,6 +1194,7 @@ Replace PROJECT_PATH with the actual absolute path of this project root.
 \`\`\`bat
 @echo off
 set AGENTINBOX_TOKEN=${wsToken}
+set AGENTINBOX_PROJECT_ID=${projectId || ""}
 set AGENTINBOX_URL=https://useagentinbox.com
 set CLAUDE_PROJECT_PATH=PROJECT_PATH
 cd /d PROJECT_PATH\\.agentinbox
@@ -1413,7 +1436,15 @@ VS Code does NOT need to be open. You don't need to be at your desk.
 
   router.get("/agent/tasks/pending", requireWorkspaceToken, (req: Request, res: Response) => {
     const ws = (req as any).agentWorkspace;
-    const projects = db.prepare("SELECT id, require_approval, require_verification FROM projects WHERE workspace_id = ?").all(ws.id) as { id: string; require_approval: number; require_verification: number }[];
+    const requestedProjectId = req.query.project_id as string | undefined;
+    let projects = db.prepare("SELECT id, require_approval, require_verification FROM projects WHERE workspace_id = ?").all(ws.id) as { id: string; require_approval: number; require_verification: number }[];
+    // A worker bound to one project must only ever see that project's tasks — otherwise a
+    // workspace with multiple projects (e.g. an agency's clients) leaks tasks between workers
+    // that each run against a different codebase. Workers without a project_id (legacy / not
+    // yet re-set-up) keep the old workspace-wide behavior.
+    if (requestedProjectId) {
+      projects = projects.filter((p) => p.id === requestedProjectId);
+    }
     const tasks = projects.flatMap((p) =>
       // getPendingTasks also recovers tasks stuck in_progress > 15 min (Claude crashed mid-task)
       taskQueries.getPendingTasks(p.id).map(({ file_data, screenshot_base64, ...t }) => ({ ...t, has_file: !!file_data, require_approval: p.require_approval === 1, require_verification: t.require_verification === 1 }))

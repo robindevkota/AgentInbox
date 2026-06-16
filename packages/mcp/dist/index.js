@@ -30,6 +30,7 @@ const child_process_1 = require("child_process");
 const fs_1 = require("fs");
 const path_1 = require("path");
 const TOKEN = process.env.AGENTINBOX_TOKEN;
+const PROJECT_ID = process.env.AGENTINBOX_PROJECT_ID || null;
 const SERVER_URL = process.env.AGENTINBOX_URL || "https://useagentinbox.com";
 const API_BASE = `${SERVER_URL}/api`;
 const CLAUDE_PATH = process.env.CLAUDE_PATH || "claude";
@@ -159,7 +160,10 @@ async function getWorkspaceIdFromToken() {
 }
 // ── MCP tool implementations (call server REST API) ──────────────────────────
 async function getPendingTasks() {
-    const res = await fetch(`${SERVER_URL}/api/agent/tasks/pending`, {
+    // PROJECT_ID scopes this worker to its own project — without it, a workspace with
+    // multiple projects would leak tasks between workers running on different codebases.
+    const path = PROJECT_ID ? `/api/agent/tasks/pending?project_id=${encodeURIComponent(PROJECT_ID)}` : `/api/agent/tasks/pending`;
+    const res = await fetch(`${SERVER_URL}${path}`, {
         headers: { "x-workspace-token": TOKEN },
     });
     if (!res.ok)
