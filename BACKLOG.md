@@ -71,6 +71,37 @@ Or just say **"clean up"** to Claude Code and it will do both automatically.
 - Telegram config live-refresh (Jun 16, 2026) — worker only fetched telegram_bot_token/chat_id once at connect; a developer configuring Telegram on the dashboard *after* the worker already started got silently stuck with stale (null) config until a manual restart. Worker now re-fetches every 5 min.
 - **Pre-launch finding — pre-spawn approval gate (Jun 16, 2026):** three independent cold-start Claude sessions refused to complete AgentInbox's own setup.md, all converging on the same root issue: any project's public submit URL lets anyone write arbitrary task descriptions that fed directly into an unattended `--dangerously-skip-permissions` Claude spawn with full filesystem/shell access — no human reviewed the input first. The existing require_approval/propose_plan flow didn't close this: it was a mid-session checkpoint Claude voluntarily called *after* already being spawned with full access. Fixed: createTask now sets status='awaiting_approval' directly for gated projects; the worker is never told about the task (no task.created emit) until a PM approves via dashboard or Telegram reply — only approval triggers the wake. Applies to both HTTP submissions and Telegram-originated tasks. Removed the now-unreachable propose_plan tool/route. **This was caught by accident while debugging an unrelated screenshot bug — not by deliberate security review. Worth a real third-party security pass before public launch**, since this class of finding (cold-start agent refusal surfacing a real architectural gap) could recur elsewhere in the pipeline.
 
+## ✅ End-to-end pipeline re-verified on a second stack — Python/Flask (Jun 16, 2026)
+
+After the Jun 15-16 reliability fixes (bat.pid dedup, IPv4, auto dev server, watchdog, Telegram refresh,
+pre-spawn approval gate), ran a full live setup from scratch on `d:\test-flask-app` — not a sub-agent
+simulation, done directly in the main session after repeated sub-agent refusals on this same test (see
+pre-spawn approval gate finding above). All 14 setup.md steps executed manually: worker.js, .mcp.json,
+start.bat/start.vbs, watchdog.ps1, Startup folder entry, Scheduled Task — all written and verified live.
+
+Submitted 4 real tasks via the public submit API and watched the worker log end to end. All 6 pipeline
+checkpoints confirmed on Python/Flask/Windows:
+
+| Checkpoint | Result |
+|---|---|
+| Worker connects | ✅ |
+| Task received | ✅ |
+| Claude spawns | ✅ |
+| Claude exits cleanly | ✅ (fixed a real bug it found — missing `/` route — on its own initiative) |
+| Screenshot taken | ✅ (after installing missing chromium browser binary — `node_modules/.bin/playwright` wasn't present until `npm install -D playwright` ran) |
+| Telegram photo sent | ✅ (after fixing a live bug — see below) |
+
+**New bug found and fixed:** `sendTelegramPhoto`'s `https.request` to `api.telegram.org` intermittently
+timed out connecting to an IPv6 address — the same `::1` vs `127.0.0.1` class of issue fixed earlier for
+localhost dev-server checks, but hitting a different host this time. Added `family: 4` to force IPv4.
+Confirmed fix by retrying the same task — succeeded with "Telegram photo: sent". Applied to the setup
+template and backported to the live Hotel Reservation worker.
+
+**Verdict: the full AgentInbox pipeline (worker lifecycle, task wake, Claude spawn, screenshot, Telegram)
+is now proven end-to-end on two independent stacks (Node/Next.js and Python/Flask) on Windows.** Mac/Linux
+remains code-reviewed only, not live-tested (no Mac available). A third stack or a Mac test would further
+de-risk launch, but the core pipeline mechanics are no longer a major unknown.
+
 ---
 
 ## ✅ Pre-launch testing — PASSED (Jun 5, 2026)
