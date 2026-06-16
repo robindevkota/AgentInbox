@@ -150,8 +150,32 @@ up the fix.**
 **This is the central lesson from today: every prior "tested and passed" claim — including the ones
 earlier in this same session — was true only for the specific narrow thing actually exercised. The
 moment a genuinely fresh, literal, unmodified path was tested, three fatal-or-serious bugs surfaced
-immediately.** Re-running the literal clean-room test after these fixes (in progress) is the only way to
-get a real answer on whether "works in one go" is true now.
+immediately.**
+
+### Re-test after fixes — PASSED, true one-go confirmed
+
+Re-downloaded the fixed setup.md, re-extracted the literal worker.js (still copy-pasted, never hand-
+written), upgraded both Clean Room and Flask projects to `agentinbox-mcp@0.1.8`, wired
+`AGENTINBOX_PROJECT_ID` into both projects' worker.js/.mcp.json/start.bat. Ran both workers
+**simultaneously** (the exact condition that caused the original leak) and submitted a fresh task to
+Clean Room only.
+
+Result: Clean Room's worker picked it up correctly (`project_id` filter on `/agent/tasks/pending`
+returned only its own task), Claude actually implemented the missing `/health` route in `index.js`,
+exited cleanly, screenshot taken (4939 bytes) and attached, Telegram photo sent. **Flask's worker log
+showed zero mention of this task at any point** — confirmed via a dedicated monitor that ran the full
+duration and stayed silent. The cross-project leak is closed.
+
+One non-bug wrinkle hit during re-testing: after many rapid manual worker restarts during debugging,
+stale/duplicate node processes accumulated and one was still running old (pre-fix) worker.js content,
+making it briefly look like the fix wasn't working. A full process kill + single clean restart resolved
+it — this was test-environment noise from this session's own restart churn, not a defect in the fix.
+
+**Verdict: AgentInbox now genuinely works in one go** for a brand-new developer on Windows/Node,
+copy-pasting the literal setup.md content with zero hand-fixing, including correct behavior in a
+multi-project workspace with another project's worker running concurrently. This is the first time that
+claim is backed by an actual literal, unmodified, concurrent test rather than inference from a
+hand-corrected reference file.
 
 ---
 
