@@ -976,16 +976,16 @@ async function takeScreenshotAndAttach(taskId, taskTitle, telegramMsgId, spawned
       screenshotUrl = verificationUrlHint;
       console.log("[worker] Screenshot URL from Claude hint: " + screenshotUrl);
     } else {
-      const allHtml = fs.readdirSync(PROJECT_CWD).filter((f: string) => f.endsWith(".html"));
+      const allHtml = fs.readdirSync(PROJECT_CWD).filter((f) => f.endsWith(".html"));
       const thirtyMinutesAgo = Date.now() - 30 * 60 * 1000;
       const recentHtml = allHtml
-        .map((f: string) => ({ name: f, mtime: fs.statSync(path.join(PROJECT_CWD, f)).mtimeMs }))
-        .filter((f: {name: string; mtime: number}) => f.mtime >= thirtyMinutesAgo)
-        .sort((a: {mtime: number}, b: {mtime: number}) => b.mtime - a.mtime);
+        .map((f) => ({ name: f, mtime: fs.statSync(path.join(PROJECT_CWD, f)).mtimeMs }))
+        .filter((f) => f.mtime >= thirtyMinutesAgo)
+        .sort((a, b) => b.mtime - a.mtime);
       if (recentHtml.length === 0) { console.log("[worker] No HTML files modified in last 30 min — skipping screenshot"); return; }
       const htmlTarget = recentHtml[0].name;
       console.log("[worker] Screenshotting most recent HTML (fallback): " + htmlTarget);
-      screenshotUrl = htmlTarget === "index.html" ? url : url.replace(/\/$/, "") + "/" + htmlTarget;
+      screenshotUrl = htmlTarget === "index.html" ? url : url.replace(/\\/$/, "") + "/" + htmlTarget;
     }
     const ready = await waitForUrl(screenshotUrl, 10000);
     if (!ready) { console.error("[worker] File not ready at " + screenshotUrl + " — skipping screenshot"); return; }
