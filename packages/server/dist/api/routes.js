@@ -1013,26 +1013,39 @@ let alertSent = false;
 
 const socket = io(SERVER_URL, { path: "/agent-socket", auth: { token: TOKEN }, transports: ["websocket"], reconnection: true, reconnectionDelay: 5000, reconnectionAttempts: Infinity });
 
+function refreshWorkspaceConfig(isFirstFetch) {
+  return new Promise((resolve) => {
+    https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/workspace", headers: { "x-workspace-token": TOKEN } }, res => {
+      let d = ""; res.on("data", c => d += c);
+      res.on("end", () => {
+        try {
+          const ws = JSON.parse(d);
+          const hadTelegram = !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
+          TELEGRAM_BOT_TOKEN = ws.telegram_bot_token || null;
+          TELEGRAM_CHAT_ID = ws.telegram_chat_id || null;
+          SCREENSHOT_VERIFICATION = !!ws.screenshot_verification;
+          const hasTelegram = !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID);
+          if (isFirstFetch || hasTelegram !== hadTelegram) {
+            console.log("[worker] Telegram configured:", hasTelegram);
+            if (SCREENSHOT_VERIFICATION) console.log("[worker] Screenshot verification: enabled");
+          }
+        } catch {}
+        resolve();
+      });
+    }).on("error", () => resolve());
+  });
+}
+
 socket.on("connect", () => {
   console.log("[worker] Connected to AgentInbox");
   connectFailures = 0; alertSent = false;
-  https.get({ hostname: new URL(SERVER_URL).hostname, path: "/api/agent/workspace", headers: { "x-workspace-token": TOKEN } }, res => {
-    let d = ""; res.on("data", c => d += c);
-    res.on("end", () => {
-      try {
-        const ws = JSON.parse(d);
-        TELEGRAM_BOT_TOKEN = ws.telegram_bot_token || null;
-        TELEGRAM_CHAT_ID = ws.telegram_chat_id || null;
-        SCREENSHOT_VERIFICATION = !!ws.screenshot_verification;
-        console.log("[worker] Telegram configured:", !!(TELEGRAM_BOT_TOKEN && TELEGRAM_CHAT_ID));
-        if (SCREENSHOT_VERIFICATION) console.log("[worker] Screenshot verification: enabled");
-        startDevServer().catch(() => {});
-      } catch {}
-    });
-  }).on("error", () => {});
+  refreshWorkspaceConfig(true).then(() => startDevServer().catch(() => {}));
   // Pick up any tasks missed during disconnect
   checkAndSpawnNext();
 });
+// Telegram/screenshot config can change on the PM dashboard after the worker already connected —
+// re-fetch periodically so a developer configuring Telegram later doesn't need to restart the worker.
+setInterval(() => { if (socket.connected) refreshWorkspaceConfig(false); }, 5 * 60 * 1000);
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
 socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); pendingTaskTitle = p.title; pendingTelegramMsgId = p.telegram_message_id || null; spawnClaude(p.task_id, p.require_verification); });
 socket.on("connect_error", (e) => { console.error("[worker] Error: " + e.message); connectFailures++; if (connectFailures >= 3 && !alertSent) { alertSent = true; sendTelegramAlert("⚠️ AgentInbox worker cannot connect after 3 attempts. Check worker.log."); } });
@@ -1256,6 +1269,10 @@ You MUST see: [worker] Connected to AgentInbox
 If you don't see it, run the check again after 5 more seconds.
 Do NOT report success unless you see the Connected line in worker.log.
 The worker now runs silently in the background and will auto-restart on every PC boot.
+
+Note: Telegram bot setup (on the PM dashboard, separate from this codebase setup) does NOT need
+to happen before or during this setup. The worker re-checks Telegram config every 5 minutes on
+its own, so configuring Telegram now or later both work without restarting anything.
 
 ## Step 14 — Report back
 Tell me:
