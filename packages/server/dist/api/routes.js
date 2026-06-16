@@ -989,7 +989,7 @@ function sendTelegramPhoto(buf, caption, replyToMessageId) {
     const part1 = Buffer.from("--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"chat_id\\"\\r\\n\\r\\n" + TELEGRAM_CHAT_ID + "\\r\\n--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"caption\\"\\r\\n\\r\\n" + caption + "\\r\\n" + (replyToMessageId ? "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"reply_to_message_id\\"\\r\\n\\r\\n" + replyToMessageId + "\\r\\n" : "") + "--" + boundary + "\\r\\nContent-Disposition: form-data; name=\\"photo\\"; filename=\\"screenshot.png\\"\\r\\nContent-Type: image/png\\r\\n\\r\\n");
     const part2 = Buffer.from("\\r\\n--" + boundary + "--\\r\\n");
     const body = Buffer.concat([part1, buf, part2]);
-    const req = https.request({ hostname: "api.telegram.org", path: "/bot" + TELEGRAM_BOT_TOKEN + "/sendPhoto", method: "POST", headers: { "Content-Type": "multipart/form-data; boundary=" + boundary, "Content-Length": body.length } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => { console.log("[worker] Telegram photo:", JSON.parse(d).ok ? "sent" : "failed"); resolve(); }); });
+    const req = https.request({ hostname: "api.telegram.org", family: 4, path: "/bot" + TELEGRAM_BOT_TOKEN + "/sendPhoto", method: "POST", headers: { "Content-Type": "multipart/form-data; boundary=" + boundary, "Content-Length": body.length } }, res => { let d = ""; res.on("data", c => d += c); res.on("end", () => { console.log("[worker] Telegram photo:", JSON.parse(d).ok ? "sent" : "failed"); resolve(); }); });
     req.on("error", e => { console.error("[worker] Telegram photo error:", e.message); resolve(); });
     req.write(body); req.end();
   });
