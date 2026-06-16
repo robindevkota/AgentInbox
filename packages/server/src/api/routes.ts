@@ -1196,7 +1196,7 @@ if exist worker.pid (
 powershell -NoProfile -Command "(Get-CimInstance Win32_Process -Filter \\"ProcessId=$pid\\").ParentProcessId | Out-File -FilePath 'bat.pid' -Encoding ascii -NoNewline"
 
 :loop
-node worker.js >> PROJECT_PATH\\.agentinbox\\worker.log 2>&1
+node worker.js >> "%~dp0worker.log" 2>&1
 timeout /t 5 /nobreak > nul
 goto loop
 \`\`\`
