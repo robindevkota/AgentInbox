@@ -54,10 +54,11 @@ exports.taskQueries = {
     // ── Tasks ─────────────────────────────────────────────────────────────────
     createTask(data) {
         const id = (0, nanoid_1.nanoid)();
+        const initialStatus = data.requires_approval ? "awaiting_approval" : "pending";
         db_1.db.prepare(`
-      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values, require_verification)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `).run(id, data.project_id, data.title, data.description, data.priority ?? "medium", data.submitter_name ?? null, data.submitter_email ?? null, data.file_path ?? null, data.file_name ?? null, data.file_content ?? null, data.file_data ?? null, data.custom_field_values ?? null, data.require_verification ? 1 : 0);
+      INSERT INTO tasks (id, project_id, title, description, status, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values, require_verification)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(id, data.project_id, data.title, data.description, initialStatus, data.priority ?? "medium", data.submitter_name ?? null, data.submitter_email ?? null, data.file_path ?? null, data.file_name ?? null, data.file_content ?? null, data.file_data ?? null, data.custom_field_values ?? null, data.require_verification ? 1 : 0);
         return db_1.db.prepare("SELECT * FROM tasks WHERE id = ?").get(id);
     },
     getTask(id) {
@@ -85,16 +86,6 @@ exports.taskQueries = {
         }
         return rows;
     },
-    getApprovedTasks(projectId) {
-        if (projectId) {
-            return db_1.db
-                .prepare("SELECT * FROM tasks WHERE project_id = ? AND status IN ('pending','in_progress') AND (approved_at IS NOT NULL OR project_id NOT IN (SELECT id FROM projects WHERE require_approval = 1)) ORDER BY created_at ASC")
-                .all(projectId);
-        }
-        return db_1.db
-            .prepare("SELECT * FROM tasks WHERE status IN ('pending','in_progress') ORDER BY created_at ASC")
-            .all();
-    },
     updateStatus(id, status) {
         if (status === "in_progress") {
             // Atomic claim: only move to in_progress from pending.
@@ -109,12 +100,11 @@ exports.taskQueries = {
         }
         return exports.taskQueries.getTask(id);
     },
-    proposePlan(id, plan) {
-        db_1.db.prepare("UPDATE tasks SET status = 'awaiting_approval', proposed_plan = ?, updated_at = ? WHERE id = ?").run(plan, (0, db_1.nowUnix)(), id);
-        return exports.taskQueries.getTask(id);
-    },
     approveTask(id, approvedBy) {
-        db_1.db.prepare("UPDATE tasks SET status = 'in_progress', approved_at = ?, approved_by = ?, updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), approvedBy, (0, db_1.nowUnix)(), id);
+        // Back to 'pending', not 'in_progress' — Claude hasn't been spawned yet under the
+        // pre-spawn gate. The worker wakes Claude after this, which then claims the task
+        // via the normal atomic updateStatus(id, 'in_progress') path.
+        db_1.db.prepare("UPDATE tasks SET status = 'pending', approved_at = ?, approved_by = ?, updated_at = ? WHERE id = ?").run((0, db_1.nowUnix)(), approvedBy, (0, db_1.nowUnix)(), id);
         return exports.taskQueries.getTask(id);
     },
     rejectTask(id, reason) {

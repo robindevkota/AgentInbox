@@ -10,7 +10,6 @@ export declare const mcpTools: ({
             };
             id?: undefined;
             status?: undefined;
-            plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
             pr_link?: undefined;
@@ -38,7 +37,6 @@ export declare const mcpTools: ({
             };
             project_id?: undefined;
             status?: undefined;
-            plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
             pr_link?: undefined;
@@ -77,45 +75,6 @@ export declare const mcpTools: ({
                 description: string;
             };
             project_id?: undefined;
-            plan?: undefined;
-            summary_technical?: undefined;
-            summary_plain?: undefined;
-            pr_link?: undefined;
-            screenshot_base64?: undefined;
-            task_id?: undefined;
-            reason?: undefined;
-        };
-        required: string[];
-    };
-    handler(args: unknown): {
-        content: {
-            type: string;
-            text: string;
-        }[];
-        isError: boolean;
-    } | {
-        content: {
-            type: string;
-            text: string;
-        }[];
-        isError?: undefined;
-    };
-} | {
-    name: string;
-    description: string;
-    inputSchema: {
-        type: "object";
-        properties: {
-            id: {
-                type: string;
-                description: string;
-            };
-            plan: {
-                type: string;
-                description: string;
-            };
-            project_id?: undefined;
-            status?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
             pr_link?: undefined;
@@ -166,7 +125,6 @@ export declare const mcpTools: ({
             };
             project_id?: undefined;
             status?: undefined;
-            plan?: undefined;
             task_id?: undefined;
             reason?: undefined;
         };
@@ -198,7 +156,6 @@ export declare const mcpTools: ({
             project_id?: undefined;
             id?: undefined;
             status?: undefined;
-            plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
             pr_link?: undefined;
@@ -243,7 +200,6 @@ export declare const mcpTools: ({
             };
             project_id?: undefined;
             status?: undefined;
-            plan?: undefined;
             summary_technical?: undefined;
             summary_plain?: undefined;
             pr_link?: undefined;

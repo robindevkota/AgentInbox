@@ -213,6 +213,7 @@ async function fetchUpdatesForWorkspace(ws) {
                 const existing = db_1.db.prepare("SELECT id FROM tasks WHERE telegram_origin_message_id = ?").get(msg.message_id);
                 if (existing)
                     continue;
+                const requiresApproval = project.require_approval === 1;
                 const task = tasks_1.taskQueries.createTask({
                     project_id: ws.projectId,
                     title: intent.title || (messageText.length > 80 ? messageText.slice(0, 77) + "..." : messageText),
@@ -220,9 +221,18 @@ async function fetchUpdatesForWorkspace(ws) {
                     priority: "medium",
                     submitter_name: "Developer (Telegram)",
                     require_verification: tgConfig.screenshot_verification,
+                    requires_approval: requiresApproval,
                     ...(attachment ? { file_name: attachment.name, file_data: attachment.data, file_content: attachment.content } : {}),
                 });
                 db_1.db.prepare("UPDATE tasks SET telegram_origin_message_id = ? WHERE id = ?").run(msg.message_id, task.id);
+                if (requiresApproval) {
+                    // Pre-spawn gate: do not wake the worker — no emitTaskCreated, no triggerClaude.
+                    // Claude is not invoked until a PM approves via dashboard or replies "approve" here.
+                    const msgId = await _send(ws.botToken, ws.chatId, `⏳ <b>Awaiting approval:</b> ${task.title}\n\n👆 <b>Reply:</b> <b>approve</b> or <b>reject: your reason</b>`, msg.message_id);
+                    if (msgId)
+                        db_1.db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, task.id);
+                    continue;
+                }
                 const msgId = await _send(ws.botToken, ws.chatId, `⚡ <b>Task created:</b> ${task.title}\n\nClaude is on it.`, msg.message_id);
                 if (msgId) {
                     db_1.db.prepare("UPDATE tasks SET telegram_message_id = ? WHERE id = ?").run(msgId, task.id);
@@ -241,7 +251,12 @@ async function fetchUpdatesForWorkspace(ws) {
                 if (lower === "approve" || lower === "yes") {
                     tasks_1.taskQueries.approveTask(task.id, "Developer (Telegram)");
                     tasks_1.taskQueries.audit({ task_id: task.id, action: "task_approved", actor: "Developer (Telegram)" });
-                    await _send(ws.botToken, ws.chatId, `✅ Approved! Claude is executing the plan for: <b>${task.title}</b>`, replyToId);
+                    // This is the pre-spawn gate: the worker was never told about this task until now —
+                    // approving is what first wakes Claude, not the original submission.
+                    (0, manager_1.emitTaskCreated)(ws.workspaceId, { task_id: task.id, title: task.title, project_id: task.project_id, require_verification: task.require_verification === 1 });
+                    if (process.env.TRIGGER_CLAUDE === "true")
+                        (0, claude_1.triggerClaude)();
+                    await _send(ws.botToken, ws.chatId, `✅ Approved! Claude is starting now: <b>${task.title}</b>`, replyToId);
                 }
                 else if (lower.startsWith("reject")) {
                     const reason = text.slice(6).replace(/^[:\s]+/, "").trim() || "Rejected via Telegram";

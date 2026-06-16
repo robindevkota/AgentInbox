@@ -112,12 +112,11 @@ export declare const taskQueries: {
         file_data?: string;
         custom_field_values?: string;
         require_verification?: boolean;
+        requires_approval?: boolean;
     }): Task;
     getTask(id: string): Task | undefined;
     getPendingTasks(projectId?: string): Task[];
-    getApprovedTasks(projectId?: string): Task[];
     updateStatus(id: string, status: TaskStatus): Task | undefined;
-    proposePlan(id: string, plan: string): Task | undefined;
     approveTask(id: string, approvedBy: string): Task | undefined;
     rejectTask(id: string, reason: string): Task | undefined;
     completeTask(id: string, summaryTechnical: string, summaryPlain: string, prLink?: string, screenshotBase64?: string, verificationUrl?: string): {

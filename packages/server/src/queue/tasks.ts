@@ -203,16 +203,23 @@ export const taskQueries = {
     file_data?: string;
     custom_field_values?: string;
     require_verification?: boolean;
+    // When true, the task is created as 'awaiting_approval' instead of 'pending' —
+    // the worker is never told about it (no task.created emit) until a PM approves it.
+    // This is a pre-spawn gate: Claude is never invoked with filesystem/shell access
+    // on unreviewed input, unlike the old mid-session propose_plan flow.
+    requires_approval?: boolean;
   }): Task {
     const id = nanoid();
+    const initialStatus: TaskStatus = data.requires_approval ? "awaiting_approval" : "pending";
     db.prepare(`
-      INSERT INTO tasks (id, project_id, title, description, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values, require_verification)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO tasks (id, project_id, title, description, status, priority, submitter_name, submitter_email, file_path, file_name, file_content, file_data, custom_field_values, require_verification)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `).run(
       id,
       data.project_id,
       data.title,
       data.description,
+      initialStatus,
       data.priority ?? "medium",
       data.submitter_name ?? null,
       data.submitter_email ?? null,
@@ -253,21 +260,6 @@ export const taskQueries = {
     return rows;
   },
 
-  getApprovedTasks(projectId?: string): Task[] {
-    if (projectId) {
-      return db
-        .prepare(
-          "SELECT * FROM tasks WHERE project_id = ? AND status IN ('pending','in_progress') AND (approved_at IS NOT NULL OR project_id NOT IN (SELECT id FROM projects WHERE require_approval = 1)) ORDER BY created_at ASC"
-        )
-        .all(projectId) as Task[];
-    }
-    return db
-      .prepare(
-        "SELECT * FROM tasks WHERE status IN ('pending','in_progress') ORDER BY created_at ASC"
-      )
-      .all() as Task[];
-  },
-
   updateStatus(id: string, status: TaskStatus): Task | undefined {
     if (status === "in_progress") {
       // Atomic claim: only move to in_progress from pending.
@@ -283,16 +275,12 @@ export const taskQueries = {
     return taskQueries.getTask(id);
   },
 
-  proposePlan(id: string, plan: string): Task | undefined {
-    db.prepare(
-      "UPDATE tasks SET status = 'awaiting_approval', proposed_plan = ?, updated_at = ? WHERE id = ?"
-    ).run(plan, nowUnix(), id);
-    return taskQueries.getTask(id);
-  },
-
   approveTask(id: string, approvedBy: string): Task | undefined {
+    // Back to 'pending', not 'in_progress' — Claude hasn't been spawned yet under the
+    // pre-spawn gate. The worker wakes Claude after this, which then claims the task
+    // via the normal atomic updateStatus(id, 'in_progress') path.
     db.prepare(
-      "UPDATE tasks SET status = 'in_progress', approved_at = ?, approved_by = ?, updated_at = ? WHERE id = ?"
+      "UPDATE tasks SET status = 'pending', approved_at = ?, approved_by = ?, updated_at = ? WHERE id = ?"
     ).run(nowUnix(), approvedBy, nowUnix(), id);
     return taskQueries.getTask(id);
   },

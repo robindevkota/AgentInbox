@@ -273,6 +273,7 @@ function createRouter() {
                     db_1.db.prepare("UPDATE workspaces SET task_count_this_month = task_count_this_month + 1 WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)").run(project.id);
                 }
             }
+            const requiresApproval = project.require_approval === 1;
             const task = tasks_1.taskQueries.createTask({
                 project_id: project.id,
                 title: body.title,
@@ -288,6 +289,9 @@ function createRouter() {
                     : undefined,
                 // Inherit project's require_verification when not explicitly set in the submission body
                 require_verification: body.require_verification === true || body.require_verification === "true" || body.require_verification === "1" || project.require_verification === 1,
+                // Pre-spawn gate: if true, the worker is never notified below — Claude is not
+                // invoked until a PM approves via dashboard or Telegram reply.
+                requires_approval: requiresApproval,
             });
             tasks_1.taskQueries.audit({
                 project_id: project.id,
@@ -307,27 +311,44 @@ function createRouter() {
                 has_file: !!task.file_name,
                 require_verification: task.require_verification === 1,
             };
-            // Emit to connected agentinbox-mcp socket for this workspace
             const workspace = db_1.db
                 .prepare("SELECT id FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
                 .get(project.id);
-            if (workspace) {
-                (0, manager_1.emitTaskCreated)(workspace.id, taskPayload);
-                (0, manager_1.emitToPm)(workspace.id, "task.submitted", {
-                    task_id: task.id,
-                    title: task.title,
-                    project_name: project.name,
-                    submitter_name: task.submitter_name,
-                    priority: task.priority,
-                });
+            if (requiresApproval) {
+                // Do NOT wake the worker yet — no emitTaskCreated, no webhook, no triggerClaude.
+                // Claude is never spawned against this task's filesystem/shell until a PM approves it.
+                if (workspace) {
+                    (0, manager_1.emitToPm)(workspace.id, "task.submitted", {
+                        task_id: task.id,
+                        title: task.title,
+                        project_name: project.name,
+                        submitter_name: task.submitter_name,
+                        priority: task.priority,
+                        awaiting_approval: true,
+                    });
+                }
+                (0, bot_1.notifyApprovalNeeded)(task.id, task.title, "(awaiting PM approval before Claude starts — no plan yet)").catch(() => { });
             }
-            // Also fire webhook as fallback (ngrok/router still supported)
-            (0, notify_1.fireWebhook)(taskPayload).catch(() => { });
-            // Telegram notification
-            (0, bot_1.notifyTaskSubmitted)(task.id, task.title, project.name, task.description).catch(() => { });
-            // Trigger Claude to wake up and process the task (event-driven, no idle polling)
-            if (process.env.TRIGGER_CLAUDE === "true")
-                (0, claude_1.triggerClaude)();
+            else {
+                // Emit to connected agentinbox-mcp socket for this workspace
+                if (workspace) {
+                    (0, manager_1.emitTaskCreated)(workspace.id, taskPayload);
+                    (0, manager_1.emitToPm)(workspace.id, "task.submitted", {
+                        task_id: task.id,
+                        title: task.title,
+                        project_name: project.name,
+                        submitter_name: task.submitter_name,
+                        priority: task.priority,
+                    });
+                }
+                // Also fire webhook as fallback (ngrok/router still supported)
+                (0, notify_1.fireWebhook)(taskPayload).catch(() => { });
+                // Telegram notification
+                (0, bot_1.notifyTaskSubmitted)(task.id, task.title, project.name, task.description).catch(() => { });
+                // Trigger Claude to wake up and process the task (event-driven, no idle polling)
+                if (process.env.TRIGGER_CLAUDE === "true")
+                    (0, claude_1.triggerClaude)();
+            }
             res.status(201).json({
                 id: task.id,
                 status: task.status,
@@ -598,7 +619,9 @@ function createRouter() {
         });
         const project = db_1.db.prepare("SELECT workspace_id FROM projects WHERE id = ?").get(task.project_id);
         if (project) {
-            (0, manager_1.emitTaskCreated)(project.workspace_id, { task_id: task.id, title: task.title, type: "task.approved" });
+            // This is the pre-spawn gate: the worker was never told about this task until now —
+            // approving is what first wakes Claude, not the original submission.
+            (0, manager_1.emitTaskCreated)(project.workspace_id, { task_id: task.id, title: task.title, project_id: task.project_id, require_verification: task.require_verification === 1 });
         }
         res.json(updated);
     });
@@ -1460,27 +1483,6 @@ VS Code does NOT need to be open. You don't need to be at your desk.
                 reason,
             });
             (0, bot_1.notifyTaskEscalated)(updated.id, updated.title, reason).catch(() => { });
-            res.json(updated);
-        }
-        catch (err) {
-            res.status(400).json({ error: String(err) });
-        }
-    });
-    router.post("/agent/tasks/:id/propose", requireWorkspaceToken, (req, res) => {
-        try {
-            const { plan } = zod_1.z.object({ plan: zod_1.z.string().min(1) }).parse(req.body);
-            const updated = tasks_1.taskQueries.proposePlan(req.params.id, plan);
-            if (!updated) {
-                res.status(404).json({ error: "Task not found" });
-                return;
-            }
-            const ws = req.agentWorkspace;
-            (0, manager_1.emitToPm)(ws.id, "task.approval_needed", {
-                task_id: updated.id,
-                title: updated.title,
-                plan,
-            });
-            (0, bot_1.notifyApprovalNeeded)(updated.id, updated.title, plan).catch(() => { });
             res.json(updated);
         }
         catch (err) {

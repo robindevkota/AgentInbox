@@ -143,49 +143,6 @@ exports.mcpTools = [
         },
     },
     {
-        name: "propose_plan",
-        description: "When a project requires PM approval before execution, call this BEFORE starting work. Describe exactly what you plan to do. The task will move to 'awaiting_approval' and the PM will be notified. Do NOT start making changes until you call update_task_status('in_progress') after approval. Check get_task to see if approved_at is set.",
-        inputSchema: {
-            type: "object",
-            properties: {
-                id: { type: "string", description: "Task ID" },
-                plan: {
-                    type: "string",
-                    description: "Plain-English plan of what you intend to do: which files, what changes, what tests, what PR strategy.",
-                },
-            },
-            required: ["id", "plan"],
-        },
-        handler(args) {
-            const { id, plan } = zod_1.z
-                .object({ id: zod_1.z.string(), plan: zod_1.z.string().min(10) })
-                .parse(args);
-            const task = tasks_1.taskQueries.proposePlan(id, plan);
-            if (!task) {
-                return {
-                    content: [{ type: "text", text: `Task ${id} not found` }],
-                    isError: true,
-                };
-            }
-            // Fire approval email async — import lazily to avoid circular deps
-            Promise.resolve().then(() => __importStar(require("../email/mailer"))).then(async ({ sendApprovalRequest }) => {
-                const project = tasks_1.taskQueries.getProjectById(task.project_id);
-                if (project?.notify_email) {
-                    const baseUrl = process.env.BASE_URL || `http://localhost:${process.env.PORT || 3000}`;
-                    await sendApprovalRequest(project.notify_email, task, project, `${baseUrl}/pm/tasks/${task.id}`).catch(() => { });
-                }
-            });
-            return {
-                content: [
-                    {
-                        type: "text",
-                        text: `Plan submitted for task ${id}. Status is now 'awaiting_approval'. Poll get_task(id) until approved_at is set, then call update_task_status('in_progress') to proceed.`,
-                    },
-                ],
-            };
-        },
-    },
-    {
         name: "complete_task",
         description: "Mark a task as done and write two completion summaries: a technical one for PMs/devs (include file paths, line numbers, PR links) and a plain-English one for non-technical clients. Optionally include a PR link and a base64 screenshot of the fix.",
         inputSchema: {

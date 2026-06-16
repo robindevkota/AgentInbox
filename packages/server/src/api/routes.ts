@@ -258,6 +258,8 @@ export function createRouter(): Router {
           }
         }
 
+        const requiresApproval = project.require_approval === 1;
+
         const task = taskQueries.createTask({
           project_id: project.id,
           title: body.title,
@@ -273,6 +275,9 @@ export function createRouter(): Router {
             : undefined,
           // Inherit project's require_verification when not explicitly set in the submission body
           require_verification: body.require_verification === true || body.require_verification === "true" || body.require_verification === "1" || project.require_verification === 1,
+          // Pre-spawn gate: if true, the worker is never notified below — Claude is not
+          // invoked until a PM approves via dashboard or Telegram reply.
+          requires_approval: requiresApproval,
         });
 
         taskQueries.audit({
@@ -295,29 +300,46 @@ export function createRouter(): Router {
           require_verification: task.require_verification === 1,
         };
 
-        // Emit to connected agentinbox-mcp socket for this workspace
         const workspace = db
           .prepare("SELECT id FROM workspaces WHERE id = (SELECT workspace_id FROM projects WHERE id = ?)")
           .get(project.id) as { id: string } | undefined;
-        if (workspace) {
-          emitTaskCreated(workspace.id, taskPayload);
-          emitToPm(workspace.id, "task.submitted", {
-            task_id: task.id,
-            title: task.title,
-            project_name: project.name,
-            submitter_name: task.submitter_name,
-            priority: task.priority,
-          });
+
+        if (requiresApproval) {
+          // Do NOT wake the worker yet — no emitTaskCreated, no webhook, no triggerClaude.
+          // Claude is never spawned against this task's filesystem/shell until a PM approves it.
+          if (workspace) {
+            emitToPm(workspace.id, "task.submitted", {
+              task_id: task.id,
+              title: task.title,
+              project_name: project.name,
+              submitter_name: task.submitter_name,
+              priority: task.priority,
+              awaiting_approval: true,
+            });
+          }
+          notifyApprovalNeeded(task.id, task.title, "(awaiting PM approval before Claude starts — no plan yet)").catch(() => {});
+        } else {
+          // Emit to connected agentinbox-mcp socket for this workspace
+          if (workspace) {
+            emitTaskCreated(workspace.id, taskPayload);
+            emitToPm(workspace.id, "task.submitted", {
+              task_id: task.id,
+              title: task.title,
+              project_name: project.name,
+              submitter_name: task.submitter_name,
+              priority: task.priority,
+            });
+          }
+
+          // Also fire webhook as fallback (ngrok/router still supported)
+          fireWebhook(taskPayload).catch(() => {});
+
+          // Telegram notification
+          notifyTaskSubmitted(task.id, task.title, project.name, task.description).catch(() => {});
+
+          // Trigger Claude to wake up and process the task (event-driven, no idle polling)
+          if (process.env.TRIGGER_CLAUDE === "true") triggerClaude();
         }
-
-        // Also fire webhook as fallback (ngrok/router still supported)
-        fireWebhook(taskPayload).catch(() => {});
-
-        // Telegram notification
-        notifyTaskSubmitted(task.id, task.title, project.name, task.description).catch(() => {});
-
-        // Trigger Claude to wake up and process the task (event-driven, no idle polling)
-        if (process.env.TRIGGER_CLAUDE === "true") triggerClaude();
 
         res.status(201).json({
           id: task.id,
@@ -625,7 +647,9 @@ export function createRouter(): Router {
     });
     const project = db.prepare("SELECT workspace_id FROM projects WHERE id = ?").get(task.project_id) as { workspace_id: string } | undefined;
     if (project) {
-      emitTaskCreated(project.workspace_id, { task_id: task.id, title: task.title, type: "task.approved" });
+      // This is the pre-spawn gate: the worker was never told about this task until now —
+      // approving is what first wakes Claude, not the original submission.
+      emitTaskCreated(project.workspace_id, { task_id: task.id, title: task.title, project_id: task.project_id, require_verification: task.require_verification === 1 });
     }
     res.json(updated);
   });
@@ -1478,22 +1502,6 @@ VS Code does NOT need to be open. You don't need to be at your desk.
         reason,
       });
       notifyTaskEscalated(updated.id, updated.title, reason).catch(() => {});
-      res.json(updated);
-    } catch (err) { res.status(400).json({ error: String(err) }); }
-  });
-
-  router.post("/agent/tasks/:id/propose", requireWorkspaceToken, (req: Request, res: Response) => {
-    try {
-      const { plan } = z.object({ plan: z.string().min(1) }).parse(req.body);
-      const updated = taskQueries.proposePlan(req.params.id, plan);
-      if (!updated) { res.status(404).json({ error: "Task not found" }); return; }
-      const ws = (req as any).agentWorkspace;
-      emitToPm(ws.id, "task.approval_needed", {
-        task_id: updated.id,
-        title: updated.title,
-        plan,
-      });
-      notifyApprovalNeeded(updated.id, updated.title, plan).catch(() => {});
       res.json(updated);
     } catch (err) { res.status(400).json({ error: String(err) }); }
   });
