@@ -528,7 +528,7 @@ function DashboardScreen({
   const [tasks, setTasks]               = useState<Task[]>([]);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
-  const [view, setView]                 = useState<"tasks" | "stats" | "settings" | "new-project">("tasks");
+  const [view, setView]                 = useState<"tasks" | "stats" | "settings" | "new-project" | "feedback" | "chat">("tasks");
   const [error, setError]               = useState("");
   const [newProjOpen, setNewProjOpen]   = useState(false);
   const [toasts, setToasts]             = useState<Toast[]>([]);
@@ -725,9 +725,10 @@ function DashboardScreen({
 
         {/* Bottom nav */}
         <div className="px-3 py-3 border-t border-white/5 space-y-0.5">
+          <NavBtn active={view === "chat"} onClick={() => setView("chat")}>💬 Chat with Claude</NavBtn>
           <NavBtn active={view === "stats"} onClick={() => setView("stats")}>Usage stats</NavBtn>
           <NavBtn active={view === "settings"} onClick={() => setView("settings")}>Settings</NavBtn>
-          <NavBtn active={view === "feedback"} onClick={() => setView("feedback")}>💬 Feedback</NavBtn>
+          <NavBtn active={view === "feedback"} onClick={() => setView("feedback")}>Feedback</NavBtn>
           <a
             href="/playground"
             target="_blank"
@@ -832,6 +833,12 @@ function DashboardScreen({
         {view === "feedback" && (
           <div className="flex-1 overflow-y-auto p-8">
             <FeedbackView authHeaders={authHeaders()} />
+          </div>
+        )}
+
+        {view === "chat" && (
+          <div className="flex-1 flex overflow-hidden">
+            <ChatView authHeaders={authHeaders()} socketRef={socketRef} />
           </div>
         )}
 
@@ -1880,6 +1887,159 @@ function FeedbackView({ authHeaders }: { authHeaders: Record<string, string> }) 
         </button>
 
         {status === "error" && <p className="text-red-400 text-sm">Something went wrong. Try again.</p>}
+      </div>
+    </div>
+  );
+}
+
+interface ChatSession { id: string; title: string; updated_at: number; last_message?: string; }
+interface ChatMessage { id: string; role: "user" | "assistant"; content: string; created_at: number; }
+
+function ChatView({ authHeaders, socketRef }: { authHeaders: Record<string, string>; socketRef: React.RefObject<Socket | null> }) {
+  const [sessions, setSessions] = useState<ChatSession[]>([]);
+  const [activeSession, setActiveSession] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState("");
+  const [waiting, setWaiting] = useState(false);
+  const bottomRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/chat/sessions", { headers: authHeaders })
+      .then(r => r.json()).then(setSessions).catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!activeSession) return;
+    fetch(`/api/chat/sessions/${activeSession}/messages`, { headers: authHeaders })
+      .then(r => r.json()).then(setMessages).catch(() => {});
+  }, [activeSession]);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, waiting]);
+
+  useEffect(() => {
+    const socket = socketRef.current;
+    if (!socket) return;
+    function onReply(data: { sessionId: string; message: ChatMessage }) {
+      if (data.sessionId !== activeSession) return;
+      setMessages(prev => [...prev, data.message]);
+      setWaiting(false);
+      setSessions(prev => prev.map(s => s.id === data.sessionId ? { ...s, last_message: data.message.content, updated_at: Math.floor(Date.now() / 1000) } : s));
+    }
+    socket.on("chat.reply", onReply);
+    return () => { socket.off("chat.reply", onReply); };
+  }, [socketRef.current, activeSession]);
+
+  async function newSession() {
+    const res = await fetch("/api/chat/sessions", { method: "POST", headers: { ...authHeaders, "Content-Type": "application/json" }, body: JSON.stringify({}) });
+    const session = await res.json();
+    setSessions(prev => [session, ...prev]);
+    setActiveSession(session.id);
+    setMessages([]);
+  }
+
+  async function sendMessage() {
+    if (!input.trim() || waiting || !activeSession) return;
+    const content = input.trim();
+    setInput("");
+    setWaiting(true);
+    const userMsg: ChatMessage = { id: Date.now().toString(), role: "user", content, created_at: Math.floor(Date.now() / 1000) };
+    setMessages(prev => [...prev, userMsg]);
+    await fetch(`/api/chat/sessions/${activeSession}/messages`, {
+      method: "POST",
+      headers: { ...authHeaders, "Content-Type": "application/json" },
+      body: JSON.stringify({ content }),
+    });
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  }
+
+  return (
+    <div className="flex flex-1 overflow-hidden">
+      {/* Session list */}
+      <div className="w-56 shrink-0 border-r border-white/5 flex flex-col bg-[#0d0f1a]">
+        <div className="p-3 border-b border-white/5">
+          <button onClick={newSession} className="w-full bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold py-2 px-3 rounded-lg transition-colors">
+            + New Chat
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto py-1">
+          {sessions.length === 0 && <p className="text-slate-600 text-xs px-4 py-6 text-center">No chats yet</p>}
+          {sessions.map(s => (
+            <button key={s.id} onClick={() => setActiveSession(s.id)}
+              className={`w-full text-left px-3 py-2.5 transition-colors group ${activeSession === s.id ? "bg-indigo-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>
+              <div className="text-xs font-medium truncate">{s.title}</div>
+              {s.last_message && <div className="text-xs text-slate-600 truncate mt-0.5">{s.last_message}</div>}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Chat area */}
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {!activeSession ? (
+          <div className="flex-1 flex flex-col items-center justify-center text-center p-8">
+            <div className="text-4xl mb-4">💬</div>
+            <h2 className="text-white font-bold text-lg mb-2">Chat with your Claude</h2>
+            <p className="text-slate-400 text-sm max-w-sm mb-6">Ask questions about your codebase, get explanations, brainstorm — all from here. No API key needed, uses your Claude Code subscription.</p>
+            <button onClick={newSession} className="bg-indigo-500 hover:bg-indigo-400 text-white text-sm font-semibold py-2.5 px-6 rounded-xl transition-colors">
+              Start a chat
+            </button>
+          </div>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-6 space-y-4">
+              {messages.length === 0 && !waiting && (
+                <div className="text-center text-slate-600 text-sm mt-12">Ask Claude anything about your codebase</div>
+              )}
+              {messages.map(m => (
+                <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
+                    m.role === "user"
+                      ? "bg-indigo-500 text-white rounded-br-sm"
+                      : "bg-[#1a1d2e] text-slate-200 rounded-bl-sm border border-white/5"
+                  }`}>
+                    {m.content}
+                  </div>
+                </div>
+              ))}
+              {waiting && (
+                <div className="flex justify-start">
+                  <div className="bg-[#1a1d2e] border border-white/5 rounded-2xl rounded-bl-sm px-4 py-3 flex gap-1 items-center">
+                    <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "0ms" }} />
+                    <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "150ms" }} />
+                    <span className="w-1.5 h-1.5 bg-slate-500 rounded-full animate-bounce" style={{ animationDelay: "300ms" }} />
+                  </div>
+                </div>
+              )}
+              <div ref={bottomRef} />
+            </div>
+
+            <div className="border-t border-white/5 p-4">
+              <div className="flex gap-2 items-end">
+                <textarea
+                  value={input}
+                  onChange={e => setInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Ask Claude anything... (Enter to send, Shift+Enter for new line)"
+                  rows={2}
+                  disabled={waiting}
+                  className="flex-1 bg-[#1a1d2e] border border-[#2a2d3e] focus:border-indigo-500 rounded-xl px-4 py-3 text-sm text-white placeholder-slate-600 focus:outline-none resize-none disabled:opacity-50"
+                />
+                <button onClick={sendMessage} disabled={!input.trim() || waiting}
+                  className="bg-indigo-500 hover:bg-indigo-400 disabled:opacity-50 text-white p-3 rounded-xl transition-colors shrink-0">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
+              <p className="text-xs text-slate-600 mt-2">Worker must be running on your PC for Claude to reply</p>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );
