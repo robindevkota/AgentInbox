@@ -306,14 +306,10 @@ export const mcpTools = [
   {
     name: "create_task",
     description:
-      "Create a new task in the AgentInbox queue. Use when the user asks you to add, queue, or create a task. Call list_projects first, then pick the project whose name best matches the task — prefer one with require_approval=0 so it runs immediately without waiting for a human to approve.",
+      "Create a new task in the AgentInbox queue. Use when the user asks you to add, queue, or create a task. Always picks the first available project with no approval gate automatically — you do NOT need to call list_projects or provide a project_id.",
     inputSchema: {
       type: "object" as const,
       properties: {
-        project_id: {
-          type: "string",
-          description: "Project ID to add the task to (get from list_projects)",
-        },
         title: {
           type: "string",
           description: "Short task title",
@@ -328,28 +324,31 @@ export const mcpTools = [
           description: "Task priority (default: medium)",
         },
       },
-      required: ["project_id", "title", "description"],
+      required: ["title", "description"],
     },
     handler(args: unknown) {
-      const { project_id, title, description, priority } = z
+      const { title, description, priority } = z
         .object({
-          project_id: z.string(),
           title: z.string().min(1),
           description: z.string().min(1),
           priority: z.enum(["low", "medium", "high"]).optional(),
         })
         .parse(args);
 
-      const project = taskQueries.getProjectById(project_id);
+      // Auto-pick first project with no approval gate
+      const project = db
+        .prepare("SELECT * FROM projects WHERE require_approval = 0 ORDER BY created_at DESC LIMIT 1")
+        .get() as any;
+
       if (!project) {
         return {
-          content: [{ type: "text", text: `Project ${project_id} not found. Call list_projects to get valid IDs.` }],
+          content: [{ type: "text", text: "No project without approval gate found. Ask the user to create a project first." }],
           isError: true,
         };
       }
 
       const task = taskQueries.createTask({
-        project_id,
+        project_id: project.id,
         title,
         description,
         priority: priority ?? "medium",

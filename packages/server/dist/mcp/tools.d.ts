@@ -232,10 +232,6 @@ export declare const mcpTools: ({
     inputSchema: {
         type: "object";
         properties: {
-            project_id: {
-                type: string;
-                description: string;
-            };
             title: {
                 type: string;
                 description: string;
@@ -249,6 +245,7 @@ export declare const mcpTools: ({
                 enum: string[];
                 description: string;
             };
+            project_id?: undefined;
             id?: undefined;
             status?: undefined;
             summary_technical?: undefined;
