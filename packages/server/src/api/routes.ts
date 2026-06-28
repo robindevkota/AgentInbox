@@ -1115,7 +1115,7 @@ function spawnClaudeChat(sessionId, userMsgId, prompt) {
   }
   claudeRunning = true;
   console.log("[worker] Chat: spawning Claude for session " + sessionId);
-  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", prompt], { cwd: PROJECT_CWD, stdio: ["ignore", "pipe", "inherit"], detached: false });
+  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--no-mcp", "--max-budget-usd", "0.50", prompt], { cwd: PROJECT_CWD, stdio: ["ignore", "pipe", "inherit"], detached: false });
   let reply = "";
   proc.stdout.on("data", (d) => { reply += d.toString(); });
   const timeout = setTimeout(() => { try { spawnSync("taskkill", ["/F", "/T", "/PID", String(proc.pid)], { shell: false }); } catch {} }, 3 * 60 * 1000);
