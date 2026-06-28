@@ -54,7 +54,9 @@ Or just say **"clean up"** to Claude Code and it will do both automatically.
 - Telegram as task source — message bot from phone → Claude wakes
 - Bidirectional Telegram — approve/reject/answer mid-task via reply
 - Playground — animation + chat live demos (best conversion tool)
-- agentinbox-mcp published on npm (v0.1.5) — MCP tools for Claude during task processing
+- agentinbox-mcp published on npm (v0.1.9) — MCP tools for Claude including create_task + list_projects
+- **Chat with Claude (Jun 28, 2026)** — PM dashboard → 💬 Chat with Claude. Talk to Claude about your codebase from the browser. No API key, uses Claude Code subscription. Claude spawns headlessly per message (`--print --max-budget-usd 0.50`), replies via WebSocket, exits. Zero polling, zero idle tokens. Markdown rendering in replies (bold, code blocks, inline code). Conversation history preserved per session. Sessions deletable.
+- **Create task from chat (Jun 28, 2026)** — Claude can call `create_task` MCP tool from chat when asked ("add a task to fix X"). Calls `list_projects` to get correct project ID, creates task, emits `task.created` to wake worker. Task appears in dashboard as `Claude (chat)` submitter. Both local MCP server (`packages/server/src/mcp/tools.ts`) and npm package (`packages/mcp/src/index.ts`) have the tool.
 - Auth — JWT login/signup, workspace management
 - Per-workspace billing columns (plan, task_count_this_month)
 - End-to-end pipe verified on MBL project (real task, real Telegram ✅)
@@ -361,6 +363,17 @@ Once this passes → record Show HN demo video → post.
 
 ## 🟡 After testing passes
 
+### 0. Fix playground waitlist — save to backend not localStorage
+Currently `WaitlistForm` in `PlaygroundPage.tsx` saves emails to `localStorage` only — every signup is lost on browser close/clear and invisible to you.
+
+**What to build:**
+- Add `POST /api/waitlist` endpoint → stores email + timestamp in DB (`waitlist` table)
+- Replace `localStorage.setItem` in `WaitlistForm` with a fetch to that endpoint
+- Optional: email notification to Robin's Gmail via Resend when someone joins
+
+**Effort:** 1–2 hours
+**Why now:** Must be done before any public launch/demo — losing signups from the playground is the worst outcome at launch.
+
 ### 1. Per-project Claude budget cap
 PM or developer should be able to set `max_budget_usd` per project from the PM dashboard — not hardcoded in worker.js.
 
@@ -372,6 +385,21 @@ PM or developer should be able to set `max_budget_usd` per project from the PM d
 - Lets PM set low cap ($1) for simple bug projects, higher ($5) for complex full-stack tasks
 
 **Effort:** 2 hours
+
+### 1b. Telegram chat mode (same as Chat with Claude but via Telegram)
+Currently Telegram only accepts task submissions. Developers should be able to message the bot conversationally — ask questions about the codebase, get status updates, create tasks — without going to the dashboard.
+
+**What to build:**
+- Worker detects whether incoming Telegram message is a task submission or a casual question
+  - Heuristic: if message starts with `/task` or matches certain patterns → task; otherwise → chat
+  - Or: dedicated Telegram command `/chat <message>` for chat mode, plain text → task submission
+- `spawnClaudeChat()` variant that replies via Telegram instead of WebSocket
+- Same `--max-budget-usd 0.50` cap, same instruction prefix
+- Same `create_task` / `get_pending_tasks` tools available
+
+**Why:** Chat with Claude from the PM dashboard is done — Telegram is the natural next channel. Developer working away from their desk should be able to ask "what tasks are pending?" or "create a task to fix the login bug" right from their phone.
+
+**Effort:** 4 hours (bot.ts already handles Telegram I/O, just need the routing + spawn variant)
 
 ### 2. Telegram config per project (not per workspace)
 Currently Telegram (bot token + chat ID) is configured at workspace level — one group for all projects. This breaks multi-project teams where each project has a different dev team and the PM is the only common member.
