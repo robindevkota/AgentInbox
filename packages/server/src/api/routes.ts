@@ -23,7 +23,7 @@ const FREE_TASK_LIMIT = 50;
 const BILLING_ENABLED = process.env.BILLING_ENABLED === "true";
 
 // Rate limit: max submissions per token per hour — prevents token abuse / runaway Claude spawns
-const SUBMIT_RATE_LIMIT = 10;
+const SUBMIT_RATE_LIMIT = 100;
 const submitCounts = new Map<string, { count: number; resetAt: number }>();
 function checkSubmitRateLimit(token: string): boolean {
   const now = Date.now();
@@ -1107,6 +1107,29 @@ function spawnClaude(taskId, requireVerification, skipSeenCheck) {
   });
 }
 
+function spawnClaudeChat(sessionId, userMsgId, prompt) {
+  if (claudeRunning) {
+    console.log("[worker] Claude busy — queuing chat message for session " + sessionId);
+    setTimeout(() => spawnClaudeChat(sessionId, userMsgId, prompt), 3000);
+    return;
+  }
+  claudeRunning = true;
+  console.log("[worker] Chat: spawning Claude for session " + sessionId);
+  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", prompt], { cwd: PROJECT_CWD, stdio: ["ignore", "pipe", "inherit"], detached: false });
+  let reply = "";
+  proc.stdout.on("data", (d) => { reply += d.toString(); });
+  const timeout = setTimeout(() => { try { spawnSync("taskkill", ["/F", "/T", "/PID", String(proc.pid)], { shell: false }); } catch {} }, 3 * 60 * 1000);
+  proc.on("close", () => {
+    clearTimeout(timeout);
+    claudeRunning = false;
+    reply = reply.trim();
+    console.log("[worker] Chat reply ready for session " + sessionId);
+    // Save assistant reply + emit back to PM dashboard
+    apiPost("/chat/reply", { sessionId, userMsgId, content: reply }).catch(() => {});
+  });
+  proc.on("error", (err) => { clearTimeout(timeout); claudeRunning = false; console.error("[worker] Chat error: " + err.message); });
+}
+
 let connectFailures = 0;
 let alertSent = false;
 
@@ -1147,6 +1170,7 @@ socket.on("connect", () => {
 setInterval(() => { if (socket.connected) refreshWorkspaceConfig(false); }, 5 * 60 * 1000);
 socket.on("connected", (d) => console.log("[worker] Workspace: " + d.workspace_name));
 socket.on("task.created", (p) => { console.log("[worker] Task: \\"" + p.title + "\\" (" + p.task_id + ")"); pendingTaskTitle = p.title; pendingTelegramMsgId = p.telegram_message_id || null; spawnClaude(p.task_id, p.require_verification); });
+socket.on("chat.message", (p) => { spawnClaudeChat(p.sessionId, p.userMsgId, p.prompt); });
 socket.on("connect_error", (e) => { console.error("[worker] Error: " + e.message); connectFailures++; if (connectFailures >= 3 && !alertSent) { alertSent = true; sendTelegramAlert("⚠️ AgentInbox worker cannot connect after 3 attempts. Check worker.log."); } });
 socket.on("disconnect", (r) => console.log("[worker] Disconnected: " + r));
 
@@ -1577,6 +1601,92 @@ VS Code does NOT need to be open. You don't need to be at your desk.
         .run(screenshot_base64, Math.floor(Date.now() / 1000), task.id);
       res.json({ ok: true });
     } catch (err) { res.status(400).json({ error: String(err) }); }
+  });
+
+  // ── Chat ─────────────────────────────────────────────────────────────────
+
+  // GET /chat/sessions — list all chat sessions for the workspace
+  router.get("/chat/sessions", requireAuth, (req: Request, res: Response) => {
+    const workspaceId = (req as any).user?.workspaceId;
+    const sessions = db.prepare(`
+      SELECT cs.*,
+        (SELECT content FROM chat_messages WHERE session_id = cs.id ORDER BY created_at DESC LIMIT 1) as last_message
+      FROM chat_sessions cs
+      WHERE cs.workspace_id = ?
+      ORDER BY cs.updated_at DESC
+    `).all(workspaceId);
+    res.json(sessions);
+  });
+
+  // POST /chat/sessions — create a new chat session
+  router.post("/chat/sessions", requireAuth, (req: Request, res: Response) => {
+    const workspaceId = (req as any).user?.workspaceId;
+    const { title } = req.body || {};
+    const id = require("crypto").randomUUID();
+    db.prepare("INSERT INTO chat_sessions (id, workspace_id, title) VALUES (?, ?, ?)").run(id, workspaceId, title || "New Chat");
+    res.json({ id, title: title || "New Chat" });
+  });
+
+  // DELETE /chat/sessions/:id — delete a chat session
+  router.delete("/chat/sessions/:id", requireAuth, (req: Request, res: Response) => {
+    db.prepare("DELETE FROM chat_sessions WHERE id = ?").run(req.params.id);
+    res.json({ ok: true });
+  });
+
+  // GET /chat/sessions/:id/messages — get all messages for a session
+  router.get("/chat/sessions/:id/messages", requireAuth, (req: Request, res: Response) => {
+    const messages = db.prepare("SELECT * FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC").all(req.params.id);
+    res.json(messages);
+  });
+
+  // POST /chat/sessions/:id/messages — send a message, worker replies via WebSocket
+  router.post("/chat/sessions/:id/messages", requireAuth, async (req: Request, res: Response) => {
+    const workspaceId = (req as any).user?.workspaceId;
+    const sessionId = req.params.id;
+    const { content } = req.body || {};
+    if (!content?.trim()) { res.status(400).json({ error: "Content required" }); return; }
+
+    // Save user message
+    const userMsgId = require("crypto").randomUUID();
+    db.prepare("INSERT INTO chat_messages (id, session_id, role, content) VALUES (?, ?, 'user', ?)").run(userMsgId, sessionId, content.trim());
+    db.prepare("UPDATE chat_sessions SET updated_at = unixepoch() WHERE id = ?").run(sessionId);
+
+    // Auto-title session from first message
+    const session = db.prepare("SELECT * FROM chat_sessions WHERE id = ?").get(sessionId) as any;
+    if (session?.title === "New Chat") {
+      const autoTitle = content.trim().slice(0, 50);
+      db.prepare("UPDATE chat_sessions SET title = ? WHERE id = ?").run(autoTitle, sessionId);
+    }
+
+    // Fetch full conversation history to pass as context
+    const history = db.prepare("SELECT role, content FROM chat_messages WHERE session_id = ? ORDER BY created_at ASC").all(sessionId) as any[];
+
+    // Build prompt with history
+    const historyText = history.slice(0, -1).map((m: any) => `${m.role === "user" ? "User" : "Claude"}: ${m.content}`).join("\n");
+    const prompt = historyText
+      ? `Previous conversation:\n${historyText}\n\nUser: ${content.trim()}`
+      : content.trim();
+
+    // Emit to worker via WebSocket — worker spawns Claude and replies
+    const { emitChatMessage } = await import("../socket/manager");
+    emitChatMessage(workspaceId, { sessionId, userMsgId, prompt });
+
+    res.json({ id: userMsgId, role: "user", content: content.trim() });
+  });
+
+  // POST /chat/reply — called by worker after Claude replies (saves + pushes to PM via WebSocket)
+  router.post("/chat/reply", (req: Request, res: Response) => {
+    const token = req.headers["x-workspace-token"] as string;
+    if (!token) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const workspace = taskQueries.getWorkspaceByToken(token);
+    if (!workspace) { res.status(401).json({ error: "Unauthorized" }); return; }
+    const { sessionId, userMsgId, content } = req.body || {};
+    if (!sessionId || !content) { res.status(400).json({ error: "Missing fields" }); return; }
+    const msgId = require("crypto").randomUUID();
+    db.prepare("INSERT INTO chat_messages (id, session_id, role, content) VALUES (?, ?, 'assistant', ?)").run(msgId, sessionId, content);
+    db.prepare("UPDATE chat_sessions SET updated_at = unixepoch() WHERE id = ?").run(sessionId);
+    emitToPm(workspace.id, "chat.reply", { sessionId, userMsgId, message: { id: msgId, role: "assistant", content } });
+    res.json({ ok: true });
   });
 
   // Screenshot serving — base64 stored in DB, served as PNG

@@ -155,6 +155,20 @@ const migrations = {
     "workspaces.telegram_screenshot_verification": "ALTER TABLE workspaces ADD COLUMN telegram_screenshot_verification INTEGER NOT NULL DEFAULT 0",
     "tasks.verification_url": "ALTER TABLE tasks ADD COLUMN verification_url TEXT",
     "tasks.telegram_origin_message_id": "ALTER TABLE tasks ADD COLUMN telegram_origin_message_id INTEGER",
+    "chat_sessions.table": `CREATE TABLE IF NOT EXISTS chat_sessions (
+    id TEXT PRIMARY KEY,
+    workspace_id TEXT NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+    title TEXT,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch()),
+    updated_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`,
+    "chat_messages.table": `CREATE TABLE IF NOT EXISTS chat_messages (
+    id TEXT PRIMARY KEY,
+    session_id TEXT NOT NULL REFERENCES chat_sessions(id) ON DELETE CASCADE,
+    role TEXT NOT NULL CHECK (role IN ('user', 'assistant')),
+    content TEXT NOT NULL,
+    created_at INTEGER NOT NULL DEFAULT (unixepoch())
+  )`,
 };
 for (const [key, sql] of Object.entries(migrations)) {
     const already = db.prepare("SELECT key FROM _migrations WHERE key = ?").get(key);

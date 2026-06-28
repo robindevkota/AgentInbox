@@ -118,6 +118,17 @@ export function emitToPm(workspaceId: string, event: string, payload: object): v
   io.to(`pm:${workspaceId}`).emit(event, payload);
 }
 
+// Chat — send message to worker; worker spawns Claude and emits chat.reply back to PM
+export function emitChatMessage(workspaceId: string, payload: { sessionId: string; userMsgId: string; prompt: string }): void {
+  if (!io) return;
+  const socketId = latestAgentSocket.get(workspaceId);
+  if (socketId) {
+    io.to(socketId).emit("chat.message", payload);
+  } else {
+    io.to(`ws:${workspaceId}`).emit("chat.message", payload);
+  }
+}
+
 export function getConnectedWorkspaces(): string[] {
   if (!io) return [];
   return [...io.sockets.adapter.rooms.keys()]

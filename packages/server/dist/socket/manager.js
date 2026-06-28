@@ -14,6 +14,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.initSocketServer = initSocketServer;
 exports.emitTaskCreated = emitTaskCreated;
 exports.emitToPm = emitToPm;
+exports.emitChatMessage = emitChatMessage;
 exports.getConnectedWorkspaces = getConnectedWorkspaces;
 const socket_io_1 = require("socket.io");
 const tasks_1 = require("../queue/tasks");
@@ -115,6 +116,18 @@ function emitToPm(workspaceId, event, payload) {
     if (!io)
         return;
     io.to(`pm:${workspaceId}`).emit(event, payload);
+}
+// Chat — send message to worker; worker spawns Claude and emits chat.reply back to PM
+function emitChatMessage(workspaceId, payload) {
+    if (!io)
+        return;
+    const socketId = latestAgentSocket.get(workspaceId);
+    if (socketId) {
+        io.to(socketId).emit("chat.message", payload);
+    }
+    else {
+        io.to(`ws:${workspaceId}`).emit("chat.message", payload);
+    }
 }
 function getConnectedWorkspaces() {
     if (!io)

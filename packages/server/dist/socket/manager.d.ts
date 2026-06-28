@@ -17,5 +17,10 @@ export declare function emitTaskCreated(workspaceId: string, payload: {
     [key: string]: unknown;
 }): void;
 export declare function emitToPm(workspaceId: string, event: string, payload: object): void;
+export declare function emitChatMessage(workspaceId: string, payload: {
+    sessionId: string;
+    userMsgId: string;
+    prompt: string;
+}): void;
 export declare function getConnectedWorkspaces(): string[];
 //# sourceMappingURL=manager.d.ts.map
