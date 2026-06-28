@@ -1895,6 +1895,41 @@ function FeedbackView({ authHeaders }: { authHeaders: Record<string, string> }) 
 interface ChatSession { id: string; title: string; updated_at: number; last_message?: string; }
 interface ChatMessage { id: string; role: "user" | "assistant"; content: string; created_at: number; }
 
+function MarkdownContent({ text }: { text: string }) {
+  // Split on fenced code blocks first, then handle inline markdown
+  const parts = text.split(/(```[\s\S]*?```)/g);
+  return (
+    <div className="space-y-2">
+      {parts.map((part, i) => {
+        if (part.startsWith("```")) {
+          const lines = part.split("\n");
+          const code = lines.slice(1, lines[lines.length - 1] === "```" ? -1 : undefined).join("\n");
+          return (
+            <pre key={i} className="bg-black/40 border border-white/10 rounded-lg p-3 text-xs font-mono overflow-x-auto whitespace-pre text-slate-300">
+              {code}
+            </pre>
+          );
+        }
+        // Inline: bold (**text**), inline code (`code`), and plain text
+        const segments = part.split(/(\*\*[^*]+\*\*|`[^`]+`)/g);
+        return (
+          <span key={i} className="whitespace-pre-wrap leading-relaxed">
+            {segments.map((seg, j) => {
+              if (seg.startsWith("**") && seg.endsWith("**")) {
+                return <strong key={j} className="font-semibold text-white">{seg.slice(2, -2)}</strong>;
+              }
+              if (seg.startsWith("`") && seg.endsWith("`")) {
+                return <code key={j} className="bg-black/40 border border-white/10 rounded px-1.5 py-0.5 text-xs font-mono text-emerald-400">{seg.slice(1, -1)}</code>;
+              }
+              return seg;
+            })}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function ChatView({ authHeaders, socketRef }: { authHeaders: Record<string, string>; socketRef: React.RefObject<Socket | null> }) {
   const [sessions, setSessions] = useState<ChatSession[]>([]);
   const [activeSession, setActiveSession] = useState<string | null>(null);
@@ -2011,12 +2046,12 @@ function ChatView({ authHeaders, socketRef }: { authHeaders: Record<string, stri
               )}
               {messages.map(m => (
                 <div key={m.id} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm whitespace-pre-wrap ${
+                  <div className={`max-w-[80%] rounded-2xl px-4 py-3 text-sm ${
                     m.role === "user"
-                      ? "bg-indigo-500 text-white rounded-br-sm"
+                      ? "bg-indigo-500 text-white rounded-br-sm whitespace-pre-wrap"
                       : "bg-[#1a1d2e] text-slate-200 rounded-bl-sm border border-white/5"
                   }`}>
-                    {m.content}
+                    {m.role === "user" ? m.content : <MarkdownContent text={m.content} />}
                   </div>
                 </div>
               ))}
