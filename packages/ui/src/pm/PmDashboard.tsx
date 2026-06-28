@@ -1939,6 +1939,13 @@ function ChatView({ authHeaders, socketRef }: { authHeaders: Record<string, stri
     setMessages([]);
   }
 
+  async function deleteSession(e: React.MouseEvent, sessionId: string) {
+    e.stopPropagation();
+    await fetch(`/api/chat/sessions/${sessionId}`, { method: "DELETE", headers: authHeaders });
+    setSessions(prev => prev.filter(s => s.id !== sessionId));
+    if (activeSession === sessionId) { setActiveSession(null); setMessages([]); }
+  }
+
   async function sendMessage() {
     if (!input.trim() || waiting || !activeSession) return;
     const content = input.trim();
@@ -1969,11 +1976,18 @@ function ChatView({ authHeaders, socketRef }: { authHeaders: Record<string, stri
         <div className="flex-1 overflow-y-auto py-1">
           {sessions.length === 0 && <p className="text-slate-600 text-xs px-4 py-6 text-center">No chats yet</p>}
           {sessions.map(s => (
-            <button key={s.id} onClick={() => setActiveSession(s.id)}
-              className={`w-full text-left px-3 py-2.5 transition-colors group ${activeSession === s.id ? "bg-indigo-500/15 text-white" : "text-slate-400 hover:bg-white/5 hover:text-white"}`}>
-              <div className="text-xs font-medium truncate">{s.title}</div>
-              {s.last_message && <div className="text-xs text-slate-600 truncate mt-0.5">{s.last_message}</div>}
-            </button>
+            <div key={s.id} className={`relative group flex items-center ${activeSession === s.id ? "bg-indigo-500/15" : "hover:bg-white/5"}`}>
+              <button onClick={() => setActiveSession(s.id)}
+                className={`flex-1 text-left px-3 py-2.5 transition-colors min-w-0 ${activeSession === s.id ? "text-white" : "text-slate-400 hover:text-white"}`}>
+                <div className="text-xs font-medium truncate pr-5">{s.title}</div>
+                {s.last_message && <div className="text-xs text-slate-600 truncate mt-0.5">{s.last_message}</div>}
+              </button>
+              <button onClick={e => deleteSession(e, s.id)}
+                className="absolute right-2 opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all p-1 rounded"
+                title="Delete conversation">
+                ✕
+              </button>
+            </div>
           ))}
         </div>
       </div>
