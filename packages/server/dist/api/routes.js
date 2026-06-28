@@ -1078,7 +1078,8 @@ function spawnClaudeChat(sessionId, userMsgId, prompt) {
   }
   claudeRunning = true;
   console.log("[worker] Chat: spawning Claude for session " + sessionId);
-  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--no-mcp", "--max-budget-usd", "0.50", prompt], { cwd: PROJECT_CWD, stdio: ["ignore", "pipe", "inherit"], detached: false });
+  const CHAT_PREFIX = "You are a helpful assistant for this codebase. Answer questions conversationally. Only use tools when explicitly asked: use create_task when asked to create/add/queue a task, use get_pending_tasks + process tasks when asked to check/do pending tasks. Do not call any tools for general questions.\\n\\n";
+  const proc = spawn(CLAUDE_PATH, ["--dangerously-skip-permissions", "--print", "--max-budget-usd", "0.50", CHAT_PREFIX + prompt], { cwd: PROJECT_CWD, stdio: ["ignore", "pipe", "inherit"], detached: false });
   let reply = "";
   proc.stdout.on("data", (d) => { reply += d.toString(); });
   const timeout = setTimeout(() => { try { spawnSync("taskkill", ["/F", "/T", "/PID", String(proc.pid)], { shell: false }); } catch {} }, 3 * 60 * 1000);
@@ -1463,6 +1464,34 @@ VS Code does NOT need to be open. You don't need to be at your desk.
             return;
         }
         res.json({ ok: true });
+    });
+    // POST /agent/tasks — create a task from chat/Claude (uses workspace token, picks first project if none specified)
+    router.post("/agent/tasks", requireWorkspaceToken, async (req, res) => {
+        const workspaceId = req.workspace?.id;
+        const { title, description, priority, project_id } = req.body || {};
+        if (!title?.trim() || !description?.trim()) {
+            res.status(400).json({ error: "title and description required" });
+            return;
+        }
+        // Use specified project_id or fall back to first project in workspace
+        let projectId = project_id;
+        if (!projectId) {
+            const proj = db_1.db.prepare("SELECT id FROM projects WHERE workspace_id = ? LIMIT 1").get(workspaceId);
+            if (!proj) {
+                res.status(400).json({ error: "No projects found in workspace" });
+                return;
+            }
+            projectId = proj.id;
+        }
+        const id = require("crypto").randomUUID();
+        const { nowUnix } = await Promise.resolve().then(() => __importStar(require("../queue/db")));
+        db_1.db.prepare(`INSERT INTO tasks (id, project_id, title, description, status, priority, submitter_name, created_at, updated_at)
+      VALUES (?, ?, ?, ?, 'pending', ?, 'Claude (chat)', ?, ?)`).run(id, projectId, title.trim(), description.trim(), priority || "medium", nowUnix(), nowUnix());
+        const task = tasks_1.taskQueries.getTask(id);
+        const project = db_1.db.prepare("SELECT * FROM projects WHERE id = ?").get(projectId);
+        (0, manager_1.emitTaskCreated)(workspaceId, { task_id: id, title: title.trim(), project_id: projectId, require_verification: 0 });
+        (0, bot_1.notifyTaskSubmitted)(id, title.trim(), project?.name || "Unknown", description.trim()).catch(() => { });
+        res.json({ id, title: title.trim(), status: "pending" });
     });
     router.post("/agent/tasks/:id/status", requireWorkspaceToken, (req, res) => {
         try {

@@ -1,6 +1,6 @@
 {
   "name": "agentinbox-mcp",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "description": "MCP server for AgentInbox — connects your Claude agent to your AgentInbox workspace via WebSocket.",
   "keywords": [
     "mcp",

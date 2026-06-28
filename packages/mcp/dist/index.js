@@ -246,6 +246,16 @@ async function notifyDeveloper(id, message) {
         throw new Error(`notify_developer failed: ${res.status}`);
     return res.json();
 }
+async function createTask(title, description, priority, projectId) {
+    const res = await fetch(`${SERVER_URL}/api/agent/tasks`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "x-workspace-token": TOKEN },
+        body: JSON.stringify({ title, description, priority: priority || "medium", project_id: projectId }),
+    });
+    if (!res.ok)
+        throw new Error(`create_task failed: ${res.status} ${await res.text()}`);
+    return res.json();
+}
 // ── MCP Server ────────────────────────────────────────────────────────────────
 const server = new index_js_1.Server({ name: "agentinbox", version: "0.1.0" }, { capabilities: { tools: {} } });
 server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
@@ -348,6 +358,20 @@ server.setRequestHandler(types_js_1.ListToolsRequestSchema, async () => ({
                 required: ["id", "message"],
             },
         },
+        {
+            name: "create_task",
+            description: "Create a new task in AgentInbox — use this when the user asks you to create, add, or queue a task. The task will be picked up automatically by the worker.",
+            inputSchema: {
+                type: "object",
+                properties: {
+                    title: { type: "string", description: "Short task title" },
+                    description: { type: "string", description: "Full task description — what needs to be done" },
+                    priority: { type: "string", enum: ["low", "medium", "high"], description: "Task priority (default: medium)" },
+                    project_id: { type: "string", description: "Project ID to assign the task to (optional — defaults to first project in workspace)" },
+                },
+                required: ["title", "description"],
+            },
+        },
     ],
 }));
 server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
@@ -389,6 +413,9 @@ server.setRequestHandler(types_js_1.CallToolRequestSchema, async (request) => {
                 break;
             case "notify_developer":
                 result = await notifyDeveloper(args.id, args.message);
+                break;
+            case "create_task":
+                result = await createTask(args.title, args.description, args.priority, args.project_id);
                 break;
             default: throw new Error(`Unknown tool: ${name}`);
         }

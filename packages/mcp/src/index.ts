@@ -259,6 +259,16 @@ async function notifyDeveloper(id: string, message: string): Promise<any> {
   return res.json();
 }
 
+async function createTask(title: string, description: string, priority?: string, projectId?: string): Promise<any> {
+  const res = await fetch(`${SERVER_URL}/api/agent/tasks`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-workspace-token": TOKEN! },
+    body: JSON.stringify({ title, description, priority: priority || "medium", project_id: projectId }),
+  });
+  if (!res.ok) throw new Error(`create_task failed: ${res.status} ${await res.text()}`);
+  return res.json();
+}
+
 // ── MCP Server ────────────────────────────────────────────────────────────────
 
 const server = new Server(
@@ -366,6 +376,20 @@ server.setRequestHandler(ListToolsRequestSchema, async () => ({
         required: ["id", "message"],
       },
     },
+    {
+      name: "create_task",
+      description: "Create a new task in AgentInbox — use this when the user asks you to create, add, or queue a task. The task will be picked up automatically by the worker.",
+      inputSchema: {
+        type: "object",
+        properties: {
+          title: { type: "string", description: "Short task title" },
+          description: { type: "string", description: "Full task description — what needs to be done" },
+          priority: { type: "string", enum: ["low", "medium", "high"], description: "Task priority (default: medium)" },
+          project_id: { type: "string", description: "Project ID to assign the task to (optional — defaults to first project in workspace)" },
+        },
+        required: ["title", "description"],
+      },
+    },
   ],
 }));
 
@@ -393,6 +417,7 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
       case "propose_plan":       result = await proposePlan(args!.id as string, args!.plan as string); break;
       case "ask_developer":      result = await askDeveloper(args!.id as string, args!.question as string); break;
       case "notify_developer":   result = await notifyDeveloper(args!.id as string, args!.message as string); break;
+      case "create_task":        result = await createTask(args!.title as string, args!.description as string, args!.priority as string | undefined, args!.project_id as string | undefined); break;
       default: throw new Error(`Unknown tool: ${name}`);
     }
     return { content: [{ type: "text", text: JSON.stringify(result, null, 2) }] };
