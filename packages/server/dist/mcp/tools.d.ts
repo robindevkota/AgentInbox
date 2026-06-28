@@ -15,6 +15,9 @@ export declare const mcpTools: ({
             pr_link?: undefined;
             screenshot_base64?: undefined;
             task_id?: undefined;
+            title?: undefined;
+            description?: undefined;
+            priority?: undefined;
             reason?: undefined;
         };
         required?: undefined;
@@ -42,6 +45,9 @@ export declare const mcpTools: ({
             pr_link?: undefined;
             screenshot_base64?: undefined;
             task_id?: undefined;
+            title?: undefined;
+            description?: undefined;
+            priority?: undefined;
             reason?: undefined;
         };
         required: string[];
@@ -80,6 +86,9 @@ export declare const mcpTools: ({
             pr_link?: undefined;
             screenshot_base64?: undefined;
             task_id?: undefined;
+            title?: undefined;
+            description?: undefined;
+            priority?: undefined;
             reason?: undefined;
         };
         required: string[];
@@ -126,6 +135,9 @@ export declare const mcpTools: ({
             project_id?: undefined;
             status?: undefined;
             task_id?: undefined;
+            title?: undefined;
+            description?: undefined;
+            priority?: undefined;
             reason?: undefined;
         };
         required: string[];
@@ -160,6 +172,9 @@ export declare const mcpTools: ({
             summary_plain?: undefined;
             pr_link?: undefined;
             screenshot_base64?: undefined;
+            title?: undefined;
+            description?: undefined;
+            priority?: undefined;
             reason?: undefined;
         };
         required: string[];
@@ -190,6 +205,80 @@ export declare const mcpTools: ({
     inputSchema: {
         type: "object";
         properties: {
+            project_id?: undefined;
+            id?: undefined;
+            status?: undefined;
+            summary_technical?: undefined;
+            summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
+            task_id?: undefined;
+            title?: undefined;
+            description?: undefined;
+            priority?: undefined;
+            reason?: undefined;
+        };
+        required?: undefined;
+    };
+    handler(_args: unknown): {
+        content: {
+            type: string;
+            text: string;
+        }[];
+    };
+} | {
+    name: string;
+    description: string;
+    inputSchema: {
+        type: "object";
+        properties: {
+            project_id: {
+                type: string;
+                description: string;
+            };
+            title: {
+                type: string;
+                description: string;
+            };
+            description: {
+                type: string;
+                description: string;
+            };
+            priority: {
+                type: string;
+                enum: string[];
+                description: string;
+            };
+            id?: undefined;
+            status?: undefined;
+            summary_technical?: undefined;
+            summary_plain?: undefined;
+            pr_link?: undefined;
+            screenshot_base64?: undefined;
+            task_id?: undefined;
+            reason?: undefined;
+        };
+        required: string[];
+    };
+    handler(args: unknown): {
+        content: {
+            type: string;
+            text: string;
+        }[];
+        isError: boolean;
+    } | {
+        content: {
+            type: string;
+            text: string;
+        }[];
+        isError?: undefined;
+    };
+} | {
+    name: string;
+    description: string;
+    inputSchema: {
+        type: "object";
+        properties: {
             id: {
                 type: string;
                 description: string;
@@ -205,6 +294,9 @@ export declare const mcpTools: ({
             pr_link?: undefined;
             screenshot_base64?: undefined;
             task_id?: undefined;
+            title?: undefined;
+            description?: undefined;
+            priority?: undefined;
         };
         required: string[];
     };

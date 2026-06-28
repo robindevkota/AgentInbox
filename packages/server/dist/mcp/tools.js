@@ -36,6 +36,7 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.mcpTools = void 0;
 const zod_1 = require("zod");
 const tasks_1 = require("../queue/tasks");
+const db_1 = require("../queue/db");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 exports.mcpTools = [
@@ -282,6 +283,98 @@ exports.mcpTools = [
                         type: "text",
                         text: task.file_content ||
                             `File attached (${task.file_name}) but content not yet parsed`,
+                    },
+                ],
+            };
+        },
+    },
+    {
+        name: "list_projects",
+        description: "List all projects in this workspace. Use this before create_task to find the correct project_id.",
+        inputSchema: {
+            type: "object",
+            properties: {},
+        },
+        handler(_args) {
+            const projects = db_1.db
+                .prepare("SELECT id, name, description FROM projects ORDER BY created_at DESC")
+                .all();
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: JSON.stringify(projects, null, 2),
+                    },
+                ],
+            };
+        },
+    },
+    {
+        name: "create_task",
+        description: "Create a new task in the AgentInbox queue. Use when the user asks you to add, queue, or create a task. Call list_projects first if you don't know the project_id.",
+        inputSchema: {
+            type: "object",
+            properties: {
+                project_id: {
+                    type: "string",
+                    description: "Project ID to add the task to (get from list_projects)",
+                },
+                title: {
+                    type: "string",
+                    description: "Short task title",
+                },
+                description: {
+                    type: "string",
+                    description: "Full description of what needs to be done",
+                },
+                priority: {
+                    type: "string",
+                    enum: ["low", "medium", "high"],
+                    description: "Task priority (default: medium)",
+                },
+            },
+            required: ["project_id", "title", "description"],
+        },
+        handler(args) {
+            const { project_id, title, description, priority } = zod_1.z
+                .object({
+                project_id: zod_1.z.string(),
+                title: zod_1.z.string().min(1),
+                description: zod_1.z.string().min(1),
+                priority: zod_1.z.enum(["low", "medium", "high"]).optional(),
+            })
+                .parse(args);
+            const project = tasks_1.taskQueries.getProjectById(project_id);
+            if (!project) {
+                return {
+                    content: [{ type: "text", text: `Project ${project_id} not found. Call list_projects to get valid IDs.` }],
+                    isError: true,
+                };
+            }
+            const task = tasks_1.taskQueries.createTask({
+                project_id,
+                title,
+                description,
+                priority: priority ?? "medium",
+                submitter_name: "Claude (chat)",
+                requires_approval: !!project.require_approval,
+            });
+            // Emit task.created so the worker wakes Claude for it (only if no approval required)
+            if (!project.require_approval) {
+                Promise.resolve().then(() => __importStar(require("../socket/manager"))).then(({ emitTaskCreated }) => {
+                    emitTaskCreated(project.workspace_id, {
+                        task_id: task.id,
+                        title: task.title,
+                        require_verification: task.require_verification,
+                        telegram_message_id: null,
+                    });
+                });
+            }
+            return {
+                content: [
+                    {
+                        type: "text",
+                        text: `Task created: "${title}" (ID: ${task.id}) in project "${project.name}".${project.require_approval ? " Awaiting PM approval before Claude processes it." : " Worker notified — Claude will pick it up shortly."}`,
                     },
                 ],
             };

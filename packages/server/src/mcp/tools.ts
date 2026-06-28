@@ -1,5 +1,6 @@
 import { z } from "zod";
 import { taskQueries } from "../queue/tasks";
+import { db } from "../queue/db";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -269,6 +270,110 @@ export const mcpTools = [
             text:
               task.file_content ||
               `File attached (${task.file_name}) but content not yet parsed`,
+          },
+        ],
+      };
+    },
+  },
+
+  {
+    name: "list_projects",
+    description:
+      "List all projects in this workspace. Use this before create_task to find the correct project_id.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {},
+    },
+    handler(_args: unknown) {
+      const projects = db
+        .prepare("SELECT id, name, description FROM projects ORDER BY created_at DESC")
+        .all() as { id: string; name: string; description: string | null }[];
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(
+              projects,
+              null,
+              2
+            ),
+          },
+        ],
+      };
+    },
+  },
+
+  {
+    name: "create_task",
+    description:
+      "Create a new task in the AgentInbox queue. Use when the user asks you to add, queue, or create a task. Call list_projects first if you don't know the project_id.",
+    inputSchema: {
+      type: "object" as const,
+      properties: {
+        project_id: {
+          type: "string",
+          description: "Project ID to add the task to (get from list_projects)",
+        },
+        title: {
+          type: "string",
+          description: "Short task title",
+        },
+        description: {
+          type: "string",
+          description: "Full description of what needs to be done",
+        },
+        priority: {
+          type: "string",
+          enum: ["low", "medium", "high"],
+          description: "Task priority (default: medium)",
+        },
+      },
+      required: ["project_id", "title", "description"],
+    },
+    handler(args: unknown) {
+      const { project_id, title, description, priority } = z
+        .object({
+          project_id: z.string(),
+          title: z.string().min(1),
+          description: z.string().min(1),
+          priority: z.enum(["low", "medium", "high"]).optional(),
+        })
+        .parse(args);
+
+      const project = taskQueries.getProjectById(project_id);
+      if (!project) {
+        return {
+          content: [{ type: "text", text: `Project ${project_id} not found. Call list_projects to get valid IDs.` }],
+          isError: true,
+        };
+      }
+
+      const task = taskQueries.createTask({
+        project_id,
+        title,
+        description,
+        priority: priority ?? "medium",
+        submitter_name: "Claude (chat)",
+        requires_approval: !!project.require_approval,
+      });
+
+      // Emit task.created so the worker wakes Claude for it (only if no approval required)
+      if (!project.require_approval) {
+        import("../socket/manager").then(({ emitTaskCreated }) => {
+          emitTaskCreated(project.workspace_id, {
+            task_id: task.id,
+            title: task.title,
+            require_verification: task.require_verification,
+            telegram_message_id: null,
+          });
+        });
+      }
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Task created: "${title}" (ID: ${task.id}) in project "${project.name}".${project.require_approval ? " Awaiting PM approval before Claude processes it." : " Worker notified — Claude will pick it up shortly."}`,
           },
         ],
       };
